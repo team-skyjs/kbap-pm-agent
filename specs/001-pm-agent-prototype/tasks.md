@@ -81,19 +81,19 @@ description: "PM Agent 프로토타입 구현 태스크"
 
 ### B3 — 메시지 전송 SSE (fake)
 
-- [ ] T019 [US1] [BE] `backend/app/agent.py`: 에이전트 실행 seam `run_agent(conversation_id, content)`가 내부 이벤트를 비동기로 낸다. fake 분기는 계약서 시연 모드 표대로 도구 호출 2개(`taxonomy`, `code`)와 제안 2개(`improvement` 1, `funnel_design` 1)를 계약 예시 값으로 내고, `usage.costUsd`는 `0`이다. real 분기는 B6에서 채운다 (B3)
-- [ ] T020 [US1] [BE] `backend/app/conversations.py`에 `POST /api/conversations/{conversationId}/messages`(`contracts/05-messages.md`). (B3)
+- [x] T019 [US1] [BE] `backend/app/agent.py`: 에이전트 실행 seam `run_agent(conversation_id, content)`가 내부 이벤트를 비동기로 낸다. fake 분기는 계약서 시연 모드 표대로 도구 호출 2개(`taxonomy`, `code`)와 제안 2개(`improvement` 1, `funnel_design` 1)를 계약 예시 값으로 내고, `usage.costUsd`는 `0`이다. real 분기는 B6에서 채운다 (B3)
+- [x] T020 [US1] [BE] `backend/app/conversations.py`에 `POST /api/conversations/{conversationId}/messages`(`contracts/05-messages.md`). (B3)
   - 스트림 전 JSON 에러: `content` 1~4000자 위반 `VALIDATION_ERROR`, `CONVERSATION_NOT_FOUND`, running 메시지 존재 시 409 `RUN_IN_PROGRESS`. 예산 검사(403 `BUDGET_EXCEEDED`)는 B5의 T035에서 붙인다.
   - 처리 순서: user 메시지 저장 → 제목이 null이면 앞 40자로 채움 → assistant 메시지 `running` 생성 → `message_created`.
   - 도구 호출은 `tool_call`/`tool_result`마다 DB에 반영한다. 끝은 `final`(completed) 또는 `error`(failed, `errorCode`) 정확히 하나.
   - 15초마다 `: ping`. 헤더 `Cache-Control: no-cache`, `X-Accel-Buffering: no`.
   - 클라이언트가 끊기면 `failed`/`INTERNAL_ERROR`로 마감한다.
-- [ ] T021 [US1] [BE] `backend/checks/check_b3.py`: fake 실행 SSE를 받아 이벤트 순서(`message_created` 1회 → 도구 쌍 → 종료 이벤트 1회), `final` 데이터가 Message 모델 통과, 같은 대화 `GET` 상세의 assistant 메시지가 `final`과 동일, 실행 중 재전송 409 (B3 검사)
-- [ ] T022 [US1] [QA] B3 교차 검증: curl로 SSE 원문을 계약 예시와 대조(이벤트 이름, data 한 줄 JSON, 빈 줄), ping 간격, 끊김 후 `failed` 마감, `check_b3.py` 실행 (B3 QA)
+- [x] T021 [US1] [BE] `backend/checks/check_b3.py`: fake 실행 SSE를 받아 이벤트 순서(`message_created` 1회 → 도구 쌍 → 종료 이벤트 1회), `final` 데이터가 Message 모델 통과, 같은 대화 `GET` 상세의 assistant 메시지가 `final`과 동일, 실행 중 재전송 409 (B3 검사)
+- [x] T022 [US1] [QA] B3 교차 검증: curl로 SSE 원문을 계약 예시와 대조(이벤트 이름, data 한 줄 JSON, 빈 줄), ping 간격, 끊김 후 `failed` 마감, `check_b3.py` 실행 (B3 QA)
 
 ### F3 — 채팅 화면: 생성·상세·스트리밍
 
-- [ ] T023 [P] [US1] [FE] `frontend/src/api.ts`. (F3)
+- [x] T023 [P] [US1] [FE] `frontend/src/api.ts`. (F3)
   - 타입: `contracts/02-objects.md`의 ConversationSummary, Message, ToolCall, Proposal. Evidence는 `kind` 판별 유니온, FunnelStep `status`는 `"existing" | "new"`.
   - 함수: `createConversation()`, `getConversation(id)`.
   - `sendMessage(id, content, handlers)`: `fetch` + `ReadableStream`으로 SSE를 파싱한다. `: ping`은 무시하고 `message_created`·`tool_call`·`tool_result`·`final`·`error`를 처리하며, 스트림 전 JSON 에러는 `ApiError`로 던진다.
@@ -101,18 +101,18 @@ description: "PM Agent 프로토타입 구현 태스크"
   - 대화 열기·전송: "새 대화" → POST 후 이동. 메시지는 마크다운으로 렌더하고, 도구 호출은 접힌 목록으로 둔다.
   - 진행 표시: 실행 중 `tool_call`→`tool_result`로 진행 줄(어느 소스 조회 중인지)을 갱신하고, `final`로 메시지를 교체한다.
   - 오류·복구: `error`는 메시지 하단에 code별 문구로 표시한다. 스트림이 끊기면 상세를 다시 조회한다. 409·403은 입력창 아래에 안내하고, 실행 중에는 입력을 비활성화한다.
-- [ ] T025 [US1] [FE] `frontend/checks/check-f3.ts`: `contracts/05-messages.md`의 SSE 예시 원문(ping 줄 추가)을 파서에 넣어 이벤트 순서와 타입이 맞고 `final`이 Message로 읽힌다. `contracts/04`의 상세 예시가 타입을 통과한다 (F3 검사)
+- [x] T025 [US1] [FE] `frontend/checks/check-f3.ts`: `contracts/05-messages.md`의 SSE 예시 원문(ping 줄 추가)을 파서에 넣어 이벤트 순서와 타입이 맞고 `final`이 Message로 읽힌다. `contracts/04`의 상세 예시가 타입을 통과한다 (F3 검사)
 - [ ] T026 [US1] [QA] F3↔B3 교차 검증(fake): 질문 전송부터 첫 진행 표시까지 5초 이내(SC-004), 이벤트별 화면 상태, 새로고침 후 상세 일치, 409 표시, `check-f3.ts` 실행 (F3 QA)
 
 ### F4 — 제안 카드 + 채택/보류
 
-- [ ] T027 [US1] [FE] `frontend/src/ProposalCard.tsx`: 네 영역을 근거→제안→실행단계→측정방법 순서로 둔다. (F4)
+- [x] T027 [US1] [FE] `frontend/src/ProposalCard.tsx`: 네 영역을 근거→제안→실행단계→측정방법 순서로 둔다. (F4)
   - 근거는 kind별로 그린다. metric은 값과 출처, code는 `파일:줄`·함수·snippet, taxonomy는 이벤트명.
   - 측정방법은 `primaryMetric`, `baseline`, `target`과 퍼널 표(순서·이벤트·기존/신규·조건·위치·속성)다. 신규 단계는 강조한다.
   - "채택"·"보류" 버튼과 메모 입력을 둔다. `Chat.tsx` 메시지 아래에 카드를 렌더한다.
-- [ ] T028 [US1] [FE] `frontend/src/api.ts`에 `updateProposal(id, {status, note})`. 응답 Proposal로 카드 상태를 갱신한다 (F4)
-- [ ] T029 [US1] [FE] `frontend/checks/check-f4.ts`: `contracts/02-objects.md`의 Proposal 예시와 `contracts/04`의 improvement 예시가 타입을 통과하고, 렌더 헬퍼가 네 영역 순서를 지키며, 신규 단계 위치 문자열이 `src/app/scan.tsx · handleRetry · 398`로 만들어진다 (F4 검사)
-- [ ] T030 [US1] [QA] F4↔B2·B3 교차 검증: fake 제안 2장의 카드 렌더를 계약 필드와 대조, 채택→새로고침 유지(US1-2), 보류·메모·`pending` 복귀 시 `decidedAt` 표시, `check-f4.ts` 실행 (F4 QA)
+- [x] T028 [US1] [FE] `frontend/src/api.ts`에 `updateProposal(id, {status, note})`. 응답 Proposal로 카드 상태를 갱신한다 (F4)
+- [x] T029 [US1] [FE] `frontend/checks/check-f4.ts`: `contracts/02-objects.md`의 Proposal 예시와 `contracts/04`의 improvement 예시가 타입을 통과하고, 렌더 헬퍼가 네 영역 순서를 지키며, 신규 단계 위치 문자열이 `src/app/scan.tsx · handleRetry · 398`로 만들어진다 (F4 검사)
+- [x] T030 [US1] [QA] F4↔B2·B3 교차 검증: fake 제안 2장의 카드 렌더를 계약 필드와 대조, 채택→새로고침 유지(US1-2), 보류·메모·`pending` 복귀 시 `decidedAt` 표시, `check-f4.ts` 실행 (F4 QA)
 
 **Checkpoint**: fake 모드 MVP. US1 인수 시나리오 1~3을 시연 데이터로 통과한다. 시나리오 4와 실제 데이터는 Phase 4·6 뒤에 확인한다.
 
@@ -185,9 +185,9 @@ description: "PM Agent 프로토타입 구현 태스크"
 
 **Independent Test**: 대화 2개를 만들고 목록에서 최근 순·제목·시각·제안 수를 확인한다. 채택이 있는 대화를 다시 열어 메시지 순서와 채택 상태가 그대로인지 본다(quickstart 시나리오 6). 백엔드 목록 엔드포인트는 B2(T015)에서 이미 만들었다.
 
-- [ ] T043 [US3] [FE] `frontend/src/ConversationList.tsx`: 왼쪽 목록이다. `GET /api/conversations`를 쓰고 `updatedAt` 내림차순으로 보여준다. 제목이 `null`이면 "새 대화"로, 시각·`proposalCount`·`adoptedCount`를 함께 표시한다. 선택하면 `#/conversations/:id`로 간다. 메시지 `final`·제안 PATCH 후 목록을 다시 읽는다. `api.ts`에 `listConversations()` (F2)
-- [ ] T044 [US3] [FE] `frontend/checks/check-f2.ts`: `contracts/04-conversations.md`의 목록 예시가 타입을 통과하고, `title: null` 항목 표시 문자열이 "새 대화" (F2 검사)
-- [ ] T045 [US3] [QA] F2↔B2 교차 검증: 대화 2개 생성·정렬, 첫 메시지 후 제목 자동 채움(40자), 채택 1건 후 `adoptedCount` 1, 다시 열기 시 메시지 순서·채택 상태 보존(US3-1·2), `check-f2.ts` 실행 (F2 QA)
+- [x] T043 [US3] [FE] `frontend/src/ConversationList.tsx`: 왼쪽 목록이다. `GET /api/conversations`를 쓰고 `updatedAt` 내림차순으로 보여준다. 제목이 `null`이면 "새 대화"로, 시각·`proposalCount`·`adoptedCount`를 함께 표시한다. 선택하면 `#/conversations/:id`로 간다. 메시지 `final`·제안 PATCH 후 목록을 다시 읽는다. `api.ts`에 `listConversations()` (F2)
+- [x] T044 [US3] [FE] `frontend/checks/check-f2.ts`: `contracts/04-conversations.md`의 목록 예시가 타입을 통과하고, `title: null` 항목 표시 문자열이 "새 대화" (F2 검사)
+- [x] T045 [US3] [QA] F2↔B2 교차 검증: 대화 2개 생성·정렬, 첫 메시지 후 제목 자동 채움(40자), 채택 1건 후 `adoptedCount` 1, 다시 열기 시 메시지 순서·채택 상태 보존(US3-1·2), `check-f2.ts` 실행 (F2 QA)
 
 **Checkpoint**: US1~US3이 fake 모드로 처음부터 끝까지 동작한다(SC-005).
 
