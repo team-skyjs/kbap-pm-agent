@@ -100,13 +100,13 @@ description: "프론트 재설계 구현 태스크"
 
 **Independent Test**: `us2.spec.ts`.
 
-- [ ] T012 [US2] [DS] `frontend/src/App.tsx`·`style.css`: 셸을 만든다.
+- [x] T012 [US2] [DS] `frontend/src/App.tsx`·`style.css`: 셸을 만든다.
   - 사이드 패널: 고정 폭 토큰이다. 접기 버튼(`aria-label`, `aria-expanded`)이 있고 상태는 `localStorage` 키 하나에 저장한다(`try/catch`, 실패 무시).
   - 채팅·헤더: 중앙 채팅은 `--content-max` 가운데 정렬, 헤더는 대화 제목과 상태 배지뿐이다.
   - Drawer(768px 이하): 메뉴 버튼으로 열고 배경 클릭·ESC로 닫는다. `role="dialog"`·`aria-modal`, 포커스 가두기와 닫을 때 메뉴 버튼으로 포커스 복귀, 열린 동안 `body` 스크롤 잠금이다. 테두리·그림자는 Drawer에만 둔다.
   - 기존 해시 라우팅과 헬스 표시, 접근 제한이 넣은 세션 만료 처리는 유지한다.
-- [ ] T013 [US2] [FE] `frontend/checks/ui/us2.spec.ts`: 1280에서 접기 → 새로고침 → 유지, 768·375에서 Drawer 열기·ESC·배경 클릭 닫기, 열린 동안 `document.body` 스크롤 잠김, Drawer 안 포커스 순환, 375 가로 스크롤 없음, 넓은 화면에서 채팅 본문 폭 ≤ `--content-max`를 assert하고 스크린샷을 찍는다 (US2 검사)
-- [ ] T014 [US2] [QA] us2 실행과 ui-review(셸 9조합 스크린샷) (US2 QA)
+- [x] T013 [US2] [FE] `frontend/checks/ui/us2.spec.ts`: 1280에서 접기 → 새로고침 → 유지, 768·375에서 Drawer 열기·ESC·배경 클릭 닫기, 열린 동안 `document.body` 스크롤 잠김, Drawer 안 포커스 순환, 375 가로 스크롤 없음, 넓은 화면에서 채팅 본문 폭 ≤ `--content-max`를 assert하고 스크린샷을 찍는다 (US2 검사)
+- [x] T014 [US2] [QA] us2 실행과 ui-review(셸 9조합 스크린샷) (US2 QA)
 
 ---
 
@@ -134,13 +134,13 @@ description: "프론트 재설계 구현 태스크"
   - 표: 가로 스크롤 감싸개 `div`(`tabIndex=0`, `role="region"`, `aria-label`)로 감싼다.
   - 코드 블록: 언어 표시와 복사 버튼(`navigator.clipboard.writeText`, 성공 시 "복사됨" 1.5초, 실패 시 짧은 안내)을 둔다. 인라인 코드는 구분한다.
   - 언어 `chart`는 US6 전까지 일반 코드 블록으로 둔다.
-- [ ] T019 [US5] [DS] `style.css`: 마크다운 요소 스타일을 토큰으로 둔다. 대상은 제목 4단계, 목록, 작업 목록, 인용, 구분선, 강조, 링크, 표(머리글 구분), 코드 블록(mono·스크롤·머리 영역), 인라인 코드다
-- [ ] T020 [US5] [DS] `Chat.tsx`·`ProposalCard.tsx`: AI 본문, 제안 `proposal`, `steps` 항목을 `Markdown`으로 렌더한다
+- [x] T019 [US5] [DS] `style.css`: 마크다운 요소 스타일을 토큰으로 둔다. 대상은 제목 4단계, 목록, 작업 목록, 인용, 구분선, 강조, 링크, 표(머리글 구분), 코드 블록(mono·스크롤·머리 영역), 인라인 코드다
+- [x] T020 [US5] [DS] `Chat.tsx`·`ProposalCard.tsx`: AI 본문, 제안 `proposal`, `steps` 항목을 `Markdown`으로 렌더한다
 - [x] T021 [US5] [FE] `frontend/checks/ui/us5.spec.ts`: 마크다운 표본 답변에서 다음을 assert하고 스크린샷을 찍는다. (US5 검사)
   - 요소: `h1`~`h4`, `table`과 `thead`, 작업 목록 체크박스(비활성), `blockquote`, `hr`가 있다.
   - 안전: 링크의 `target`·`rel`이 맞고, `<script>`는 문자로 보이며 DOM에 `script` 요소가 추가되지 않는다.
   - 상호작용: 코드 복사 클릭 후 클립보드 값이 원문이고(권한 부여), 표 감싸개가 가로 스크롤 가능하다.
-- [ ] T022 [US5] [QA] us5 실행과 ui-review(마크다운 라이트·다크) (US5 QA)
+- [x] T022 [US5] [QA] us5 실행과 ui-review(마크다운 라이트·다크) (US5 QA)
 
 ---
 
@@ -148,7 +148,7 @@ description: "프론트 재설계 구현 태스크"
 
 **Independent Test**: `us7.spec.ts`.
 
-- [ ] T023 [US7] [DS] `Chat.tsx`·`style.css`: 입력창을 하단에 고정한다. (US7)
+- [x] T023 [US7] [DS] `Chat.tsx`·`style.css`: 입력창을 하단에 고정한다. (US7)
   - 크기: 내용에 따라 자동 높이, 최대 `--composer-max-lines`(6줄)다.
   - 키: Enter 전송, Shift+Enter 줄바꿈이다. 한글 조합 중 Enter는 전송하지 않는다(`isComposing`).
   - 실행 중: 비활성과 안내 문구.
