@@ -32,6 +32,10 @@ for i in $(seq 1 20); do
   sleep 3
 done
 
+echo "[3b] 토큰 잠금 확인 (보호 경로는 토큰 없이 401)"
+code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8001/api/conversations)
+[ "$code" = "401" ] || { echo "토큰 잠금 실패: /api/conversations 가 토큰 없이 $code 로 응답. ACCESS_TOKEN 확인"; exit 1; }
+
 echo "[4/4] 컨테이너 상태"
 docker ps | grep "$NAME" || true
 docker image prune -f >/dev/null   # 이전 레이어 정리
