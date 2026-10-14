@@ -39,7 +39,7 @@ test('상태 표시: 토큰 오류는 설정 안내만, 다시 로그인 배너 
   test.skip(LIVE, '고정 응답 전용')
   const box = await send(page, 'token')
   const main = page.locator('.main')
-  await expect(main.getByText('접근 토큰이 없거나 틀렸습니다').first()).toBeVisible()
+  await expect(main.getByText('접근 토큰이 없거나 맞지 않습니다').first()).toBeVisible()
   await expect(main.getByRole('link', { name: /설정/ })).toBeVisible()
   await expect(page.getByText('로그인이 만료')).toHaveCount(0)
   await expect(page.getByRole('button', { name: '다시 로그인' }).or(page.getByRole('link', { name: '다시 로그인' }))).toHaveCount(0)
@@ -47,8 +47,8 @@ test('상태 표시: 토큰 오류는 설정 안내만, 다시 로그인 배너 
   await shot(page, 'us8-token', info)
 })
 
-// 세션 만료 판정(SESSION_EXPIRED)은 접근 제한 PR 병합 뒤에 생김, 그때 켬
-test.fixme('상태 표시: 세션 만료', async ({ page }, info) => {
+test('상태 표시: 세션 만료', async ({ page }, info) => {
+  test.fixme(true, '접근 제한 PR 병합 때 SESSION_EXPIRED 연결')
   test.skip(LIVE, '고정 응답 전용')
   const box = await send(page, 'expired')
   await expect(page.getByRole('alert').filter({ hasText: '로그인이 만료' })).toBeVisible()
