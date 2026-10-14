@@ -62,7 +62,13 @@ function MessageView({ m, streamError, onProposal }: { m: Message; streamError?:
 export default function Chat({ id, onChanged }: { id: number; onChanged: () => void }) {
   const [detail, setDetail] = useState<ConversationDetail | null>(null)
   const [loadError, setLoadError] = useState('')
-  const [input, setInput] = useState('')
+  // 입력 초안은 sessionStorage에도 보관: 세션 만료 후 다시 로그인(새로고침)해도 유지
+  const draftKey = `kbap-pm-agent.draft.${id}`
+  const [input, setInputState] = useState(() => { try { return sessionStorage.getItem(draftKey) ?? '' } catch { return '' } })
+  const setInput = (v: string) => {
+    setInputState(v)
+    try { if (v) sessionStorage.setItem(draftKey, v); else sessionStorage.removeItem(draftKey) } catch { /* 저장 불가 브라우저 */ }
+  }
   const [streaming, setStreaming] = useState(false)
   const [notice, setNotice] = useState('')
   const [streamErrors, setStreamErrors] = useState<Record<number, string>>({})

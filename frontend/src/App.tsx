@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createConversation, describe, getHealth } from './api.ts'
+import { createConversation, describe, getHealth, SESSION_EXPIRED_EVENT } from './api.ts'
 import Chat from './Chat.tsx'
 import ConversationList from './ConversationList.tsx'
 import SettingsPage from './SettingsPage.tsx'
@@ -39,6 +39,22 @@ function NewConversationButton({ onCreated }: { onCreated: () => void }) {
   return <>{' '}<button onClick={() => void create()}>새 대화</button>{error && <span className="error"> {error}</span>}</>
 }
 
+// 어느 화면의 요청이든 세션 만료면 상단 안내, 새로고침으로 로그인 화면 이동
+function SessionExpiredBanner() {
+  const [expired, setExpired] = useState(false)
+  useEffect(() => {
+    const on = () => setExpired(true)
+    addEventListener(SESSION_EXPIRED_EVENT, on)
+    return () => removeEventListener(SESSION_EXPIRED_EVENT, on)
+  }, [])
+  if (!expired) return null
+  return (
+    <div className="session-expired">
+      로그인이 만료되었습니다. <button onClick={() => location.reload()}>다시 로그인</button>
+    </div>
+  )
+}
+
 export default function App() {
   const hash = useHash()
   const [listVersion, setListVersion] = useState(0)
@@ -46,6 +62,7 @@ export default function App() {
   const conv = hash.match(/^#\/conversations\/(\d+)$/)
   return (
     <>
+      <SessionExpiredBanner />
       <header>
         <a href="#/"><b>K-Bap PM Agent</b></a>
         <a href="#/settings">설정</a>

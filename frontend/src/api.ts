@@ -22,8 +22,10 @@ const ERROR_CODES = [
 ] as const
 
 // 서버 코드에 프론트 자체 사유 두 개 추가
-// NETWORK_ERROR: fetch 자체 실패(백엔드 꺼짐·CORS), BAD_RESPONSE: 응답이 계약 형태와 불일치
-export type ClientErrorCode = ErrorCode | 'NETWORK_ERROR' | 'BAD_RESPONSE'
+// NETWORK_ERROR: fetch 자체 실패(백엔드 꺼짐), BAD_RESPONSE: 응답이 계약 형태와 불일치
+// SESSION_EXPIRED: 접근 계층(로그인) 응답, 백엔드에 닿지 않은 요청
+const CLIENT_CODES = ['NETWORK_ERROR', 'BAD_RESPONSE', 'SESSION_EXPIRED'] as const
+export type ClientErrorCode = ErrorCode | (typeof CLIENT_CODES)[number]
 
 export class ApiError extends Error {
   constructor(public code: ClientErrorCode, message: string, public status: number | null = null) {
@@ -99,7 +101,9 @@ async function rawFetch(path: string, method: string, body?: string): Promise<Re
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   const t = getToken()
   if (t) headers['Authorization'] = `Bearer ${t}`
-  const init: RequestInit = { method, headers, body }
+  // 만료 세션에 로그인 리다이렉트 대신 401을 받기 위한 헤더, 그래도 오는 리다이렉트는 따라가지 않음
+  headers['X-Requested-With'] = 'XMLHttpRequest'
+  const init: RequestInit = { method, headers, body, redirect: 'manual' }
   try {
     return await fetch(path, init)
   } catch {
@@ -107,13 +111,28 @@ async function rawFetch(path: string, method: string, body?: string): Promise<Re
   }
 }
 
-// 비 2xx 응답을 계약 에러 형식으로 파싱해 ApiError로 변환
-async function throwIfError(res: Response): Promise<void> {
+export const SESSION_EXPIRED_EVENT = 'kbap-session-expired'
+
+function sessionExpired(): never {
+  // 화면 어디서 났든 상단 안내를 띄우기 위한 전역 알림 (Node 검사에는 dispatchEvent 없음)
+  try { dispatchEvent(new Event(SESSION_EXPIRED_EVENT)) } catch { /* 무시 */ }
+  throw new ApiError('SESSION_EXPIRED', '로그인이 만료되었습니다.')
+}
+
+export type ResponseLike = Pick<Response, 'type' | 'status' | 'ok' | 'headers' | 'json'>
+
+// 응답 판정: 접근 계층 응답이면 SESSION_EXPIRED, 비 2xx는 계약 에러 형식으로 파싱해 ApiError로 변환
+// 접근 계층 응답: 리다이렉트, JSON·SSE가 아닌 응답, 계약 에러 JSON이 아닌 401·403
+export async function checkResponse(res: ResponseLike): Promise<void> {
+  if (res.type === 'opaqueredirect') sessionExpired()
+  const ct = res.headers.get('content-type') ?? ''
+  if (!ct.includes('application/json') && !ct.includes('text/event-stream')) sessionExpired()
   if (res.ok) return
   let parsed: ErrorBody
   try {
     parsed = parseErrorBody(await res.json())
   } catch {
+    if (res.status === 401 || res.status === 403) sessionExpired()
     throw new ApiError('BAD_RESPONSE', `HTTP ${res.status}: 에러 응답이 계약 형식이 아닙니다.`, res.status)
   }
   throw new ApiError(parsed.error.code, parsed.error.message, res.status)
@@ -121,7 +140,7 @@ async function throwIfError(res: Response): Promise<void> {
 
 async function request<T>(method: string, path: string, parse: (v: unknown) => T, body?: unknown): Promise<T> {
   const res = await rawFetch(path, method, body === undefined ? undefined : JSON.stringify(body))
-  await throwIfError(res)
+  await checkResponse(res)
   const json: unknown = await res.json()
   return parse(json)
 }
@@ -425,7 +444,7 @@ export async function sendMessage(
   onEvent: (e: StreamEvent) => void,
 ): Promise<'final' | 'error' | 'disconnected'> {
   const res = await rawFetch(`/api/conversations/${conversationId}/messages`, 'POST', JSON.stringify({ content }))
-  await throwIfError(res)
+  await checkResponse(res)
   if (!res.body) return 'disconnected'
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
   const feed = createSseParser()
@@ -462,11 +481,12 @@ const ERROR_TEXT: Record<ClientErrorCode, string> = {
   INTERNAL_ERROR: '서버 내부 오류로 중단했습니다.',
   NETWORK_ERROR: '백엔드에 연결할 수 없습니다.',
   BAD_RESPONSE: '서버 응답 형식이 계약과 다릅니다.',
+  SESSION_EXPIRED: '로그인이 만료되었습니다. 다시 로그인하세요.',
 }
 
 // 서버 message가 있으면 함께 표시 (사유·위치 포함, 예: 택사노미 검증 실패)
 export function errorText(code: string, message?: string): string {
-  const base = ERROR_TEXT[ERROR_CODES.find((c) => c === code) ?? (code === 'NETWORK_ERROR' || code === 'BAD_RESPONSE' ? code : 'INTERNAL_ERROR')]
+  const base = ERROR_TEXT[ERROR_CODES.find((c) => c === code) ?? CLIENT_CODES.find((c) => c === code) ?? 'INTERNAL_ERROR']
   return message && message !== base ? `${base} (${code}: ${message})` : `${base} (${code})`
 }
 export function describe(e: unknown): string {
@@ -562,7 +582,7 @@ export const connectAmplitude = () => request('POST', '/api/integrations/amplitu
 // 고른 .json 파일 내용을 그대로 본문으로 전송, 검증은 서버 몫
 export async function putTaxonomy(fileText: string): Promise<TaxonomyStatus> {
   const res = await rawFetch('/api/settings/taxonomy', 'PUT', fileText)
-  await throwIfError(res)
+  await checkResponse(res)
   const json: unknown = await res.json()
   return parseTaxonomyStatus(json)
 }
