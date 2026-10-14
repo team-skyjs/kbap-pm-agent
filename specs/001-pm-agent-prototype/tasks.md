@@ -34,7 +34,7 @@ description: "PM Agent 프로토타입 구현 태스크"
 - [ ] T001 [BE] 레포 루트에 `.gitignore`(`.env`, `node_modules`, `dist`, `.venv`, `__pycache__`), `.env.example`(ADR 환경변수 표 전부, `AGENT_MODE=fake` 기본), `docker-compose.yml` 작성. 서비스는 `backend`(build `./backend`, `8000:8000`, `AGENT_MODE=${AGENT_MODE:-fake}`, `DATABASE_URL`, `CORS_ORIGINS=http://localhost:5173`, 볼륨 `/data`)와 `mysql`(`mysql:8.4`, `3307:3306`, 볼륨, DB `kbap_pm_agent`, healthcheck). backend는 mysql healthy 이후 기동 (B1)
 - [ ] T002 [P] [BE] `backend/pyproject.toml` + `backend/uv.lock`: Python 3.12, fastapi, uvicorn, langchain 1.x, langchain-anthropic, langchain-openai, langchain-mcp-adapters, mcp, MySQL 드라이버(위임) (B1)
 - [ ] T003 [P] [BE] `backend/Dockerfile`: `ghcr.io/astral-sh/uv:python3.12-bookworm-slim` 기반, `git`·`ripgrep` 설치, `uv sync --frozen`, `uvicorn app.main:app --host 0.0.0.0 --port 8000` 단일 워커(`ponytail:` 주석에 단일 워커 이유) (B1)
-- [ ] T004 [P] [FE] `frontend/`에 Vite + React + TS 프로젝트 생성. `frontend/vite.config.ts`의 `base: '/kbap-pm-agent/'`. `frontend/package.json` 스크립트 `dev`·`build`·`preview`·`check`(`frontend/checks/check-<모듈>.ts` 실행, 실행기는 research.md 메모대로 하나 고정) (F1)
+- [x] T004 [P] [FE] `frontend/`에 Vite + React + TS 프로젝트 생성. `frontend/vite.config.ts`의 `base: '/kbap-pm-agent/'`. `frontend/package.json` 스크립트 `dev`·`build`·`preview`·`check`(`frontend/checks/check-<모듈>.ts` 실행, 실행기는 research.md 메모대로 하나 고정) (F1)
 
 ---
 
@@ -49,9 +49,9 @@ description: "PM Agent 프로토타입 구현 태스크"
 - [ ] T007 [BE] `backend/app/main.py`: FastAPI 앱 생성. `CORS_ORIGINS`(쉼표 구분) CORS, `Authorization`·`Content-Type` 허용. `ACCESS_TOKEN`이 비어 있지 않으면 `/api/health`·`/api/integrations/amplitude/callback`을 뺀 모든 경로에 Bearer 검사(401 `UNAUTHORIZED`). 공통 에러 핸들러: 요청 검증 오류 → 400 `VALIDATION_ERROR`(FastAPI 422 금지), 없는 경로 → 404 `NOT_FOUND`, 처리되지 않은 예외 → 500 `INTERNAL_ERROR`. 형식은 `contracts/01-common.md` (B1)
 - [ ] T008 [BE] `backend/app/main.py`에 `GET /api/health`: DB 정상 `{"status":"ok","db":"ok","version":"0.1.0"}`, DB 실패도 200으로 `{"status":"degraded","db":"error","version":"0.1.0"}` (`contracts/03-health.md`) (B1)
 - [ ] T009 [BE] `backend/checks/check_b1.py`: assert 스크립트. health 응답이 계약 예시와 같은 키·값, 없는 경로가 공통 에러 형식 404, `Origin: http://localhost:5173` preflight 통과, `ACCESS_TOKEN` 설정 시 health 200·`/api/nope` 401 `UNAUTHORIZED`, 미설정 시 health 200·`/api/nope` 404 `NOT_FOUND`(research.md R3) (B1 검사)
-- [ ] T010 [P] [FE] `frontend/src/api.ts`: `VITE_API_BASE_URL` 기준 공통 `request()`. `localStorage`의 접근 토큰을 Bearer로 붙이고, 비 2xx 응답은 `{"error":{"code","message"}}`를 파싱해 `ApiError(code, message)`로 던진다. `Health` 타입과 `getHealth()` (F1)
-- [ ] T011 [FE] `frontend/src/main.tsx`, `frontend/src/App.tsx`: 해시 라우터, 상단에 헬스 배지("ok" / "degraded" / "연결 실패") (F1)
-- [ ] T012 [FE] `frontend/checks/check-f1.ts`: `contracts/03-health.md`의 두 예시 JSON과 `contracts/01-common.md`의 에러 예시가 `api.ts` 타입·파서를 통과하고 에러 `code`가 `"CONVERSATION_NOT_FOUND"`로 읽힌다 (F1 검사)
+- [x] T010 [P] [FE] `frontend/src/api.ts`: `VITE_API_BASE_URL` 기준 공통 `request()`. `localStorage`의 접근 토큰을 Bearer로 붙이고, 비 2xx 응답은 `{"error":{"code","message"}}`를 파싱해 `ApiError(code, message)`로 던진다. `Health` 타입과 `getHealth()` (F1)
+- [x] T011 [FE] `frontend/src/main.tsx`, `frontend/src/App.tsx`: 해시 라우터, 상단에 헬스 배지("ok" / "degraded" / "연결 실패") (F1)
+- [x] T012 [FE] `frontend/checks/check-f1.ts`: `contracts/03-health.md`의 두 예시 JSON과 `contracts/01-common.md`의 에러 예시가 `api.ts` 타입·파서를 통과하고 에러 `code`가 `"CONVERSATION_NOT_FOUND"`로 읽힌다 (F1 검사)
 - [ ] T013 [QA] F1↔B1 교차 검증: `docker compose up` 후 `localhost:5173` → `localhost:8000` health 왕복, CORS preflight, 401·404 형식, `npm run build && npm run preview`에서 `/kbap-pm-agent/` 하위 경로 동작, `check_b1.py`·`check-f1.ts` 실행 결과 (B1·F1 QA)
 
 **Checkpoint**: 양쪽이 뜨고 헬스체크가 왕복한다.
