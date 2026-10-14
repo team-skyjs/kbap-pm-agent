@@ -206,47 +206,7 @@
 - 구현 확인(9e1c2c6): `openai-agents` 0.23.1의 `function_tool`, `max_turns`/`MaxTurnsExceeded`, `result.context_wrapper.usage`를 확인했다. 트레이싱은 끈다. 실행 내용(코드 발췌, 지표)이 OpenAI 트레이스로 나가지 않게 하기 위해서다. MCP 도구는 두 런타임 모두 공통 래퍼로 감싼다(Anthropic `async_mcp_tool` 미사용). Anthropic SDK의 전송 계층은 `httpx2`다.
 - 알려진 런타임 차이(QA eb7f906): 모델이 없는 도구 이름을 부르면 Anthropic tool runner는 오류 결과를 돌려주고 계속한다. openai-agents는 `ModelBehaviorError`로 실행 전체가 `error` `UPSTREAM_ERROR`다. 둘 다 계약 안이다. 앞은 도구 실패, 뒤는 "추론 모델 자체 실패"로 분류된다. 지금은 맞추지 않는다. T073 실제 실행에서 OpenAI 쪽에 반복되면 `ModelBehaviorError`를 잡아 부분 `final`(`partial_content()`)로 보내도록 바꾼다. 이때 계약 05 비고에 중단 사유 하나를 추가해야 한다.
 - 미검증: 실제 키 호출(T073). 구조화 출력이 `AgentAnswer` 스키마 제약을 받는지가 남았다.
-- 단계별 모델(ADR-21로 확장): 조사 단계는 `AGENT_MODEL`(도구 루프), 종합 단계는 `SYNTHESIS_MODEL`(도구 없음, `AgentAnswer` 구조화 출력), 코드 요약은 `CODE_SUMMARY_MODEL`이다. 셋 다 같은 접두사 규칙으로 런타임을 고르며 공급자가 서로 달라도 된다. 위 `output_format=AgentAnswer`·`output_type=AgentAnswer`는 ADR-21부터 종합 단계에만 쓴다.
-- 상태: 확정 (헌법 v1.1.0에서 기술 제약 개정 완료, d3302ae)
-
-### ADR-21: 에이전트를 조사·종합 2단계로 나누고 종합은 `claude-fable-5-1` (ADR-2·20 확장)
-- 결정: 한 메시지 실행을 두 단계로 나눈다.
-  - **조사**: 지금의 도구 루프 그대로다(`AGENT_MODEL`, 기본 `anthropic:claude-sonnet-5-5`). 턴 상한은 `AGENT_MAX_TURNS`(10)이다. 조사 단계는 제안을 쓰지 않고 평문 조사 메모 한 단락으로 끝난다(구조화 출력 없음). `tool_call`/`tool_result` SSE는 이 단계에서 나간다.
-  - **종합**: 도구 없이 모델을 1회 호출한다(`SYNTHESIS_MODEL`, 기본 `anthropic:claude-fable-5-1`, 접두사로 런타임 선택). 입력은 다음과 같다.
-    - 사용자 질문과 직전 대화(조사 단계와 같은 `_history` 텍스트).
-    - 수집한 근거: 도구 호출마다 이름·입력·`result_summary`(500자 상한). code 소스 결과는 snippet(최대 10줄)을 보존한다.
-    - 조사 메모.
-    - 소스 상태: 소스별 시도·실패 여부와 연결 상태. 코드가 만든다.
-    - 출력은 `AgentAnswer` 구조화 출력이고, `final`은 종합이 끝난 뒤 나간다. 조사 모델의 thinking 블록은 넘기지 않고 텍스트만 넘긴다(공급자·모델이 달라도 된다).
-- 시간: 전체 상한 `AGENT_TIMEOUT_SECONDS`(170)는 그대로 둔다. 그중 `SYNTHESIS_TIMEOUT_SECONDS`(기본 50)를 종합 몫으로 떼어, 조사 마감은 170−50=120초다. SC-004(3분)를 지키기 위해서다.
-- 상한·실패 처리:
-  - 조사가 턴·시간 상한에 닿아도 근거가 1건 이상이면 종합을 수행한다. 이때 `final.content` 첫 문장에 상한 사유를 코드가 덧붙인다(계약 05 비고 유지).
-  - 근거가 0건이면 종합을 건너뛰고 지금처럼 `partial_content()` 부분 `final`을 낸다.
-  - 종합이 시간을 넘기면 근거로 부분 `final`을 낸다(시간 상한 사유).
-  - 종합의 `stop_reason == "refusal"`(폴백 후에도)이나 `AgentAnswer` 검증 실패는 `error` `UPSTREAM_ERROR`이며 기존 규칙과 같다. 수집한 도구 호출은 DB에 남는다.
-- Fable 5.1 API 제약 (claude-api 스킬 확인, research.md R9):
-  - `thinking`은 생략하거나 `{"type": "adaptive"}`만 쓴다. disabled·`budget_tokens`는 400이다. 샘플링 파라미터(`temperature` 등)도 400이다.
-  - 강제 `tool_choice`는 400이지만, 종합은 도구가 없어 무관하다.
-  - `stop_reason == "refusal"`을 본문보다 먼저 확인한다. 기존 Anthropic 런타임과 같이 `betas=["server-side-fallback-2026-07-01"]` + `fallbacks="default"`를 쓴다.
-  - 30일 데이터 보존이 필수다. ZDR 조직이면 `400 invalid_request_error`이고, 그때는 `SYNTHESIS_MODEL=anthropic:claude-opus-5-5`로 바꾼다.
-  - `output_config.effort`의 기본값은 `high`(생략과 같음)이고, `SYNTHESIS_EFFORT`(기본 `high`)로 조절한다.
-  - 응답이 길 수 있어 스트리밍 + 최종 메시지 수신으로 HTTP 타임아웃을 피한다.
-  - 시스템 프롬프트·스키마는 고정 앞부분이라 `cache_control`을 둔다.
-- 사용량: `llm_usage.purpose`에 `synthesis`를 추가한다. 기존 `agent`는 조사 단계를 뜻하며, 값을 바꾸지 않아 기존 행 이관이 없다. 메시지 `usage`의 토큰·비용은 두 단계 합이고, `model`은 종합이 돌았으면 종합 모델, 아니면 조사 모델이다(data-model.md).
-- 질문당 예상 비용 (추정, 실측은 T078):
-  | 단계 | 가정 | 비용 |
-  |---|---|---|
-  | 조사 (Sonnet 5.5, $2/$10) | 보통 4턴·누적 입력 50k·출력 4k, 최악 10턴·입력 120k·출력 8k | 보통 약 $0.14, 최악 약 $0.32 |
-  | 종합 (Fable 5.1, $10/$50) | 입력 약 12k(근거 요약 20건+snippet+시스템), 출력 약 10k(제안 JSON 3k + 적응형 사고) | 약 $0.62 |
-  | 합계 | | 질문당 약 $0.75~0.95. 200달러로 약 210~260질문 |
-  - 종합 출력(사고 포함)이 비용의 대부분이다. 줄이는 순서는 `SYNTHESIS_EFFORT`를 `medium`으로 낮추기, 그다음 `SYNTHESIS_MODEL`을 Opus 5.5($4/$20)로 바꾸기다.
-- 이유: 사용자 결정(2026-10-15). 조사는 저렴하고 빠른 모델이 도구를 여러 번 돌리고, 판단·작성은 가장 강한 모델이 한 번 한다. 종합에 도구가 없어 Fable의 긴 사고가 도구 루프 비용으로 번지지 않는다.
-- 버린 대안:
-  - 노드 3개 이상 분리(지표·코드·검증): 분리 근거가 없고, 호출이 늘며, 노드 사이에서 맥락을 잃는다.
-  - Fable 5.1로 도구 루프 전체 실행: 턴마다 Fable 단가라 질문당 비용이 수 배가 된다.
-  - 종합에 도구 결과 원문 전달: 입력이 수배로 커지는데 근거 인용은 요약과 snippet으로 충분하다.
-- 바꾸면 영향: `backend/app/agent.py`(오케스트레이션), 두 런타임의 `synthesize()`, `schema.sql`의 `purpose` ENUM, env 예시, `check_b6.py`. API 계약 shape·SSE 이벤트는 그대로다.
-- 상태: 확정 (비용·시간 추정은 T078 실측 전 가정)
+- 상태: 확정 (헌법 "기술 제약"의 "LangChain 1.x" 문구 개정이 선행돼야 한다. 거버넌스 규칙. team-lead에 개정안 전달)
 
 ## 위임 (구현자가 정하되 "설정으로 바꿀 수 있게"만 지킨다)
 
@@ -268,9 +228,6 @@
 | `AGENT_MODE` | `real` / `fake` | ADR-15 |
 | `AGENT_MODEL`, `CODE_SUMMARY_MODEL` | `anthropic:claude-sonnet-5-5`, `anthropic:claude-haiku-5-5` (OpenAI로 바꾸면 `openai:gpt-6-luna`) | ADR-20 |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | | 쓰는 쪽만 |
-| `SYNTHESIS_MODEL` | `anthropic:claude-fable-5-1` | ADR-21 |
-| `SYNTHESIS_TIMEOUT_SECONDS` | `50` | ADR-21 (조사 마감 = AGENT_TIMEOUT_SECONDS − 이 값) |
-| `SYNTHESIS_EFFORT` | `high` | ADR-21 |
 | `AGENT_MAX_TURNS` | `10` | ADR-2 (2026-10-15 사용자 결정: 도구 20→도구 5→모델 턴 10. 비용은 모델 턴에서만 생긴다) |
 | `AGENT_TIMEOUT_SECONDS` | `170` | ADR-16 |
 | `LLM_BUDGET_USD` | `200` | ADR-9 |

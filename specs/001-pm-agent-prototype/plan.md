@@ -4,14 +4,14 @@
 
 **Input**: Feature specification from `/specs/001-pm-agent-prototype/spec.md`
 
-**결정 출처**: `_workspace/01_cto_tech-decisions.md`(ADR-1~21), `_workspace/01_cto_api-contract.md`(v1.1), `_workspace/01_cto_task-split.md`
+**결정 출처**: `_workspace/01_cto_tech-decisions.md`(ADR-1~20), `_workspace/01_cto_api-contract.md`(v1.1), `_workspace/01_cto_task-split.md`
 
 ## Summary
 
 개발자 2명이 쓰는 채팅형 PM 에이전트다. 질문 하나에 에이전트가 택사노미·FE 코드·Amplitude를 여러 번 조회하고, 근거·제안·실행 단계·측정 방법 네 부분으로 구조화된 제안을 낸다. 사용자는 제안마다 채택·보류를 표시한다.
 
 기술 접근:
-- 백엔드는 FastAPI다. 에이전트는 두 단계다(ADR-21). 조사 단계는 공급자별 공식 SDK 도구 루프로 돌린다(Anthropic tool runner / OpenAI Agents SDK, 기본 Sonnet 5.5). 종합 단계는 도구 없이 1회 호출해 `AgentAnswer` 구조화 출력으로 제안을 쓴다(기본 Fable 5.1, ADR-1·20·21).
+- 백엔드는 FastAPI다. 에이전트 루프는 공급자별 공식 SDK(Anthropic tool runner + `output_format`, OpenAI Agents SDK + `output_type`)로 돌리고 제안 구조를 강제한다(ADR-1, ADR-20).
 - 진행 상황은 POST 응답 SSE로 흘린다(ADR-6). 대화·도구 호출·제안·채택은 MySQL 6개 테이블에 저장한다(ADR-8).
 - 코드 분석은 ripgrep 인덱스로 후보를 좁히고, 파일 단위 요약을 blob SHA로 캐시하며, 예산 상한을 코드로 강제한다(ADR-9).
 - 프론트는 GitHub Pages의 React + Vite 정적 SPA다(ADR-5).
@@ -35,7 +35,7 @@
 
 **Project Type**: 웹 애플리케이션(`frontend/` + `backend/`).
 
-**Performance Goals**: 첫 진행 표시(`tool_call` 이벤트)까지 5초 이내, 완성 제안까지 3분 이내(SC-004). 실행 상한은 `AGENT_TIMEOUT_SECONDS=170`, 모델 호출 턴 상한은 `AGENT_MAX_TURNS=10`(도구 호출은 세지 않음, ADR-2, ADR-16). 170초 중 종합 몫 `SYNTHESIS_TIMEOUT_SECONDS=50`, 조사 마감 120초(ADR-21).
+**Performance Goals**: 첫 진행 표시(`tool_call` 이벤트)까지 5초 이내, 완성 제안까지 3분 이내(SC-004). 실행 상한은 `AGENT_TIMEOUT_SECONDS=170`, 모델 호출 턴 상한은 `AGENT_MAX_TURNS=10`(도구 호출은 세지 않음, ADR-2, ADR-16).
 
 **Constraints**:
 - LLM 누적 비용 200달러 상한(`LLM_BUDGET_USD`, SC-006).
@@ -99,7 +99,7 @@ backend/
 │   ├── repo.py          # seam: 클론·pull·rg 인덱스 (fake 분기)
 │   ├── code_tools.py    # find_event_calls, search_code, get_screen_summary, read_code + 요약 캐시
 │   ├── amplitude.py     # seam: MCP OAuth·도구 공급 (fake 분기)
-│   ├── agent.py         # seam: 모든 LLM 호출 — run_agent()(조사 → 종합 오케스트레이션)/summarize(), 접두사로 런타임 선택, 공통 도구 래퍼·상한·사용량 (fake 분기)
+│   ├── agent.py         # seam: 모든 LLM 호출 — run_agent()/summarize(), 접두사로 런타임 선택, 공통 도구 래퍼·상한·사용량 (fake 분기)
 │   ├── agent_anthropic.py  # anthropic tool runner 런타임 (agent.py에서만 import)
 │   ├── agent_openai.py     # openai-agents 런타임 (agent.py에서만 import)
 │   ├── budget.py        # llm_usage 기록·상한 검사
@@ -129,6 +129,5 @@ frontend/
 |---|---|---|
 | 테이블 6개 (`conversations`, `messages`, `tool_calls`, `proposals`, `llm_usage`, `app_settings`) | FR-006 저장 대상 4종, 원칙 IV 사용량 기록, 설정·OAuth 토큰 영속화 | 메시지 JSON 한 컬럼에 몰면 채택 건수(SC-001)와 비용 합계(SC-006)를 SQL로 못 센다 |
 | MCP SDK OAuth (`OAuthClientProvider`) | Amplitude 공식 MCP가 OAuth만 받는다 | 직접 OAuth 2.1 + 동적 클라이언트 등록 구현은 수백 줄이다 |
-| 조사·종합 2단계(모델 호출 +1회/질문) | 사용자 결정(ADR-21): 판단·작성은 가장 강한 모델이 한 번, 도구 루프는 저렴한 모델 | 단일 루프를 Fable로 돌리면 턴마다 2.5배 단가, 3단계 이상은 근거 없이 호출·맥락 손실 |
 | 런타임 2개(`agent_anthropic.py`, `agent_openai.py`)와 새 의존성 `openai-agents` | 사용자 지시: 공식 SDK 사용, OpenAI로 갈아끼울 수 있어야 함(ADR-20, FR-014) | 한 런타임으로 두 공급자를 돌리면 Claude 네이티브 기능을 잃는다. 공통 인터페이스 클래스 대신 dict 분기 |
 | 컨테이너에 `ripgrep` | 원칙 IV의 무료 선필터 | Python 정규식 순회는 느리고 `.gitignore`를 존중하지 않는다 |
