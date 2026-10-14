@@ -1,0 +1,74 @@
+"""두 LLM SDK에 가짜 HTTP 전송을 넣는 검사 도우미. 실제 SDK 요청 생성·응답 파싱 경로를 그대로 탄다. 비용 0.
+스크립트 단계: ("tool", 도구이름, 입력) | ("final", AgentAnswer dict) | ("refusal",)"""
+import asyncio
+import json
+
+import httpx
+import httpx2
+from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
+
+from app import agent_anthropic, agent_openai
+
+sent: list = []  # 보낸 요청 본문 (검사에서 확인용)
+
+
+def _anthropic_reply(step, n):
+    usage = {"input_tokens": 100, "output_tokens": 10}
+    if step[0] == "tool":
+        content, stop = [{"type": "tool_use", "id": f"tu{n}", "name": step[1], "input": step[2]}], "tool_use"
+    elif step[0] == "final":
+        content, stop = [{"type": "text", "text": json.dumps(step[1], ensure_ascii=False)}], "end_turn"
+    else:
+        content, stop = [], "refusal"
+    return {"id": f"msg{n}", "type": "message", "role": "assistant", "model": "claude-sonnet-5-5", "content": content,
+            "stop_reason": stop, "stop_sequence": None, "usage": usage}
+
+
+def _openai_reply(step, n):
+    if step[0] == "tool":
+        out = [{"type": "function_call", "id": f"fc{n}", "call_id": f"call{n}", "name": step[1],
+                "arguments": json.dumps(step[2]), "status": "completed"}]
+    else:
+        out = [{"type": "message", "id": f"m{n}", "role": "assistant", "status": "completed",
+                "content": [{"type": "output_text", "annotations": [], "text": json.dumps(step[1], ensure_ascii=False)}]}]
+    r = {"id": f"r{n}", "object": "response", "created_at": 1, "model": "gpt-6-luna", "status": "completed", "output": out,
+         "parallel_tool_calls": True, "tool_choice": "auto", "tools": [],
+         "usage": {"input_tokens": 100, "output_tokens": 10, "total_tokens": 110,
+                   "input_tokens_details": {"cached_tokens": 0}, "output_tokens_details": {"reasoning_tokens": 0}}}
+    return "".join(f"event: {t}\ndata: {json.dumps({'type': t, 'sequence_number': k, 'response': r})}\n\n"
+                   for k, t in enumerate(["response.created", "response.completed"]))
+
+
+def script(provider: str, steps, delay: float = 0.0):
+    """steps는 리스트 또는 무한 이터레이터. delay초마다 응답(시간 상한 시험용)."""
+    it = iter(steps)
+    sent.clear()
+
+    async def handler(req):
+        sent.append(json.loads(req.content))
+        if delay:
+            await asyncio.sleep(delay)
+        step, n = next(it), len(sent)
+        if provider == "anthropic":
+            return httpx2.Response(200, json=_anthropic_reply(step, n))
+        return httpx.Response(200, text=_openai_reply(step, n), headers={"content-type": "text/event-stream"})
+
+    if provider == "anthropic":  # anthropic 1.x SDK는 httpx2를 쓴다
+        agent_anthropic._client = lambda: AsyncAnthropic(api_key="test", max_retries=0, http_client=httpx2.AsyncClient(
+            transport=httpx2.MockTransport(handler)))
+    else:
+        agent_openai._client = lambda: AsyncOpenAI(api_key="test", max_retries=0, http_client=httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)))
+
+
+def sse(c, cid: int, content: str = "질문") -> list[tuple[str, dict]]:
+    with c.stream("POST", f"/api/conversations/{cid}/messages", json={"content": content}) as r:
+        assert r.status_code == 200, r.read()
+        evs, ev = [], None
+        for line in r.iter_lines():
+            if line.startswith("event: "):
+                ev = line[7:]
+            elif line.startswith("data: "):
+                evs.append((ev, json.loads(line[6:])))
+    return evs

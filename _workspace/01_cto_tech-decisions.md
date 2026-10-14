@@ -34,21 +34,21 @@
 - 버린 대안: kbap-amplitude식 9노드 StateGraph. 품질 튜닝 단계에서는 유효하나 v1에서 "채택할 만한가"를 검증하기 전에 짓기엔 과하다. 필요해지면 같은 LangGraph 위에서 노드를 추가한다.
 - 바꾸면 영향: `backend/app/agent/` 내부만. SSE 이벤트 형식은 계약이므로 유지.
 - 가드: 질문당 도구 호출 상한 `AGENT_MAX_TOOL_CALLS`(기본 20). 초과 시 그때까지의 결과로 최종 응답을 강제한다.
-- 상태: 확정 (구조화 응답 전략은 ADR-17로 보정)
+- 상태: 대체됨(→ADR-20) — LangChain `create_agent` 대신 공급자별 공식 SDK 런타임
 
 ### ADR-3: Amplitude는 `langchain-mcp-adapters` + MCP Python SDK OAuth, 서버가 토큰 보관
 - 결정: `MultiServerMCPClient`로 `https://mcp.amplitude.com/mcp`(streamable HTTP)에 연결한다. 인증은 MCP SDK의 `OAuthClientProvider`(OAuth 2.1 + 동적 클라이언트 등록)를 `auth`로 넘기고, 토큰 저장소는 MySQL `app_settings`에 둔다. 최초 1회는 브라우저 승인이 필요하므로 계약서의 `POST /api/integrations/amplitude/connect` → 승인 URL → `GET /api/integrations/amplitude/callback` 흐름으로 처리한다.
 - 이유: Amplitude 원격 MCP는 OAuth만 받는다(API 키 미지원). 사용자 2명·인증 없음이므로 연결은 "서버 단위 1개"로 충분하다.
 - 버린 대안: Amplitude Dashboard REST API 직접 호출(kbap-amplitude 방식). 검증된 코드가 있지만 PRD가 공식 MCP를 명시했고 택사노미·차트 도구를 공짜로 얻는다. MCP 연결이 막히면 kbap-amplitude `amp.py`를 도구로 감싸는 것이 즉시 쓸 수 있는 대체 경로다.
 - 바꾸면 영향: Amplitude 도구 공급 함수 하나와 settings의 `amplitude` 상태 필드.
-- 상태: 가정 — 동적 클라이언트 등록 지원은 Amplitude 공식 문서가 아닌 서드파티(Nango) 문서로만 확인했다. B7 첫날 실연결로 검증한다.
+- 상태: 가정 — 동적 클라이언트 등록 지원은 Amplitude 공식 문서가 아닌 서드파티(Nango) 문서로만 확인했다. B7 첫날 실연결로 검증한다. (2026-10-15 영향 범위 갱신: `langchain-mcp-adapters` 제거. OAuth는 MCP SDK `OAuthClientProvider` 그대로이고, 도구 공급은 ADR-20의 두 런타임이 이 provider 하나를 공유한다. Anthropic 런타임은 `anthropic.lib.tools.mcp.async_mcp_tool`, OpenAI 런타임은 `MCPServerStreamableHttp(params={"url", "auth"})`를 쓴다. Anthropic MCP 커넥터는 쓰지 않는다. 근거는 research.md R8)
 
 ### ADR-4: 추론 모델은 `init_chat_model` 문자열 하나로 교체
 - 결정: 모델은 환경변수 `AGENT_MODEL`(예: `anthropic:claude-sonnet-5-5`, `openai:gpt-6-luna`)과 `CODE_SUMMARY_MODEL`로 지정하고 `langchain.chat_models.init_chat_model`로 생성한다. 코드에 공급자 분기를 두지 않는다.
 - 이유: PRD 7.3 "설정으로 교체 가능, 하나로 시작". 두 공급자의 도구 호출·구조화 출력이 LangChain에서 같은 인터페이스다.
 - 버린 대안: 공급자 SDK 직접 사용. 루프·도구 스키마 변환을 두 벌 써야 한다.
 - 기본값: 구현자 위임. 단 코드 요약은 200달러 크레딧이 있는 Claude 저가 모델로 시작하길 권장.
-- 상태: 확정
+- 상태: 대체됨(→ADR-20) — `init_chat_model` 대신 모델 문자열 접두사(`anthropic:`/`openai:`)로 런타임 선택
 
 ### ADR-5: 프론트는 React + Vite + TypeScript 정적 SPA, HashRouter
 - 결정: `frontend/`는 React 19 + Vite + TS. 라우팅은 해시(`#/conversations/7`). `vite.config.ts`의 `base`는 `/kbap-pm-agent/`. API 주소는 빌드 시 `VITE_API_BASE_URL`.
@@ -140,7 +140,7 @@
 - 이유: 헌법 원칙 III("외부 연동 전부를 계약서 예시 값으로 대체")과 FR-011, SC-005. ADR-10은 GitHub를 `file://`로 시험하게 해 외부 키 없는 시연과 어긋났다.
 - 버린 대안: ADR-10 유지(헌법 위반), 연동별 인터페이스+가짜 구현(원칙 II 위반).
 - 바꾸면 영향: 저장소·Amplitude 함수 각각에 분기 하나. `file://` 클론은 real 모드 시험 수단으로 남는다.
-- 상태: 확정
+- 상태: 확정 (2026-10-15 영향 범위 갱신: fake 분기는 `agent.py`에서 런타임 선택 전에 탄다. 두 런타임은 fake 모드에서 호출되지 않는다. 키 없는 런타임 검증은 각 SDK 클라이언트에 `httpx.MockTransport`를 주입하는 검사 스크립트로 한다(ADR-20). 운영 코드에 가짜 런타임은 두지 않는다)
 
 ### ADR-16: 에이전트 실행 시간 상한 `AGENT_TIMEOUT_SECONDS`(기본 170초)
 - 결정: 도구 호출 상한(ADR-2)에 더해 실행 시간 상한을 둔다. 둘 중 하나에 닿으면 그때까지의 조회 결과로 `final`을 보내고 `content` 첫 문장에 중단 사유를 적는다. 개별 도구 실패는 실행을 멈추지 않는다.
@@ -155,7 +155,7 @@
 - 버린 대안: `ToolStrategy`(위 모델에서 실패), 최종 응답을 텍스트로 받아 JSON 파싱(FR-002 구조 보장이 약해짐).
 - 바꾸면 영향: `backend/app/agent.py`와 `schemas.py`의 Evidence 정의만. 계약·FE 영향 없음.
 - 미검증: 실제 키 호출 전이다. T042에서 스키마 제약(`minItems` 등) 거부가 나오면 해당 제약을 Pydantic 사후 검증으로 옮긴다.
-- 상태: 확정
+- 상태: 대체됨(→ADR-20) — 구조화 응답은 Anthropic `output_format`, OpenAI Agents `output_type`
 
 ### ADR-18: 운영 프론트 출처는 `https://team-skyjs.github.io` (ADR-11 가정 확인)
 - 결정: GitHub Pages는 `team-skyjs/kbap-pm-agent` 레포에서 배포한다. 운영 `CORS_ORIGINS`에는 `https://team-skyjs.github.io`(경로 없이 출처만)를 넣는다. 프론트 URL은 `https://team-skyjs.github.io/kbap-pm-agent/`다. Docker Hub 이미지(`simhani1/kbap-pm-agent`)와 홈서버 계정은 ADR-11 그대로다.
@@ -171,6 +171,40 @@
 - 버린 대안: `.gitignore`·확장자 무관 전체 검색(문서 오인용), 디렉토리 화이트리스트(`src/`만, 저장소 구조가 바뀌면 깨짐).
 - 바꾸면 영향: `backend/app/repo.py`·`code_tools.py`의 rg 인자. 계약 영향 없음.
 - 상태: 확정
+
+### ADR-20: LLM 호출은 공급자별 공식 SDK로, LangChain 제거 (ADR-2·4·17 대체)
+- 결정: `langchain`, `langchain-anthropic`, `langchain-openai`, `langchain-mcp-adapters`를 의존성에서 뺀다. 외부 LLM seam은 `backend/app/agent.py`의 `run_agent()`·`summarize()` 그대로다. `AGENT_MODEL`·`CODE_SUMMARY_MODEL`의 접두사가 런타임을 고른다(`anthropic:<모델 ID>`, `openai:<모델명>`, 그 외는 기동 실패). 런타임은 파일 두 개이고 공통 인터페이스 클래스는 두지 않는다. 접두사 → 함수 dict 하나로 분기한다.
+  - **anthropic** (`backend/app/agent_anthropic.py`, 공식 `anthropic` SDK)
+    - 루프: `AsyncAnthropic().beta.messages.tool_runner(...)`에 `@beta_async_tool` 도구를 넘긴다.
+    - 구조화 응답: `output_format=AgentAnswer`(구조화 출력)를 쓴다.
+    - 사고: `thinking={"type": "adaptive"}`.
+    - 캐싱: 최상위 `cache_control={"type": "ephemeral"}`로 시스템 프롬프트·도구 목록을 캐시한다.
+    - 거절 대비: `betas=["server-side-fallback-2026-07-01"]` + `fallbacks="default"`로 서버 측 폴백을 켠다.
+    - `tool_choice`는 지정하지 않는다(auto. 현행 모델이 any/tool 강제를 400으로 거부한다).
+    - 매 반복의 `BetaMessage.usage`를 기록한다. `stop_reason == "refusal"`이면 `error` `UPSTREAM_ERROR`로 끝낸다.
+  - **openai** (`backend/app/agent_openai.py`, `openai-agents`)
+    - 구성: `Agent(instructions, model=<접두사 뗀 이름>, tools=[function_tool...], mcp_servers=[MCPServerStreamableHttp(...)], output_type=AgentAnswer)`.
+    - 스트리밍: `Runner.run_streamed(...)`의 `RunItemStreamEvent`(`tool_called`, `tool_output`)를 받는다. 모델명(GPT-6-luna 등)은 환경변수로만 받는다.
+  - **공통**
+    - 도구: 코드·택사노미 도구는 `code_tools.py`의 같은 Python 함수이고, 각 런타임은 데코레이터로 얇게 감싸기만 한다.
+    - 이벤트·실패: `tool_call`/`tool_result` 이벤트와 도구 예외 처리(실패 결과를 모델에 돌려주고 실행 계속, ADR-16)는 `agent.py`의 공통 래퍼 하나가 맡는다.
+    - 상한·사용량: 170초 상한(`asyncio.timeout`), 도구 호출 상한, 부분 `final`, 사용량 기록, 예산 검사는 `agent.py`에 남는다.
+    - 사후 검증: JSON 스키마로 못 쓰는 교차 규칙(신규 단계 `location` 필수, `order` 연속)은 응답 후 `AgentAnswer` Pydantic 검증으로 강제한다. ADR-17의 재시도 없음 규칙을 이어받는다.
+- 이유:
+  - 사용자 지시(2026-10-15): 공식 SDK를 쓰고, 공급자 교체는 OpenAI SDK로 갈아끼울 수 있으면 된다.
+  - LangChain 추상화가 Claude 네이티브 기능(적응형 사고, 구조화 출력, 프롬프트 캐싱, 서버 측 폴백)을 가리고, 이미 ToolStrategy 강제 tool_choice로 400을 낸 적이 있다(ADR-17).
+  - 설치된 `anthropic` 1.13.0의 `tool_runner`는 `output_format`·`thinking`·`cache_control`·`fallbacks`·`betas`·`max_iterations`를 받는다(설치본 시그니처 확인).
+- 버린 대안:
+  - LangChain 유지: 위 이유.
+  - OpenAI Agents SDK 하나를 공통 런타임으로 쓰고 Claude를 LiteLLM·커스텀 모델 공급자로 돌리기: 사용자가 SDK로 바꾸는 이유인 Claude 네이티브 기능을 그 경로가 다시 잃는다.
+  - 공통 `LLMRuntime` 인터페이스 클래스: 구현 두 개에 dict 분기로 충분하다(원칙 II).
+  - Anthropic MCP 커넥터(서버 측 MCP 연결): research.md R8.
+- 바꾸면 영향:
+  - 바뀌는 것: `backend/app/agent.py`, `agent_anthropic.py`, `agent_openai.py`, `amplitude.py`의 도구 공급 함수, `pyproject.toml`, `backend/checks/check_b6.py`·`check_b7.py`.
+  - 그대로인 것: API 계약 v1.1, 프론트, DB 스키마, SSE 이벤트 형식.
+- 구현 확인(9e1c2c6): `openai-agents` 0.23.1의 `function_tool`, `max_turns`/`MaxTurnsExceeded`, `result.context_wrapper.usage`를 확인했다. 트레이싱은 끈다. 실행 내용(코드 발췌, 지표)이 OpenAI 트레이스로 나가지 않게 하기 위해서다. MCP 도구는 두 런타임 모두 공통 래퍼로 감싼다(Anthropic `async_mcp_tool` 미사용). Anthropic SDK의 전송 계층은 `httpx2`다.
+- 미검증: 실제 키 호출(T073). 구조화 출력이 `AgentAnswer` 스키마 제약을 받는지가 남았다.
+- 상태: 확정 (헌법 "기술 제약"의 "LangChain 1.x" 문구 개정이 선행돼야 한다. 거버넌스 규칙. team-lead에 개정안 전달)
 
 ## 위임 (구현자가 정하되 "설정으로 바꿀 수 있게"만 지킨다)
 
@@ -190,7 +224,7 @@
 | `ACCESS_TOKEN` | (비우면 비활성) | ADR-7 |
 | `PUBLIC_BASE_URL` | `https://pm-agent-api.simhani1.dev` | OAuth 콜백 URL 생성 |
 | `AGENT_MODE` | `real` / `fake` | ADR-15 |
-| `AGENT_MODEL`, `CODE_SUMMARY_MODEL` | `anthropic:claude-sonnet-5-5` | ADR-4 |
+| `AGENT_MODEL`, `CODE_SUMMARY_MODEL` | `anthropic:claude-sonnet-5-5`, `anthropic:claude-haiku-5-5` (OpenAI로 바꾸면 `openai:gpt-6-luna`) | ADR-20 |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | | 쓰는 쪽만 |
 | `AGENT_MAX_TOOL_CALLS` | `20` | ADR-2 |
 | `AGENT_TIMEOUT_SECONDS` | `170` | ADR-16 |

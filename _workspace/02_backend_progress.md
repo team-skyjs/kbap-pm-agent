@@ -13,3 +13,4 @@
 | B6 실제 에이전트 | 완료(실제 LLM 미검증) | AGENT_MODE=real + ANTHROPIC_API_KEY | LLM: real 코드 완료, 키 없어 실호출 미검증. 루프는 가짜 채팅 모델로 검증 | `checks/check_b6.py` | create_agent + ProviderStrategy(AgentAnswer). ToolStrategy는 tool_choice any 강제라 최신 Claude에서 400 |
 | B7 Amplitude MCP | 완료(승인 흐름 미검증) | 동일 | Amplitude real: 동적 등록·승인 URL 생성까지 실서버 확인. 브라우저 승인→토큰 교환→list_tools는 사람 필요(미검증). fake: 예시 URL·즉시 connected | `checks/check_b7.py` | 토큰은 app_settings amplitude_oauth |
 | B8 배포 | 완료(운영 미배포) | `./deploy/push-and-deploy.sh` | 홈서버 접근·Docker Hub 푸시는 사람 필요 | `checks/check_b8.py` (PUBLIC_BASE_URL 대상) | 로컬 uvicorn으로 health·github.io preflight·SSE 105초 유지 확인. R4 홈서버 확인은 미실행(deploy/README.md) |
+| B9 LLM SDK 전환 | 완료(실키 미검증) | 동일 | LLM: anthropic SDK tool runner / openai-agents, 가짜 HTTP 전송으로 두 런타임 검증. 실제 키 호출 미검증(T073) | `checks/check_b6.py`, `checks/check_b7.py` | LangChain 제거. anthropic SDK는 httpx2를 써서 검사 전송은 httpx2.MockTransport |

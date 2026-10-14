@@ -155,6 +155,9 @@ description: "PM Agent 프로토타입 구현 태스크"
 
 ### B6 — 실제 에이전트 루프
 
+> T039의 LangChain `create_agent` 구현은 Phase 8(B9, ADR-20)에서 공급자별 공식 SDK로 대체된다. SSE·상한·실패 처리 요구는 그대로 유지한다.
+
+
 - [x] T039 [US2] [BE] `backend/app/agent.py` real 분기. (B6)
   - 구성: `init_chat_model(AGENT_MODEL)`과 `create_agent(model, tools=code_tools+taxonomy_tools, system_prompt, response_format=AgentAnswer)`를 쓴다.
   - 스트리밍: `astream(stream_mode="updates")`를 `tool_call`/`tool_result`/`final`로 변환한다.
@@ -239,6 +242,53 @@ description: "PM Agent 프로토타입 구현 태스크"
 
 ---
 
+## Phase 8: LLM SDK 전환 (B9, ADR-20)
+
+**Purpose**: LangChain을 걷어내고 공급자별 공식 SDK 런타임 두 개(Anthropic tool runner, OpenAI Agents SDK)로 바꾼다. API 계약 v1.1·SSE 이벤트·DB·프론트는 바뀌지 않는다. 모델 문자열 접두사(`anthropic:`/`openai:`)가 런타임을 고른다.
+
+**완료 기준**: fake 모드 동작이 전환 전과 같다. 두 런타임이 가짜 HTTP 전송으로 계약 SSE 순서를 만든다. `backend/` 어디에도 `langchain` import가 없다. 계약 동기화 diff가 비어 있다.
+
+- [x] T062 [BE] `backend/pyproject.toml`·`backend/uv.lock`: `langchain`, `langchain-anthropic`, `langchain-openai`, `langchain-mcp-adapters`를 제거하고 `anthropic[mcp]`, `openai-agents`를 추가한다. `mcp`는 1.x를 유지한다(`OAuthClientProvider`가 httpx.Auth여야 OpenAI Agents `params["auth"]`와 맞는다, research.md R8). `uv lock`·`uv sync` 후 Docker 이미지 빌드 확인 (B9)
+- [x] T063 [BE] `backend/app/code_tools.py`: 코드·택사노미 도구(`find_event_calls`, `search_code`, `get_screen_summary`, `read_code`, `search_taxonomy`, `get_event_definition`)를 프레임워크 없는 Python 함수로 정리한다. 타입 힌트와 docstring(Args 절)이 도구 스키마의 원천이다. LangChain 데코레이터를 제거하고, 상한(30건·200줄·`CODE_GLOB`)은 함수 안에 둔다 (B9)
+- [x] T064 [BE] `backend/app/agent.py`: seam 재구성. (B9)
+  - 런타임 선택: `AGENT_MODEL`·`CODE_SUMMARY_MODEL`을 `provider:model`로 파싱한다. `{"anthropic": agent_anthropic, "openai": agent_openai}` dict로 고르고, 다른 접두사는 기동 시 실패시킨다.
+  - 공통 도구 래퍼: `tool_call` 이벤트 → 실행 → `tool_result` 이벤트 순서다. 예외가 나면 `failed`와 오류 문장을 모델에 돌려주고 실행을 계속한다(ADR-16, FR-010). `source`는 `code`/`taxonomy`/`amplitude`.
+  - 상한: `asyncio.timeout(AGENT_TIMEOUT_SECONDS)`와 도구 호출 수 상한이다. 도달하면 기존 `partial_content()`로 부분 `final`을 낸다.
+  - 사용량·검증: 반복마다 사용량을 `budget.record`에 넘기고, `AgentAnswer` 사후 검증 실패는 `error` `UPSTREAM_ERROR`다(재시도 없음 `ponytail:` 주석 유지).
+  - fake 분기: 런타임 선택보다 먼저 타며 변경하지 않는다.
+  - `summarize()`: 같은 접두사 규칙으로 런타임별 단발 호출을 한다.
+- [x] T065 [BE] `backend/app/agent_anthropic.py`: 공식 `anthropic` SDK 런타임. (B9)
+  - 루프: `AsyncAnthropic().beta.messages.tool_runner(model, max_tokens, system, messages, tools=[@beta_async_tool로 감싼 T063 함수 + Amplitude MCP 도구], output_format=AgentAnswer, thinking={"type": "adaptive"}, cache_control={"type": "ephemeral"}, betas=["server-side-fallback-2026-07-01"], fallbacks="default", max_iterations=...)`. `tool_choice`는 넘기지 않는다.
+  - 반복 처리: 각 `BetaMessage`에서 `stop_reason == "refusal"`이면 `error` `UPSTREAM_ERROR`로 끝낸다. usage(`input_tokens`, `output_tokens`, 캐시 토큰)를 기록하는데, 캐시 토큰은 입력 단가로 보수적으로 계산하고 `ponytail:` 주석을 단다.
+  - 최종 응답은 `parsed_output`이다. 클라이언트 생성은 `_client()` 함수 하나로 두어 검사 스크립트가 교체할 수 있게 한다.
+  - `summarize()`는 `client.messages.create(model=CODE_SUMMARY_MODEL 이름, ...)`다.
+- [x] T066 [P] [BE] `backend/app/agent_openai.py`: `openai-agents` 런타임. (B9)
+  - 구성: `Agent(name, instructions, model=<접두사 뗀 이름>, tools=[함수 도구로 감싼 T063 함수], mcp_servers=[amplitude 서버 객체], output_type=AgentAnswer)`.
+  - 스트리밍: `Runner.run_streamed(..., max_turns=...)`의 `RunItemStreamEvent` `tool_called`/`tool_output`을 공통 래퍼 이벤트로 연결한다. 데코레이터 이름, `max_turns`, 사용량 접근 경로는 설치본에서 확인한다(research.md R8 미확인 항목).
+  - 클라이언트: OpenAI 클라이언트 생성은 `_client()` 하나로 두어 검사 스크립트가 교체할 수 있게 한다.
+  - `summarize()`는 도구 없는 단발 실행이다. 이 파일이 T065와 독립이라 병렬 가능하다.
+- [x] T067 [BE] `backend/app/amplitude.py`: `MultiServerMCPClient`를 제거한다. (B9)
+  - 공용 provider: `oauth_provider()`(기존 `OAuthClientProvider` + `app_settings` 토큰 저장소)를 두 런타임이 공유한다.
+  - Anthropic용 `anthropic_tools()`: `streamablehttp_client(url, auth=provider)` 세션과 `async_mcp_tool`로 도구 목록을 만든다. 세션 수명은 실행 1회이고, 설치본 헬퍼 이름은 확인한다.
+  - OpenAI용 `openai_server()`: `MCPServerStreamableHttp(name="amplitude", params={"url": AMPLITUDE_MCP_URL, "auth": provider}, cache_tools_list=True)`.
+  - 미연결이면 둘 다 빈 값이고, fake 분기는 그대로 둔다. MCP 호출 예외는 공통 래퍼에서 `tool_result` `failed`가 되게 한다(OpenAI 쪽은 `failure_error_function` 기본값으로 모델에 실패를 보이되, 래퍼 이벤트도 `failed`로 낸다).
+- [x] T068 [P] [BE] `.env.example`, `deploy/kbap-pm-agent.env.example`: `AGENT_MODEL=anthropic:claude-sonnet-5-5`, `CODE_SUMMARY_MODEL=anthropic:claude-haiku-5-5`를 둔다. OpenAI로 바꾸는 예시(`openai:gpt-6-luna`)는 주석으로, `OPENAI_API_KEY`는 openai 접두사일 때만 필요하다고 적는다. LangChain 전용 변수가 있으면 제거한다 (B9)
+- [x] T069 [BE] `backend/checks/check_b6.py` 갱신: 두 런타임 각각에 `_client()`를 교체해 스크립트 응답을 주입한다(Anthropic은 `httpx2.MockTransport`, OpenAI는 `httpx.MockTransport`, research.md R8). 스크립트는 1차 도구 호출(`find_event_calls`), 2차 최종 `AgentAnswer` JSON이다. assert 항목은 다음과 같다. (B9 검사)
+  - 이벤트·사용량: SSE 이벤트 순서(`tool_call` → `tool_result` → `final`)가 계약 05와 같고, `final`이 Message 모델을 통과하며, `llm_usage` 행이 생긴다.
+  - 실패 경로: 도구가 예외를 던져도 `final`로 끝나고 해당 `tool_result`가 `failed`다. 신규 단계 `location: null` 응답은 `error` `UPSTREAM_ERROR`, (Anthropic) `stop_reason: "refusal"` 응답도 `error` `UPSTREAM_ERROR`다.
+  - 상한·접두사: `AGENT_TIMEOUT_SECONDS=1` + 지연 전송이면 부분 `final`이다. 알 수 없는 접두사(`foo:bar`)는 기동 실패다.
+  - 마지막으로 `rg -n "langchain" backend/app backend/pyproject.toml`이 비어 있다.
+- [x] T070 [BE] `backend/checks/check_b7.py` 갱신: 연결 상태에서 `anthropic_tools()`가 `source: "amplitude"`로 묶이는 도구를 내고, `openai_server()`가 `params["auth"]`에 같은 provider를 넣는지 확인한다(MCP 서버는 가짜 전송). MCP 실패 두 경로가 두 런타임 모두에서 `tool_result` `failed` 후 `final`로 이어진다. 두 경로는 (1) `isError` 결과(MCP 서버 도구 예외)와 (2) 클라이언트 예외(`ClientSession.call_tool`에 `ConnectionError` 주입, Amplitude 다운 상황)다(FR-010, QA 66d427a 지적). fake 모드 connect·settings 검사는 기존대로 둔다 (B9 검사)
+- [x] T071 [QA] B9 교차 검증(fake + 가짜 전송): (B9 QA)
+  - 기존 검사: `check_b5.py`·`check_b6.py`·`check_b7.py`를 실행한다.
+  - SSE 비교: fake 모드 메시지 전송 SSE 원문을 전환 전 기록(T022·T042 로그)과 비교해 이벤트 이름·data 키 구조가 같은지 본다.
+  - 계약·LangChain 잔존: `cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md` 출력이 없어야 하고, `rg -n langchain backend`에 결과가 없어야 한다.
+  - 프론트: 변경 없이 F3·F4 화면이 동작해야 한다.
+- [x] T072 [QA] 헌법 정합 확인: 헌법 "기술 제약"의 백엔드 스택 문구가 ADR-20과 일치하는지 본다(team-lead 개정 후). 일치하지 않으면 CTO에 보고한다 (B9 QA)
+- [ ] T073 [QA] 실제 키 확보 시: `AGENT_MODEL`을 `anthropic:`과 `openai:`로 각각 두고 T042 시나리오(US1·US2 질문, SC-004 시간 측정)를 다시 실행한다. Anthropic 구조화 출력이 `AgentAnswer` 스키마 제약을 거부하는지 확인한다(research.md R8). 키가 없으면 "미검증"으로 리포트한다 (B9 QA)
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -249,10 +299,11 @@ description: "PM Agent 프로토타입 구현 태스크"
 - **US3 (5)**: 3의 F3(T023~T026) 이후. US2와 병렬 가능하다(FE만 바뀜).
 - **US4 (6)**: B7은 4의 B6(T039) 이후(도구 결합 지점). F5는 4의 B4(T032) 이후에 실제 연결을 하고, 그 전에는 계약 예시로 mock 개발한다.
 - **Polish (7)**: 6 이후.
+- **LLM SDK 전환 (8)**: B6·B7 이후. Phase 7과 독립(배포 이미지는 T062 이후 다시 빌드한다). 역할 순서는 T062 → T063 → (T064 → T065) ∥ T066 → T067 → T068 → T069·T070 → T071~T073.
 
 ### 모듈 의존 (task-split과 동일)
 
-`B1 → B2 → B3 → B4 → B5 → B6 → B7 → B8`, `F1 → F3 → F4 → F2 → F5 → F6`
+`B1 → B2 → B3 → B4 → B5 → B6 → B7 → B8`, `B7 → B9`, `F1 → F3 → F4 → F2 → F5 → F6`
 
 ### 통합 지점 (mock → 실제 전환)
 

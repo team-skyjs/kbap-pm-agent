@@ -82,7 +82,7 @@ JSON 컬럼 내부 구조(계약서 Proposal 규칙과 동일):
 |---|---|---|
 | message_id | BIGINT NULL FK → messages ON DELETE SET NULL | 코드 요약은 NULL |
 | purpose | ENUM('agent','code_summary') | |
-| model | VARCHAR(100) | `init_chat_model` 문자열 그대로 |
+| model | VARCHAR(100) | `AGENT_MODEL`·`CODE_SUMMARY_MODEL` 문자열 그대로(`provider:model`, ADR-20) |
 | input_tokens, output_tokens | INT | |
 | cost_usd | DECIMAL(10,4) | 설정 단가표로 계산. fake 모드도 행을 남기되 토큰 0·`cost_usd` 0(계약: fake `usage.costUsd`는 `0`, usage는 이 테이블 합산) |
 | created_at | DATETIME(3) | |

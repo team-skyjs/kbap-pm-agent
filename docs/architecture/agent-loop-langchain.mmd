@@ -1,0 +1,49 @@
+flowchart TD
+    subgraph API["FastAPI · POST /api/conversations/:id/messages"]
+        R["라우트<br/>budget 상한 검사 → 403<br/>message_created 이벤트"] --> RA["run_agent()"]
+    end
+
+    RA --> MODE{"AGENT_MODE?"}
+    MODE -- fake --> FAKE["_fake()<br/>계약서 예시 값으로<br/>tool_call · tool_result · final<br/>이벤트 재생"]
+    MODE -- real --> TOOLS["_tools()<br/>쓸 수 있는 소스만 모은다"]
+
+    subgraph SRC["도구 소스 (조건부)"]
+        CODE["code_tools.CODE_TOOLS<br/>find_event_calls · search_code<br/>get_screen_summary · read_code"]
+        TAX["code_tools.TAXONOMY_TOOLS<br/>search_taxonomy · get_event_definition"]
+        AMP["amplitude.tools()<br/>MultiServerMCPClient<br/>(langchain-mcp-adapters)"]
+        AMP --> MCP["Amplitude 원격 MCP<br/>mcp.amplitude.com<br/>OAuthClientProvider"]
+    end
+    TOOLS -. 저장소 클론 있으면 .-> CODE
+    TOOLS -. 택사노미 있으면 .-> TAX
+    TOOLS -. 연결됐으면<br/>실패해도 계속 .-> AMP
+
+    TOOLS --> MODEL["_model()<br/>init_chat_model(AGENT_MODEL)"]
+    MODEL --> LCA["langchain-anthropic"] --> SDKA["anthropic SDK"]
+    MODEL --> LCO["langchain-openai"] --> SDKO["openai SDK"]
+
+    MODEL --> GRAPH
+    subgraph GRAPH["create_agent() · LangGraph"]
+        direction LR
+        M["model 노드<br/>system_prompt + 소스 상태"] -- tool_calls --> T["tools 노드<br/>ToolErrorMiddleware<br/>(오류 → 문자열 결과)"]
+        T -- ToolMessage --> M
+        M -- 도구 호출 없음 --> SR["structured_response<br/>ProviderStrategy(AgentAnswer)"]
+    end
+
+    GRAPH -- "astream(stream_mode=updates)" --> LOOP["이벤트 변환 루프"]
+    LOOP -- "AIMessage" --> U["budget.record(usage)"]
+    LOOP -- "AIMessage.tool_calls" --> TC(["SSE tool_call"])
+    LOOP -- "ToolMessage" --> TR(["SSE tool_result<br/>succeeded | failed"])
+    LOOP -- "structured_response" --> FIN(["SSE final<br/>content + proposals"])
+
+    LOOP -- "calls ≥ AGENT_MAX_TOOL_CALLS(20)" --> PART(["SSE final (부분)<br/>조회 결과 요약"])
+    LOOP -- "asyncio.timeout(170s)" --> PART
+    LOOP -- "예외 · 규칙 위반" --> ERR(["SSE error<br/>UPSTREAM_ERROR"])
+
+    SUM["summarize()<br/>init_chat_model(CODE_SUMMARY_MODEL)<br/>코드 맵 캐시(B5)에서 호출"] -.-> LCA
+
+    classDef lc fill:#fde68a,stroke:#92400e,color:#111
+    classDef out fill:#dbeafe,stroke:#1e40af,color:#111
+    classDef ext fill:#e5e7eb,stroke:#374151,color:#111
+    class MODEL,LCA,LCO,GRAPH,M,T,SR,AMP,SUM lc
+    class TC,TR,FIN,PART,ERR out
+    class SDKA,SDKO,MCP ext

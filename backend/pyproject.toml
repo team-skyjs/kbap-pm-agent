@@ -7,11 +7,9 @@ dependencies = [
   "uvicorn",
   "httpx",
   "pymysql>=1.1",
-  "langchain>=1.0,<2",
-  "langchain-anthropic",
-  "langchain-openai",
-  "langchain-mcp-adapters",
-  "mcp",
+  "anthropic[mcp]",
+  "openai-agents",
+  "mcp>=1,<2",
 ]
 
 [tool.uv]

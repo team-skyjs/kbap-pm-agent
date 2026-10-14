@@ -37,7 +37,7 @@ cd frontend && npm ci && VITE_API_BASE_URL=http://localhost:8000 npm run dev   #
 
 ## 검사 스크립트
 
-모듈 검사는 각자 한 줄로 돈다(헌법 원칙 V).
+모듈 검사는 각자 한 줄로 돈다(헌법 원칙 V). 백엔드 검사들은 검사용 DB `kbap_pm_agent_check`를 공유하므로 **한 번에 하나씩** 실행한다. 동시에 돌리면 저장 단계에서 충돌해 거짓 실패가 난다.
 
 ```bash
 docker compose exec backend uv run python checks/check_b1.py

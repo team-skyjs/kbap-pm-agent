@@ -19,6 +19,8 @@ OPEN_PATHS = {"/api/health", "/api/integrations/amplitude/callback"}
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    from app import agent
+    agent.check_models()  # 모르는 모델 접두사는 기동 실패 (ADR-20)
     try:
         db.init()
         conversations.fail_stale_runs()
