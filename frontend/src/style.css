@@ -1,0 +1,7 @@
+/* ponytail: 읽히고 눌리면 된다. 디자인 시스템 없음. */
+body { margin: 0; font-family: system-ui, sans-serif; font-size: 14px; color: #222; }
+header { display: flex; gap: 16px; align-items: center; padding: 8px 16px; border-bottom: 1px solid #ddd; }
+header a { color: inherit; }
+.badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+.badge.ok { background: #d4f5d4; } .badge.degraded { background: #fff0c2; } .badge.down { background: #ffd6d6; }
+.error { color: #b00020; }
