@@ -108,6 +108,8 @@ T057·T060은 미검증 부분이 남아 체크하지 않았다.
 
 ## 실행 방법 (사용자가 직접 재현)
 
+아래의 `pm-agent-api.simhani1.dev`는 예시 도메인이고 실존하지 않는다.
+
 ```bash
 # 1) 백엔드 + MySQL (fake 기본)
 docker compose up -d --build

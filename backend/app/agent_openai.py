@@ -52,7 +52,11 @@ async def run(model: str, system: str, history: list[dict], tools: list, emit, u
     if server:
         try:
             await server.connect()
-            servers, amp = [server], "있음"
+            if await server.list_tools():  # 허용 목록 적용 후 목록, 0개면 서버를 모델에 붙이지 않음
+                servers, amp = [server], "있음"
+            else:
+                amp = amplitude.MISMATCH
+                await server.cleanup()
         except Exception as e:  # Amplitude가 막혀도 나머지 소스로 답변
             log.warning("amplitude unavailable: %s", e)
             amp = "없음(연결 실패)"
@@ -60,18 +64,21 @@ async def run(model: str, system: str, history: list[dict], tools: list, emit, u
         agent = Agent(name="kbap-pm-agent", instructions=f"{system}, Amplitude {amp}", model=_model(model),
                       tools=ftools, mcp_servers=servers, output_type=AgentAnswer)
         result = Runner.run_streamed(agent, input=history, max_turns=max_turns())  # 모델 호출 1회 = 1턴
-        mcp_calls: set[str] = set()
+        mcp_calls: dict[str, tuple] = {}  # call_id → 원문 조회 키
         try:
             async for ev in result.stream_events():
                 if ev.type != "run_item_stream_event":
                     continue
                 raw = ev.item.raw_item
                 if ev.name == "tool_called" and getattr(raw, "name", None) not in fnames:  # MCP 도구는 SDK 이벤트로 알림
-                    mcp_calls.add(_call_id(raw))
+                    mcp_calls[_call_id(raw)] = amplitude.call_key(raw.name, json.loads(raw.arguments or "{}"))
                     await emit({"type": "tool_call", "key": _call_id(raw), "source": "amplitude", "name": raw.name,
                                 "input": json.loads(raw.arguments or "{}")})
                 elif ev.name == "tool_output" and _call_id(raw) in mcp_calls:
                     out = _text(ev.item.output)
+                    stash = type(server).originals.get(mcp_calls[_call_id(raw)]) if server else None
+                    if stash:  # 모델에는 잘린 사본, 이벤트·DB에는 원문
+                        out = stash.pop(0)
                     failed = out.startswith(FAIL) or bool((getattr(ev.item, "custom_data", None) or {}).get("is_error"))
                     await emit({"type": "tool_result", "key": _call_id(raw), "status": "failed" if failed else "succeeded",
                                 "summary": out.splitlines()[0][:500] if out else "", "text": out})

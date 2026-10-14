@@ -102,6 +102,29 @@ try:
         assert evs[2][1]["status"] == "failed" and evs[2][1]["resultSummary"].startswith("도구 오류: RuntimeError")
         ok(f"{provider}: 도구 예외 → tool_result failed, 실행은 final로 계속")
 
+        # 긴 도구 결과: 모델에는 TOOL_RESULT_MAX_CHARS로 자른 사본, DB에는 원문
+        def long_result(eventName: str) -> str:
+            """이벤트 호출 위치 조회.
+
+            Args:
+                eventName: 이벤트 이름
+            """
+            return "줄\n" + "가" * 5000
+        long_result.__name__ = "find_event_calls"
+        code_tools.CODE_TOOLS = [long_result, *real[1:]]
+        script(provider, [("tool", "find_event_calls", {"eventName": "x"}), ("final", {"content": "긴 결과", "proposals": []})])
+        evs = sse(c, new_conv())
+        code_tools.CODE_TOOLS = real
+        if provider == "anthropic":
+            to_model = sent[1]["messages"][-1]["content"][0]["content"]
+        else:
+            to_model = next(i["output"] for i in sent[1]["input"] if i.get("type") == "function_call_output")
+        to_model = to_model if isinstance(to_model, str) else "".join(b.get("text", "") for b in to_model)
+        assert to_model.endswith("…(5002자 중 3000자, 이하 생략)") and len(to_model) < 3100, (len(to_model), to_model[-40:])
+        stored = db.one("SELECT result_text FROM tool_calls WHERE id = %s", (evs[2][1]["id"],))["result_text"]
+        assert len(stored) == 5002 and evs[-1][0] == "final"
+        ok(f"{provider}: 긴 도구 결과 → 모델에는 3000자 + 생략 표시, DB에는 원문 5002자")
+
         script(provider, [("final", bad_location)])
         evs = sse(c, new_conv())
         assert evs[-1][0] == "error" and evs[-1][1]["error"]["code"] == "UPSTREAM_ERROR", evs[-1]
