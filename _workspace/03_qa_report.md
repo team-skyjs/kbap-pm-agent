@@ -72,6 +72,7 @@ T061(최종)은 fake 부분(계약 diff 없음, check 13개, quickstart 1~10)을
 |---|---|---|
 | T071 B9 교차 검증 (fake + 가짜 전송) | 통과 | 계약 diff 0, langchain 0(코드·lock·설치본), check_b1~b7 OK, fake SSE 이벤트 이름·data 키 구조가 전환 전 기준선과 diff 0, 두 런타임 무키 실서버 error 경로 계약대로, 프론트 무변경 화면 흐름 통과 |
 | T072 헌법 정합 | 통과 | 헌법 v1.1.0 = ADR-20. QA-5(plan·data-model 개정 전 문구) 확인됨 |
+| T075 턴 상한 재검증 (AGENT_MAX_TURNS=10) | 통과 | 계약 diff 0, 옛 변수명 0(지정 범위), check_b6 OK, 두 런타임 10턴 = 모델 요청 10회, 부분 final 문구 = 계약, SSE 구조 불변 |
 | T073 실제 키 검증 | 미검증 | `ANTHROPIC_API_KEY`·`OPENAI_API_KEY` 없음. 비용 0 원칙 |
 | T068 env 예시 | 통과 | QA-6(운영 env 예시 안내 누락) 확인됨 |
 | cto 추가 확인 | 통과 | anthropic SDK는 httpx2(가짜 전송도 httpx2), openai-agents 트레이스 꺼짐·송신 0, MCP 오류 isError 결과·클라이언트 예외 두 경로 모두 두 런타임에서 `tool_result failed` → `final` |
@@ -81,6 +82,8 @@ T061(최종)은 fake 부분(계약 diff 없음, check 13개, quickstart 1~10)을
 - **Anthropic 최종 응답은 `parsed_output`이 아니라 마지막 text 블록 JSON을 `AgentAnswer`로 다시 검증한다.** T065 문구와 다르지만 검증 결과는 같다. text 블록이 없으면 `UPSTREAM_ERROR`로 끝난다.
 - **잘못된 모델 접두사는 서버 기동 실패다(ADR-20 의도).** 운영 env를 고칠 때 헬스체크가 아예 안 뜨는 형태로 드러난다. 배포 스크립트 3단계 헬스체크가 이를 잡는다.
 - **MCP 클라이언트 예외 경로 → 검사로 통제됨.** a75addd로 check_b7이 isError 결과와 `call_tool` ConnectionError 두 경로를 두 런타임에서 모두 검사한다(T070, 9718928). QA 재실행 OK.
+- **없는 도구 이름 호출 시 런타임 동작이 다르다.** OpenAI 런타임은 `ModelBehaviorError`로 실행 전체가 `UPSTREAM_ERROR`가 되고, Anthropic 런타임은 오류 결과를 모델에 돌려주고 계속한다. 계약 위반은 아니지만 OpenAI로 바꾸면 모델 실수 한 번에 답 전체를 잃는다.
+- **`docs/architecture/agent-loop-langchain.*`에 옛 변수 `AGENT_MAX_TOOL_CALLS(5)`가 남아 있다.** LangChain 시절 구조도라 현행 코드와 다르다.
 - **OpenAI 사용량은 실행 1회 합계 1행.** 요청별 비용 추적은 안 된다.
 - 위 Phase 1~7 남은 위험의 "실제 LLM 경로 실호출 미검증"은 런타임이 바뀌었을 뿐 그대로다(ProviderStrategy 문구는 ADR-20으로 대체됨).
 

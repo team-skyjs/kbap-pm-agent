@@ -287,12 +287,12 @@ description: "PM Agent 프로토타입 구현 태스크"
 - [x] T072 [QA] 헌법 정합 확인: 헌법 "기술 제약"의 백엔드 스택 문구가 ADR-20과 일치하는지 본다(team-lead 개정 후). 일치하지 않으면 CTO에 보고한다 (B9 QA)
 - [ ] T073 [QA] 실제 키 확보 시: `AGENT_MODEL`을 `anthropic:`과 `openai:`로 각각 두고 T042 시나리오(US1·US2 질문, SC-004 시간 측정)를 다시 실행한다. Anthropic 구조화 출력이 `AgentAnswer` 스키마 제약을 거부하는지 확인한다(research.md R8). 키가 없으면 "미검증"으로 리포트한다 (B9 QA)
 
-- [ ] T074 [BE] 모델 호출 턴 상한으로 전환(ADR-2 갱신, 2026-10-15 사용자 결정). (B9)
+- [x] T074 [BE] 모델 호출 턴 상한으로 전환(ADR-2 갱신, 2026-10-15 사용자 결정). (B9)
   - 변수 교체: `AGENT_MAX_TOOL_CALLS`를 `AGENT_MAX_TURNS`(기본 10)로 바꾼다(`backend/app/config.py`·`agent.py`, `.env.example`, `deploy/kbap-pm-agent.env.example`, `docker-compose.yml`). 도구 호출 수 카운트는 제거한다.
   - 런타임: Anthropic은 `tool_runner(max_iterations=AGENT_MAX_TURNS)`, OpenAI는 `Runner.run_streamed(max_turns=AGENT_MAX_TURNS)`. 한 턴의 병렬 도구 호출은 1턴이다.
   - 부분 final: 상한에 닿으면 추가 모델 호출 없이 `partial_content()`로 부분 `final`을 낸다. `content` 첫 문장은 "모델 호출 상한(10턴)에 도달해 여기까지의 조회 결과로 답합니다."이고 `status: "completed"`(계약 05-messages 비고). OpenAI의 `MaxTurnsExceeded`는 잡아서 같은 경로로 보낸다.
   - 검사: `backend/checks/check_b6.py`의 상한 시나리오를 바꾼다. 두 런타임 각각에서 가짜 전송이 계속 도구 호출만 돌려줄 때 `AGENT_MAX_TURNS=3`이면 모델 요청이 정확히 3회이고 부분 `final` 문장이 맞는지, 한 턴에 도구 2개를 병렬 호출해도 1턴으로 세는지 assert한다.
-- [ ] T075 [QA] T074 재검증: `check_b6.py`를 실행한다(순차 실행, quickstart 안내). `rg -n "AGENT_MAX_TOOL_CALLS" backend deploy .env.example docker-compose.yml` 결과가 없어야 한다. 두 런타임의 턴 상한 부분 `final`이 계약 05-messages 비고 문구와 일치하는지 본다. `cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md` 출력이 없어야 한다 (B9 QA)
+- [x] T075 [QA] T074 재검증: `check_b6.py`를 실행한다(순차 실행, quickstart 안내). `rg -n "AGENT_MAX_TOOL_CALLS" backend deploy .env.example docker-compose.yml` 결과가 없어야 한다. 두 런타임의 턴 상한 부분 `final`이 계약 05-messages 비고 문구와 일치하는지 본다. `cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md` 출력이 없어야 한다 (B9 QA)
 
 ---
 
