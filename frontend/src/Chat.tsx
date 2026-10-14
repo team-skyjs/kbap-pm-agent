@@ -172,13 +172,18 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     } catch (e) {
       // 스트림 시작 전 에러(실행 중, 예산 초과, 입력 오류 등)는 입력창 아래에 안내
       setNotice(describe(e))
-      if (e instanceof ApiError && e.code === 'UNAUTHORIZED') setSessionExpired(true)
+      // 토큰 문제(UNAUTHORIZED)는 설정 안내로 충분, 배너는 세션 만료 코드에만. 이 코드는 접근 제한 머지 후 생김
+      if (e instanceof ApiError && (e.code as string) === 'SESSION_EXPIRED') setSessionExpired(true)
       if (e instanceof ApiError && e.code === 'RUN_IN_PROGRESS') load()
     } finally {
       setStreaming(false)
       onChanged()
     }
   }
+
+  // 빈 대화를 열면 바로 입력하도록 입력창에 포커스
+  const empty = detail?.messages.length === 0
+  useEffect(() => { if (empty) inputRef.current?.focus() }, [empty])
 
   useLayoutEffect(() => {
     const el = scrollRef.current
