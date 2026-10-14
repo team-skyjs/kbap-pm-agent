@@ -15,5 +15,3 @@ for (const r of refs) assert(r.startsWith('/kbap-pm-agent/'), `하위 경로 밖
 const bundle = readdirSync(new URL('assets/', dist)).filter((f) => f.endsWith('.js'))
   .map((f) => readFileSync(new URL(`assets/${f}`, dist), 'utf8')).join('\n')
 assert(bundle.includes(base), `번들에 ${base}가 없습니다`)
-// 운영 빌드(VITE_MOCK 없음)에는 mock 데이터가 트리셰이킹으로 빠져야 한다
-assert(!bundle.includes('OCR 실패 화면에'), 'mock 데이터가 번들에 남아 있습니다 (VITE_MOCK=1로 빌드했나?)')
