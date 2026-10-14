@@ -176,7 +176,10 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
       setNotice(describe(e))
       setTokenError(e instanceof ApiError && e.code === 'UNAUTHORIZED')
       // 토큰 문제(UNAUTHORIZED)는 설정 안내로 충분, 배너는 세션 만료 코드에만. 이 코드는 접근 제한 머지 후 생김
-      if (e instanceof ApiError && (e.code as string) === 'SESSION_EXPIRED') setSessionExpired(true)
+      if (e instanceof ApiError) {
+        const code: string = e.code
+        if (code === 'SESSION_EXPIRED') setSessionExpired(true)
+      }
       if (e instanceof ApiError && e.code === 'RUN_IN_PROGRESS') load()
     } finally {
       setStreaming(false)
