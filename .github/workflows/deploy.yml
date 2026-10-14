@@ -1,13 +1,13 @@
-# backend/ → ghcr.io 이미지 → 홈서버(self-hosted 러너)에서 compose pull·up·헬스체크
-# techmoa app/deploy.yml 패턴. 운영 env 파일은 deploy job이 GitHub Secrets/Variables에서 생성한다 (ADR-11)
+# backend/·frontend/ → 같은 커밋 태그의 이미지 두 개 → 홈서버(self-hosted 러너)에서 compose pull·up·헬스체크
+# 운영 env 파일은 deploy job이 GitHub Secrets/Variables에서 생성하고 끝나면 삭제
 # Secrets: DATABASE_URL, ANTHROPIC_API_KEY, OPENAI_API_KEY, GH_PAT(→GITHUB_TOKEN), ACCESS_TOKEN
 # Variables: PUBLIC_BASE_URL, CORS_ORIGINS, AGENT_MODEL, CODE_SUMMARY_MODEL, AMPLITUDE_MCP_URL, LLM_BUDGET_USD
-name: deploy-backend
+name: deploy
 
 on:
   push:
     branches: [main]
-    paths: ['backend/**', 'deploy/**', '.github/workflows/deploy-backend.yml']
+    paths: ['backend/**', 'frontend/**', 'deploy/**', '.github/workflows/deploy.yml']
   workflow_dispatch:
 
 permissions:
@@ -15,15 +15,16 @@ permissions:
   packages: write
 
 concurrency:
-  group: deploy-backend   # 동시성 1: 실행 중 1개 + 대기 1개(더 쌓이면 오래된 대기분이 취소되고 최신만 남는다)
-  cancel-in-progress: false   # 진행 중인 배포는 끊지 않는다
+  group: deploy   # 동시성 1: 실행 중 1개 + 대기 1개(더 쌓이면 오래된 대기분은 취소, 최신만 유지)
+  cancel-in-progress: false   # 진행 중인 배포는 끊지 않음
 
 env:
-  IMAGE: ghcr.io/${{ github.repository }}   # ghcr.io/team-skyjs/kbap-pm-agent
+  IMAGE: ghcr.io/${{ github.repository }}
+  IMAGE_WEB: ghcr.io/${{ github.repository }}-web
 
 jobs:
   build:
-    name: build and push image
+    name: build and push images
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.version.outputs.tag }}
@@ -41,7 +42,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - name: backend image
+        uses: docker/build-push-action@v6
         with:
           context: backend
           platforms: linux/amd64
@@ -49,13 +51,25 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:${{ steps.version.outputs.tag }}
             ${{ env.IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: web image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE_WEB }}:${{ steps.version.outputs.tag }}
+            ${{ env.IMAGE_WEB }}:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
 
   deploy:
     name: deploy on home server
     needs: build
-    runs-on: [self-hosted, kbap]   # 홈서버 러너 simhani1-server
+    runs-on: [self-hosted, kbap]   # 홈서버 러너
     steps:
       - uses: actions/checkout@v4
         with:
@@ -98,6 +112,8 @@ jobs:
           AGENT_TIMEOUT_SECONDS=170
           LLM_BUDGET_USD=${LLM_BUDGET_USD:-200}
           AMPLITUDE_MCP_URL=${AMPLITUDE_MCP_URL:-https://mcp.amplitude.com/mcp}
+          AMPLITUDE_TOOLS=get_amplitude_context,query_amplitude_data
+          TOOL_RESULT_MAX_CHARS=3000
           GITHUB_TOKEN=$GH_PAT
           REPOS_DIR=/data/repos
           CODE_GLOB=*.{ts,tsx,js,jsx}
@@ -109,7 +125,8 @@ jobs:
       - name: compose pull · up · health
         env:
           IMAGE: ${{ env.IMAGE }}
-          IMAGE_TAG: ${{ needs.build.outputs.tag }}   # 커밋 해시 태그로 고정 배포 (latest 아님)
+          IMAGE_WEB: ${{ env.IMAGE_WEB }}
+          IMAGE_TAG: ${{ needs.build.outputs.tag }}   # 두 이미지 모두 같은 커밋 해시 태그로 고정 배포(latest 아님)
           COMPOSE_FILE: ${{ github.workspace }}/deploy/docker-compose.kbap-pm-agent.yml
           ENV_FILE: ${{ github.workspace }}/deploy/.env.prod
         run: bash deploy/deploy.kbap-pm-agent.sh
@@ -120,7 +137,7 @@ jobs:
 
   release:
     name: create GitHub release
-    needs: [build, deploy]   # 배포가 성공했을 때만
+    needs: [build, deploy]   # 배포 성공 시에만
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -135,4 +152,4 @@ jobs:
             --target "${{ github.sha }}" \
             --title "$TAG" \
             --generate-notes \
-            --notes "배포 이미지: \`${{ env.IMAGE }}:${{ needs.build.outputs.tag }}\` · 커밋 ${{ github.sha }}"
+            --notes "배포 이미지: \`${{ env.IMAGE }}:${{ needs.build.outputs.tag }}\`, \`${{ env.IMAGE_WEB }}:${{ needs.build.outputs.tag }}\` · 커밋 ${{ github.sha }}"
