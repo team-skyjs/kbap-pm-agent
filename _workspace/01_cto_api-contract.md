@@ -1,4 +1,4 @@
-# 01 CTO — API 계약서 v1.1
+# 01 CTO — API 계약서 v1.2
 
 작성일: 2026-10-15 · 이 문서가 FE·BE·QA의 유일한 경계 기준이다. 변경은 CTO만 하고, 바뀌면 상단 변경 이력에 남긴다.
 
@@ -7,10 +7,17 @@
 | 2026-10-15 | v1 | 최초 작성 |
 | 2026-10-15 | v1.1 | 명세(spec.md)·헌법 정합: 코드 근거에 `function` 추가(FR-003), 저장소 `lastError` 추가(엣지 케이스 비공개 저장소), 실행 시간 상한·소스 실패 시 동작 명시(FR-010, 엣지 케이스), 택사노미 검증 실패 메시지 규칙(US4-4), `AGENT_MODE=fake`가 저장소·Amplitude까지 대체(헌법 원칙 III, FR-011), 실행 중 메시지 필드 규칙 |
 | 2026-10-15 | v1.1 (문구) | 메시지 전송 상한 비고: 도구 호출 수 → 모델 호출 턴 수 `AGENT_MAX_TURNS`(기본 10). shape 변경 없음 |
+| 2026-10-15 | v1.2 | 접근 제한(ADR-22, specs/002-access-gate). Base URL이 같은 출처 상대 경로로 바뀌었다. 접근 계층 응답 규칙과 `X-Requested-With` 헤더를 추가하고 CORS를 제거했다. 예시 호스트는 `pm-agent.example.com`이다(운영 정보 비노출). 응답 shape 변경 없음 |
 
 ## 공통
 
-- **Base URL:** 프론트 빌드 환경변수 `VITE_API_BASE_URL` (예: 로컬 `http://localhost:8000`, 운영 `https://pm-agent-api.simhani1.dev`). 모든 경로는 `/api`로 시작한다.
+- **Base URL:** 없음. 프론트와 API는 같은 출처이고, 프론트는 상대 경로(`/api/...`)로 호출한다. 모든 경로는 `/api`로 시작한다. 운영은 Cloudflare Access 뒤의 한 호스트명이고, 로컬은 `http://localhost:8080`(웹 컨테이너) 또는 `http://localhost:5173`(Vite dev 프록시)이다. 문서의 예시 호스트는 `https://pm-agent.example.com`이다.
+- **요청 헤더:** 프론트는 모든 요청에 `X-Requested-With: XMLHttpRequest`를 보낸다. 백엔드는 이 헤더를 해석하지 않는다. Access가 만료 세션에 302 대신 401을 주게 하는 용도다.
+- **접근 계층 응답:** Access를 통과하지 못한 요청은 백엔드에 닿지 않아 이 문서의 에러 형식이 아니다. 다음 셋이 해당한다.
+  - 이 문서의 JSON 에러 형식이 아닌 401·403
+  - 리다이렉트(`fetch`의 `redirect: "manual"`에서 `opaqueredirect`)
+  - `text/html` 응답
+  - 프론트는 이를 세션 만료로 다루고 백엔드 에러 코드와 섞지 않는다. 백엔드의 401 `UNAUTHORIZED`(`ACCESS_TOKEN`)는 JSON 에러 형식이라 구분된다.
 - **인증:** 백엔드에 `ACCESS_TOKEN`이 설정되어 있으면 `GET /api/health`와 `GET /api/integrations/amplitude/callback`을 제외한 모든 요청에 `Authorization: Bearer <토큰>` 헤더가 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
 - **형식:** 요청·응답 본문은 `application/json; charset=utf-8`. 메시지 전송 응답만 `text/event-stream`.
 - **필드 이름:** camelCase 고정. DB의 snake_case를 그대로 노출하지 않는다.
@@ -422,14 +429,15 @@ data: {"error":{"code":"UPSTREAM_ERROR","message":"LLM 공급자 응답 오류�
 - 요청: 본문 없음.
 - 응답 200:
 ```json
-{"authorizationUrl": "https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri=https%3A%2F%2Fpm-agent-api.simhani1.dev%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ&code_challenge=Q9v0aR3&code_challenge_method=S256"}
+{"authorizationUrl": "https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri=https%3A%2F%2Fpm-agent.example.com%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ&code_challenge=Q9v0aR3&code_challenge_method=S256"}
 ```
   (URL의 호스트·쿼리는 Amplitude가 정한다. 프론트는 문자열을 그대로 연다.)
 - 에러: `UPSTREAM_ERROR`.
 - 비고: 승인 완료는 이 응답으로 알 수 없다. 프론트는 새 탭을 연 뒤 `GET /api/settings`를 3초 간격으로 최대 2분 다시 읽어 `amplitude.status`가 `"connected"`가 되면 멈춘다.
 
 ### GET /api/integrations/amplitude/callback
-- 용도: Amplitude가 브라우저를 돌려보내는 OAuth 콜백. 인증 불필요. 프론트가 직접 부르지 않는다.
+- 용도: Amplitude가 브라우저를 돌려보내는 OAuth 콜백. 앱 수준 인증(`ACCESS_TOKEN`)이 필요 없다. 프론트가 직접 부르지 않는다.
+- 접근 계층: 다른 경로와 같이 Cloudflare Access 뒤에 있다. 브라우저 최상위 이동이라 Access 세션 쿠키로 통과한다. 통과하지 못하는 것으로 확인되면 이 경로에만 Access 우회 정책을 둔다(specs/002-access-gate research R2). `state` 검증은 백엔드가 그대로 한다.
 - 요청: 쿼리 `code`, `state` (Amplitude가 붙인다).
 - 응답 200: `text/html` 한 줄 페이지. 성공 시 "Amplitude 연결 완료. 이 탭을 닫아도 됩니다.", 실패 시 "Amplitude 연결 실패: {사유}". JSON 아님.
 
@@ -450,4 +458,4 @@ data: {"error":{"code":"UPSTREAM_ERROR","message":"LLM 공급자 응답 오류�
 | POST | `/api/integrations/amplitude/connect` | 필요 | JSON |
 | GET | `/api/integrations/amplitude/callback` | 불필요 | HTML |
 
-CORS: 백엔드는 `CORS_ORIGINS`의 출처에 대해 위 메서드 전부와 `Authorization`, `Content-Type` 헤더의 preflight를 허용한다.
+CORS: 없음. 프론트와 같은 출처에서만 호출한다. 백엔드는 CORS 헤더를 보내지 않으며, 다른 출처의 preflight는 허용되지 않는다.
