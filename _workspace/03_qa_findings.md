@@ -23,6 +23,7 @@
 | 2026-10-15 | F5 ↔ B7 (T052·T054 fake) | fake 통과 | headless Chrome: 연결 안 됨 → 클릭 시 새 탭이 계약 예시 authorizationUrl로 이동(외부 요청은 가로채 막음), 3.2s 뒤 "연결됨 (시각)" + "연결되었습니다.", 이후 폴링 중단. T054 real 모드 Amplitude 항목은 미검증 |
 | 2026-10-15 | B8 (f2890fe) | 결함 1, 운영 미배포 | 별도 컨테이너(fake, FAKE_DELAY_SECONDS=21)에서 `check_b8.py` OK: health, preflight, SSE 105초 유지·ping 5회·final. 배포 파일 정적: 이미지·monitor-net·127.0.0.1:8001·/data 볼륨·healthcheck·db ok 확인·.env.prod gitignore 확인. 결함 QA-4. 운영 배포는 홈서버 SSH·Docker Hub 권한이 필요해 미실행 → T057·T060 미검증 |
 | 2026-10-15 | QA-2·QA-4 재검증 (5c5a6ad) | 확인됨 | kbap-fe f34c518 real 클론: trackedEventCount 117 = `rg -o -g '*.{ts,tsx,js,jsx}'` 117, index.json 비코드 파일 0, search_code `**/*.md` 0건, read_code가 md·저장소 밖 경로 거부. check_b4·b5 OK. deploy env 예시·check_b8 출처 team-skyjs.github.io, check_b8(FAKE_DELAY 21) health·preflight team-skyjs·SSE 105초 OK. 참고: 117곳 중 17곳은 `__tests__` 파일의 문자열 매치(ADR-19 범위 안, 남은 위험으로 기록) |
+| 2026-10-15 | T061 최종 (fake) | 통과, real 미검증 | 계약 diff 없음, check_b1~b7·check-f1~f6 OK, check_b8 별도 컨테이너 OK, quickstart 시나리오 1~10 실서버 + headless Chrome 통과, 열린 결함 0. real 시나리오는 T042·T050·T057·T060에 막혀 T061 미체크. 리포트 `_workspace/03_qa_report.md` |
 
 ## 결함
 
