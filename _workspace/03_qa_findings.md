@@ -28,6 +28,7 @@
 | 2026-10-15 | check_b8 커밋 확인 (680ba9e·4a512df) | 확인됨 | 680ba9e = QA가 검증한 작업 트리와 동일. 4a512df: PASS 줄에 기대 출처 근거 표시("기대 출처: git remote"), EXPECTED_ORIGIN 폴백에 한계 주석. 레포 안 실행으로 team-skyjs 서버 preflight 통과 재확인 |
 | 2026-10-15 | T072 헌법 정합 (d3302ae) | 결함 1(문서) | 헌법 v1.1.0 기술 제약 백엔드 줄 = ADR-20(공식 SDK, Claude tool runner, openai-agents, LangChain 미사용, 접두사 선택). 원칙 I~V 문구 무변경. plan.md Constitution Check·data-model.md에 개정 전 문구 잔존 → QA-5 |
 | 2026-10-15 | QA-5 재검증 (155daef) | 확인됨 | T072 체크 |
+| 2026-10-15 | B9 (9e1c2c6) T071 | 통과, 결함 1(문서) | 계약 diff 없음. backend/app·pyproject·uv.lock·설치 패키지에 langchain 0. check_b1~b7 OK(check_b6: 두 런타임 가짜 전송으로 SSE 순서·final=Message·llm_usage·도구 예외 failed 후 계속·location null·refusal UPSTREAM_ERROR·호출/시간 상한 부분 final·foo:bar 기동 실패, check_b7: 가짜 MCP 서버로 두 런타임 amplitude 성공/실패). fake SSE 원문의 이벤트 이름·data 키 구조가 전환 전 기준선과 diff 0. 정적: 내부 이벤트 형식·`conversations.py` 무변경, 공통 래퍼가 tool_call→tool_result 순서. real 무키 실서버: anthropic·openai 둘 다 message_created→error UPSTREAM_ERROR + DB failed, `foo:bar`면 기동 실패, 비용 0. 프론트 무변경으로 check-f1~f6 OK, 채팅·제안(첫 진행 0.76s)·목록·채택·Amplitude 화면 흐름 통과. 결함 QA-6 |
 
 ## 결함
 
@@ -75,3 +76,12 @@
 - 수정 방향: CTO. plan.md:63을 "일치(헌법 v1.1.0, d3302ae)"로, data-model.md:85를 "`AGENT_MODEL`·`CODE_SUMMARY_MODEL` 문자열 그대로(`provider:model`, ADR-20)"로. 백엔드 코드·`.env.example:13`의 LangChain 잔존은 B9(T062~T068) 범위라 B9 완료 시 QA가 확인
 - 수신: cto
 - 상태: 확인됨 (155daef: plan.md:63 "일치(헌법 v1.1.0, d3302ae)", data-model.md:85 provider:model. specs·.specify의 남은 LangChain 언급은 미사용을 밝히는 문장뿐)
+
+### QA-6: 운영 env 예시에 OpenAI 전환 주석과 OPENAI_API_KEY 조건 안내가 없다
+- 모듈: backend / B9 (T068)
+- 경계면: 운영 설정(배포 env) — 런타임 선택 접두사
+- 기대: T068 "`.env.example`, `deploy/kbap-pm-agent.env.example`: … OpenAI로 바꾸는 예시(`openai:gpt-6-luna`)는 주석으로, `OPENAI_API_KEY`는 openai 접두사일 때만 필요하다고 적는다"
+- 실제: `.env.example:14·18`에는 있다. `deploy/kbap-pm-agent.env.example:9~12`는 `AGENT_MODEL`·`CODE_SUMMARY_MODEL`·`ANTHROPIC_API_KEY=`·`OPENAI_API_KEY=` 값만 있고 두 안내가 없다. 운영자가 openai로 바꿀 때 두 변수를 같은 접두사로 맞춰야 한다는 사실(다르거나 틀리면 기동 실패)을 알 길이 없다
+- 수정 방향: 백엔드. `.env.example`의 두 주석을 운영 예시에도 옮긴다
+- 수신: backend-dev
+- 상태: 열림

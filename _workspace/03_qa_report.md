@@ -66,6 +66,22 @@ T061(최종)은 fake 부분(계약 diff 없음, check 13개, quickstart 1~10)을
 
 - 2026-10-15: 프론트 mock 삭제(345f633·0b98411) 후 F1·F6 재검증 통과(check-f1~f6 OK, 운영 빌드 자산 `/kbap-pm-agent/`, 헬스 배지 ok, F3 SSE 화면 흐름 그대로). 출처 결함 구조 대응(67c6f3a) 확인, 남은 위험 갱신.
 
+## Phase 8: LLM SDK 전환 (B9, ADR-20) — 2026-10-15
+
+| 태스크 | 결과 | 비고 |
+|---|---|---|
+| T071 B9 교차 검증 (fake + 가짜 전송) | 통과 | 계약 diff 0, langchain 0(코드·lock·설치본), check_b1~b7 OK, fake SSE 이벤트 이름·data 키 구조가 전환 전 기준선과 diff 0, 두 런타임 무키 실서버 error 경로 계약대로, 프론트 무변경 화면 흐름 통과 |
+| T072 헌법 정합 | 통과 | 헌법 v1.1.0 = ADR-20. QA-5(plan·data-model 개정 전 문구) 확인됨 |
+| T073 실제 키 검증 | 미검증 | `ANTHROPIC_API_KEY`·`OPENAI_API_KEY` 없음. 비용 0 원칙 |
+| T068 env 예시 | 결함 QA-6(열림) | 운영 env 예시에 OpenAI 전환·`OPENAI_API_KEY` 조건 안내 누락 |
+
+남은 위험(Phase 8):
+- **두 실제 공급자 모두 실호출 미검증.** Anthropic `output_format=AgentAnswer`가 스키마 제약(`min_length`, `ge`, 판별 유니온)을 받아들이는지, OpenAI strict 스키마가 판별 유니온을 받아들이는지는 실제 API로만 확인된다(research.md R8). 가짜 전송 검사는 요청 파라미터와 응답 처리만 본다.
+- **Anthropic 최종 응답은 `parsed_output`이 아니라 마지막 text 블록 JSON을 `AgentAnswer`로 다시 검증한다.** T065 문구와 다르지만 검증 결과는 같다. text 블록이 없으면 `UPSTREAM_ERROR`로 끝난다.
+- **잘못된 모델 접두사는 서버 기동 실패다(ADR-20 의도).** 운영 env를 고칠 때 헬스체크가 아예 안 뜨는 형태로 드러난다. 배포 스크립트 3단계 헬스체크가 이를 잡는다.
+- **OpenAI 사용량은 실행 1회 합계 1행.** 요청별 비용 추적은 안 된다.
+- 위 Phase 1~7 남은 위험의 "실제 LLM 경로 실호출 미검증"은 런타임이 바뀌었을 뿐 그대로다(ProviderStrategy 문구는 ADR-20으로 대체됨).
+
 ## 실행 방법 (사용자가 직접 재현)
 
 ```bash
