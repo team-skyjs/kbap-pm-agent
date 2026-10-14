@@ -164,6 +164,13 @@
 - 바꾸면 영향: 운영 env의 `CORS_ORIGINS` 값과 `backend/checks/check_b8.py`의 Origin 한 줄.
 - 상태: 확정
 
+### ADR-19: 코드 인덱스·검색 범위는 소스 파일로 한정 `CODE_GLOB` (ADR-9 보정)
+- 결정: rg 인덱스(`TRACK_CALL_PATTERN`), `search_code`, `read_code`, `trackedEventCount`는 `CODE_GLOB`(기본 `*.{ts,tsx,js,jsx}`) 파일만 대상으로 한다. 마크다운·문서·`specs/`는 제외한다. 에이전트의 `code` 근거는 이 범위 안의 파일만 인용할 수 있다.
+- 이유: kbap-fe는 `specs/*/tasks.md`에도 `track(EVENTS.` 문자열이 있다. 범위가 없으면 에이전트가 문서를 코드 근거로 인용하고 이벤트 수가 부풀려진다(QA-2, 2026-10-15. develop f34c518 기준 전체 120 vs 소스 117).
+- 버린 대안: `.gitignore`·확장자 무관 전체 검색(문서 오인용), 디렉토리 화이트리스트(`src/`만, 저장소 구조가 바뀌면 깨짐).
+- 바꾸면 영향: `backend/app/repo.py`·`code_tools.py`의 rg 인자. 계약 영향 없음.
+- 상태: 확정
+
 ## 위임 (구현자가 정하되 "설정으로 바꿀 수 있게"만 지킨다)
 
 - UI 라이브러리·스타일링 (PRD: 세련된 UI 비목표)
@@ -191,3 +198,4 @@
 | `GITHUB_TOKEN` | | ADR-13 |
 | `REPOS_DIR` | `/data/repos` | |
 | `TRACK_CALL_PATTERN`, `SCREEN_GLOB` | `track\(EVENTS\.(\w+)`, `src/app/**/*.tsx` | ADR-9 |
+| `CODE_GLOB` | `*.{ts,tsx,js,jsx}` | ADR-19 |

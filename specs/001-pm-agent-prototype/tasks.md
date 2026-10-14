@@ -130,7 +130,7 @@ description: "PM Agent 프로토타입 구현 태스크"
 
 - [ ] T031 [US2] [BE] `backend/app/repo.py`: 외부 seam. `REPOS_DIR` 아래 얕은 클론·pull·HEAD 7자리 SHA를 다룬다. (B4)
   - 인증: `GITHUB_TOKEN`이 있으면 HTTPS URL에 넣되 로그·예외 메시지에서 제거한다.
-  - 인덱스: rg로 `TRACK_CALL_PATTERN` 인덱스(이벤트명 → `[{file,line,function}]`)를 만들고, `SCREEN_GLOB`로 화면 수를 센다.
+  - 인덱스: rg로 `CODE_GLOB`(기본 `*.{ts,tsx,js,jsx}`) 파일만 대상으로 `TRACK_CALL_PATTERN` 인덱스(이벤트명 → `[{file,line,function}]`)를 만들고, `SCREEN_GLOB`로 화면 수를 센다. 문서 파일은 제외한다(ADR-19).
   - 실패 처리: 실패 사유를 `lastError` 문장으로 만든다.
   - fake 분기: 클론 없이 계약서 Settings 예시 값을 돌려준다.
 - [x] T032 [US2] [BE] `backend/app/settings.py`: `contracts/07-settings.md` 그대로. (B4)
@@ -139,7 +139,7 @@ description: "PM Agent 프로토타입 구현 태스크"
   - `POST /api/settings/repository/sync`: 미등록이면 409 `REPOSITORY_NOT_CONFIGURED`. 실패하면 502 `UPSTREAM_ERROR`를 내되 `lastError`를 저장하고 기존 클론을 유지한다.
   - `PUT /api/settings/taxonomy`: 전부 통과해야 교체한다. 실패하면 기존 값을 유지하고 `message`에 `"events[3].properties[0].type: ..."` 식으로 첫 위반 위치를 적는다. `app_settings` 키 `repository`·`taxonomy`.
 - [x] T033 [US2] [BE] `backend/checks/check_b4.py`: `file://` 시험 저장소(`track(EVENTS.a)` 3곳)를 등록해 `trackedEventCount == 3`, sync 시 HEAD 변경 반영, 택사노미 계약 예시 업로드 `eventCount == 2`, `"date"` 타입 업로드가 400이고 `eventCount` 2 유지, fake 모드 `PUT /api/settings/repository` 응답이 계약 예시 값 (B4 검사)
-- [ ] T034 [US2] [QA] B4 교차 검증: 실제 `team-skyjs/kbap-fe` 클론. `trackedEventCount`가 호출 수(`rg -o 'track\(EVENTS\.' | wc -l`, 한 줄에 여러 번 있으면 각각 센다)와 같은지 본다. 토큰을 빼고 동기화했을 때 `UPSTREAM_ERROR`이면서 `lastError` 사유가 남고, 응답·로그에 토큰 문자열이 없는지 확인한다(research.md R6). `check_b4.py` 실행 (B4 QA)
+- [ ] T034 [US2] [QA] B4 교차 검증: 실제 `team-skyjs/kbap-fe` 클론. `trackedEventCount`가 소스 파일 호출 수(`rg -o -g '*.{ts,tsx,js,jsx}' 'track\(EVENTS\.' | wc -l`, 한 줄에 여러 번 있으면 각각 센다)와 같은지 본다. kbap-fe develop f34c518 기준 117(문서 매치 3건 제외, ADR-19). 인덱스·`search_code` 결과에 `.md` 파일이 없는지도 확인한다(QA-2). 토큰을 빼고 동기화했을 때 `UPSTREAM_ERROR`이면서 `lastError` 사유가 남고, 응답·로그에 토큰 문자열이 없는지 확인한다(research.md R6). `check_b4.py` 실행 (B4 QA)
 
 ### B5 — 코드 도구 + 요약 캐시 + 예산
 
@@ -147,7 +147,7 @@ description: "PM Agent 프로토타입 구현 태스크"
   - 기록: `record(purpose, model, input_tokens, output_tokens, message_id)`가 단가표(설정)로 `cost_usd`를 계산해 `llm_usage`에 넣는다. fake 모드도 토큰 0·`cost_usd` 0 행을 기록한다(fake `usage.costUsd` 0이 이 합산에서 나온다).
   - 검사: `check()`는 `SUM(cost_usd) >= LLM_BUDGET_USD`이면 `BUDGET_EXCEEDED`를 낸다. `backend/app/conversations.py`의 메시지 전송 라우트에서 스트림 시작 전에 `check()`를 호출하도록 붙인다(계약 05-messages의 스트림 전 에러).
 - [x] T036 [US2] [BE] `backend/app/code_tools.py`: 에이전트 도구. (B5)
-  - 코드 도구: `find_event_calls(eventName)`(인덱스), `search_code(regex, glob)`(rg, 최대 30건), `get_screen_summary(path)`(캐시), `read_code(path, startLine, endLine)`(호출당 최대 200줄, 저장소 밖 경로 거부).
+  - 코드 도구: `find_event_calls(eventName)`(인덱스), `search_code(regex, glob)`(rg, 최대 30건, `CODE_GLOB` 범위 안에서만 — ADR-19), `get_screen_summary(path)`(캐시), `read_code(path, startLine, endLine)`(호출당 최대 200줄, 저장소 밖 경로 거부).
   - 택사노미 도구: `search_taxonomy(query)`, `get_event_definition(name)`. source는 `taxonomy`.
   - 요약 캐시: 동기화 후 백그라운드로 화면 요약을 만든다. 키는 `(path, blob SHA)`이고 재시작 후에도 유지된다. 바뀐 blob만 다시 요약한다. 요약 LLM 호출은 `backend/app/agent.py`의 `summarize(text)`(`CODE_SUMMARY_MODEL`, fake 분기 포함)를 통해서만 하며, 호출 전 `budget.check()`를 부른다. `code_tools.py`는 모델을 직접 만들지 않는다(원칙 III). 상태는 `codeMapStatus` `building`→`ready`|`failed`, `codeMapCommit`으로 반영한다. 파일 통째 전송 도구는 만들지 않는다(원칙 IV).
 - [x] T037 [US2] [BE] `backend/checks/check_b5.py`: `read_code` 201줄 요청이 200줄로 잘림, `search_code` 31건 이상 매치가 30건, 같은 커밋 재동기화 시 `llm_usage` 행 증가 0, 파일 1개 변경 후 1, `LLM_BUDGET_USD=0.01`에서 메시지 전송이 403 `BUDGET_EXCEEDED` (B5 검사)
