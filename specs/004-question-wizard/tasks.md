@@ -49,6 +49,7 @@ description: "질문 마법사 구현 태스크"
   - 예시: `backend/checks/examples.py`에 계약 08b 예시를 추가한다.
 - [ ] T006 [BE] `backend/app/refine.py`(신규)에 `POST /api/questions/refine`를 만들고 `main.py`에 라우터를 등록한다. (Q1)
   - 처리 순서: 요청 검증(400 `VALIDATION_ERROR`), `conversationId`가 있으면 존재 확인(404 `CONVERSATION_NOT_FOUND`), `budget.check()`(403 `BUDGET_EXCEEDED`), 입력 조립(T011이 채운다. 그 전에는 질문만 넘긴다), `agent.refine()`, `question_refinements` 행 삽입, 응답 `{refinementId, refined, summary}`.
+  - 잘림 표시: 조립 결과가 `truncated`면 요약 끝에 " (택사노미 이름이 많아 앞부분만 참고)"를 붙인다. 합계가 300자를 넘으면 모델 요약 쪽을 줄인다(계약 v1.3).
   - 실패 처리: 모델 실패·구조화 검증 실패는 502 `UPSTREAM_ERROR`이고 행을 만들지 않는다.
 - [ ] T007 [BE] `backend/checks/check_b10.py`(신규, fake 모드): assert 항목은 다음과 같다. (Q1 검사)
   - 응답·기록: 다듬기 응답 키가 계약 예시와 같고(`refinementId`는 새 정수, `refined`·`summary`는 예시와 글자 단위로 같음), 행 1개, `llm_usage`에 `purpose='refine'` 0원 행 1개가 생긴다.
@@ -73,12 +74,12 @@ description: "질문 마법사 구현 태스크"
   - `agent.refine()` real 분기가 이를 부르고 `budget.record("refine", model_str, ...)`한다.
 - [ ] T010 [US2] [BE] `backend/app/refine.py` `REFINE_PROMPT` 상수: ADR-30의 규칙 여섯 개(의도 유지, 기간·실제 이벤트 이름·지표·산출물 드러내기, 지어내지 않기·목록에 없는 대상은 사용자 말 유지, 기본값은 요약에 "(원문에 없음)", 이미 구체적이면 그대로, 한국어 두 문장 이내·요약 한 줄)를 문장으로 둔다 (Q1)
 - [ ] T011 [US2] [BE] `refine.py` 입력 조립 함수 `build_prompt(question, conversation_id)`(research R5): (Q1)
-  - 택사노미: `app_settings.taxonomy`의 `events[].name`만 쉼표로 잇고, 없으면 "택사노미 없음"이다.
+  - 택사노미: `app_settings.taxonomy`의 `events[].name`만 쉼표로 잇고, 없으면 "택사노미 없음"이다. 4,000자를 넘으면 앞에서부터 4,000자 안에 드는 이름까지만 넣고 `truncated=True`를 함께 반환한다.
   - 이력: 대화의 `status='completed'`이고 비어 있지 않은 메시지 중 최근 사용자 2개·에이전트 2개, 각 앞 500자, 오래된 순이다. null 대화면 이력 없음이다.
   - 마지막에 질문을 붙인다.
 - [ ] T012 [US2] [BE] `check_b10.py`에 항목을 추가한다. (Q1 검사)
   - 프롬프트: `REFINE_PROMPT`에 규칙 키 문장 여섯 개가 들어 있다.
-  - 조립: `build_prompt`에 택사노미 정의·속성 문자열이 없고 이름만 있다. 이력이 4개 이하이고 각 500자 이하이며 순서가 맞다. 택사노미가 없으면 "택사노미 없음"이다.
+  - 조립: `build_prompt`에 택사노미 정의·속성 문자열이 없고 이름만 있다. 이력이 4개 이하이고 각 500자 이하이며 순서가 맞다. 택사노미가 없으면 "택사노미 없음"이다. 이름 합계가 4,000자를 넘는 택사노미면 넣은 이름 문자열이 4,000자 이하이고 `truncated`이며, fake 응답 요약 끝에 고정 문구가 붙고 300자 이하다.
   - 가짜 전송: 두 런타임이 `RefineResult`를 돌려주고 사용량 행이 생긴다(기존 `checks/llm_mock.py` 재사용). refusal과 잘못된 JSON은 502이고 행이 없다.
 - [ ] T013 [US2] [QA] US2 검증: `check_b10.py`를 실행한다. 실제 키가 있으면 spec US2 수락 시나리오 질문 네 개(일상어, 택사노미에 없는 대상, 후속 질문, 이미 구체적)를 다듬어 규칙 위반을 리포트한다. 키가 없으면 "미검증"으로 둔다 (Q1 QA)
 
