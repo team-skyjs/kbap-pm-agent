@@ -5,7 +5,7 @@ services:
   kbap-pm-agent:
     image: ${IMAGE:-ghcr.io/team-skyjs/kbap-pm-agent}:${IMAGE_TAG:-latest}   # CI가 커밋 해시 태그를 넣는다
     container_name: kbap-pm-agent
-    env_file: /home/simhani1/files/kbap-pm-agent.env   # 키는 이 파일에만
+    env_file: ${ENV_FILE:-/home/simhani1/files/kbap-pm-agent.env}   # CI는 Secrets로 생성한 파일을 넘긴다
     networks:
       - monitor-net
     ports:

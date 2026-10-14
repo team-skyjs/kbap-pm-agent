@@ -4,13 +4,29 @@ main에 병합되면 자동 배포된다.
 - 백엔드: `.github/workflows/deploy-backend.yml` — GitHub 러너가 `backend/`를 이미지로 빌드해 `ghcr.io/team-skyjs/kbap-pm-agent:<커밋해시>`로 푸시 → 홈서버의 self-hosted 러너가 `deploy/docker-compose.kbap-pm-agent.yml`로 pull·up·헬스체크. `backend/**`, `deploy/**` 변경 시에만 돈다.
 - 프론트: `.github/workflows/pages.yml` — `frontend/**` 변경 시 GitHub Pages로 배포.
 
-비밀값은 GitHub에 두지 않는다. 백엔드 키는 홈서버의 env 파일 하나에만 있다.
+운영 env 파일은 deploy job이 매번 GitHub Secrets/Variables에서 생성하고 끝나면 지운다. 서버에 키 파일을 두지 않는다.
 
 ## 최초 1회 설정 (사람이 한다)
 
 1. **self-hosted 러너 등록** (홈서버): 레포 Settings → Actions → Runners → New self-hosted runner. 라벨은 기본 `self-hosted`면 된다. 러너 사용자가 docker 그룹에 있어야 한다. techmoa 러너가 같은 서버면 그 러너를 이 레포에도 등록하거나 org 러너로 공유한다.
 2. **홈서버 MySQL에 DB·계정**: `docker exec -i mysql-prod mysql -uroot -p < deploy/mysql-init.sql` (암호를 바꿔서)
-3. **서버 env 파일**: `deploy/kbap-pm-agent.env.example`을 홈서버 `/home/simhani1/files/kbap-pm-agent.env`로 복사해 값 입력, `chmod 600`. CI는 이 파일을 읽기만 한다.
+3. **GitHub Secrets / Variables** (레포 Settings → Secrets and variables → Actions):
+
+   | Secrets (비밀) | 내용 |
+   |---|---|
+   | `DATABASE_URL` | `mysql://pm:<암호>@mysql-prod:3306/kbap_pm_agent` (mysql-init.sql의 계정) |
+   | `ANTHROPIC_API_KEY` | Claude 키 |
+   | `OPENAI_API_KEY` | GPT 쓸 때만. 없으면 빈 값 |
+   | `GH_PAT` | kbap-fe 클론용 PAT (Contents: Read). env 파일에는 `GITHUB_TOKEN`으로 들어간다 |
+   | `ACCESS_TOKEN` | 공개 API 잠금. 비우면 꺼짐 |
+
+   | Variables (비밀 아님) | 값 |
+   |---|---|
+   | `PUBLIC_BASE_URL` | `https://pm-agent-api.simhani1.dev` |
+   | `CORS_ORIGINS` | `https://team-skyjs.github.io` |
+   | `AMPLITUDE_MCP_URL` | `https://mcp.amplitude.com/mcp` |
+   | `AGENT_MODEL`, `CODE_SUMMARY_MODEL`, `LLM_BUDGET_USD` | 생략 시 기본값(anthropic:claude-sonnet-5-5 / claude-haiku-5-5 / 200) |
+   | `VITE_API_BASE_URL` | 프론트 빌드용. `PUBLIC_BASE_URL`과 같은 값 |
 4. **cloudflared ingress**: `pm-agent-api.simhani1.dev` → `http://kbap-pm-agent:8000` (같은 `monitor-net`)
 5. **GitHub Pages**: 레포 Settings → Pages → Source "GitHub Actions". Settings → Variables → `VITE_API_BASE_URL=https://pm-agent-api.simhani1.dev`
 6. **ghcr 패키지**: 첫 배포 후 Packages에 `kbap-pm-agent`가 생긴다. 비공개여도 deploy job이 GITHUB_TOKEN으로 로그인해 pull하므로 공개로 바꿀 필요 없다.
@@ -25,7 +41,7 @@ PUBLIC_BASE_URL=https://pm-agent-api.simhani1.dev uv run python checks/check_b8.
 
 ## 수동 배포 (폴백)
 
-CI가 막혔을 때만. 개발 PC에서 `docker login ghcr.io` 후 `./deploy/push-and-deploy.sh [ssh-host]`.
+CI가 막혔을 때만. `deploy/kbap-pm-agent.env.example`을 `.env.prod`로 복사해 값을 채우고, 개발 PC에서 `docker login ghcr.io` 후 `./deploy/push-and-deploy.sh [ssh-host]`.
 
 ## research.md R4 확인 결과
 

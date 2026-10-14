@@ -4,7 +4,7 @@
 set -e
 
 COMPOSE_FILE="${COMPOSE_FILE:-/home/simhani1/files/docker-compose.kbap-pm-agent.yml}"
-ENV_FILE="${ENV_FILE:-/home/simhani1/files/kbap-pm-agent.env}"
+export ENV_FILE="${ENV_FILE:-/home/simhani1/files/kbap-pm-agent.env}"
 export IMAGE="${IMAGE:-ghcr.io/team-skyjs/kbap-pm-agent}"
 export IMAGE_TAG="${IMAGE_TAG:-latest}"
 NAME="kbap-pm-agent"
