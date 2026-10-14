@@ -25,11 +25,12 @@ main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`
 
 **문서 흐름:** PRD → `.specify/memory/constitution.md` → `specs/<feature>/spec.md` → plan.md → tasks.md → 구현. Spec Kit 스킬(`speckit-*`)로 생성한다.
 
-**트리거:** 구현·빌드·개발 시작, 프론트/백엔드 작업, 재실행·부분 재실행·이어서 구현 요청 시 `kbap-build-orchestrator` 스킬을 사용하라. PRD 작성·수정은 `create-prd`. 단순 질문은 직접 응답 가능.
+**트리거:** 구현·빌드·개발 시작, 프론트/백엔드 작업, UI/UX 개선·화면 다듬기·디자인 시스템 적용·UI 리뷰, 재실행·부분 재실행·이어서 구현 요청 시 `kbap-build-orchestrator` 스킬을 사용하라. PRD 작성·수정은 `create-prd`. 단순 질문은 직접 응답 가능.
 
 **변경 이력:**
 | 날짜 | 변경 내용 | 대상 | 사유 |
 |------|----------|------|------|
+| 2026-10-15 | frontend-designer 에이전트 + design-system·chat-ui-design·ui-review 스킬 추가, 오케스트레이터·QA 연결 | agents/frontend-designer, skills 3개, orchestrator, qa-integrator | 사용자 요청: ChatGPT 레퍼런스 채팅 UI/UX 전문 에이전트 |
 | 2026-10-15 | 초기 구성 (cto, frontend-dev, backend-dev, qa-integrator / 4 스킬) | 전체 | - |
 | 2026-10-15 | PRD를 `docs/prd/`로 이동, PRD 스킬 산출물 경로 규칙 추가 | CLAUDE.md, 참조 경로 전체 | 사용자 요청 |
 | 2026-10-15 | 코드 주석 규칙 6개 추가 | CLAUDE.md, implement-from-contract | 사용자 지시 |

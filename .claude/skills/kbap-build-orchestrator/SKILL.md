@@ -1,6 +1,6 @@
 ---
 name: kbap-build-orchestrator
-description: "K-Bap PM Agent(docs/prd/PRD-kbap-pm-agent.md) 구현 하네스의 오케스트레이터. CTO가 기술 결정과 API 계약을 내리고, frontend-dev·backend-dev가 frontend/·backend/를 병렬 구현하고, qa-integrator가 모듈마다 경계면을 검증하는 팀을 조율한다. 트리거: 'PRD대로 구현', '프로토타입 만들어', '하네스 실행', '빌드 시작', '개발 시작', 'frontend/backend 구현'. 후속 작업: '다시 실행', '재실행', '백엔드만 다시', '프론트만 다시', 'QA만 다시', '계약 바꿔서 다시', '이어서 구현', '이전 결과 기반으로 개선', '업데이트', '수정', '보완' 요청 시에도 반드시 이 스킬을 사용. PRD 자체를 쓰거나 고치는 요청에는 쓰지 않는다 (그건 create-prd)."
+description: "K-Bap PM Agent(docs/prd/PRD-kbap-pm-agent.md) 구현 하네스의 오케스트레이터. CTO가 기술 결정과 API 계약을 내리고, frontend-dev·backend-dev가 frontend/·backend/를 병렬 구현하고, frontend-designer가 채팅 UI/UX(레이아웃·사이드바·메시지·반응형·접근성·디자인 시스템)를 설계·구현하며, qa-integrator가 모듈마다 경계면을 검증하는 팀을 조율한다. 트리거: 'PRD대로 구현', '프로토타입 만들어', '하네스 실행', '빌드 시작', '개발 시작', 'frontend/backend 구현', 'UI 개선', '화면 다듬기', '채팅 UI 설계', '디자인 시스템 적용', 'UI 리뷰'. 후속 작업: '다시 실행', '재실행', '백엔드만 다시', '프론트만 다시', 'QA만 다시', '계약 바꿔서 다시', '이어서 구현', '이전 결과 기반으로 개선', '업데이트', '수정', '보완' 요청 시에도 반드시 이 스킬을 사용. PRD 자체를 쓰거나 고치는 요청에는 쓰지 않는다 (그건 create-prd)."
 ---
 
 # K-Bap Build Orchestrator
@@ -24,7 +24,8 @@ PRD를 동작하는 프로토타입으로 바꾸는 팀을 조율한다. 리더(
 | cto | 커스텀 `cto` | 스택·구조·계약·작업분할 결정, 계약 변경 심사 | tech-decision | `_workspace/01_cto_{tech-decisions,api-contract,task-split}.md` |
 | backend-dev | 커스텀 `backend-dev` | `backend/` 구현 | implement-from-contract | `backend/`, `_workspace/02_backend_progress.md` |
 | frontend-dev | 커스텀 `frontend-dev` | `frontend/` 구현 | implement-from-contract | `frontend/`, `_workspace/02_frontend_progress.md` |
-| qa-integrator | 커스텀 `qa-integrator` | 모듈별 경계면 교차 검증, 최종 리포트 | integration-qa | `_workspace/03_qa_{findings,report}.md` |
+| frontend-designer | 커스텀 `frontend-designer` | 채팅 UI/UX 설계·구현(레이아웃·사이드바·메시지·입력창·상태·반응형·접근성), 디자인 시스템, UI 자기 점검 | design-system, chat-ui-design, ui-review (+implement-from-contract 보고 형식) | `frontend/` 표현 계층, `_workspace/02_designer_progress.md`, `_workspace/04_designer_<화면>.md` |
+| qa-integrator | 커스텀 `qa-integrator` | 모듈별 경계면 교차 검증, 최종 리포트 | integration-qa | `_workspace/03_qa_{findings,report}.md` | UI 검증 시 ui-review 병행 |
 
 모든 Agent 호출에 `model: "opus"`를 명시한다.
 
@@ -44,6 +45,7 @@ PRD를 동작하는 프로토타입으로 바꾸는 팀을 조율한다. 리더(
 | "스택/계약 다시" | Phase 2 → 계약 변경 영향 모듈만 Phase 3 → Phase 4 |
 | "백엔드만 / 프론트만 다시" | Phase 3에서 해당 개발자 + QA만 |
 | "QA만 다시" | Phase 4만 |
+| "UI만 다시 / 화면 다듬기 / 디자인 적용" | Phase 3에서 frontend-designer + qa-integrator만. 계약·데이터 변경 없음 |
 | "이어서 구현" | Phase 3부터, progress 파일의 "진행중/대기" 모듈부터 |
 
 ### Phase 1: 준비
@@ -80,6 +82,7 @@ Agent(
    - `cto` (대기 모드: "계약 변경 요청과 질의에만 응답하라. 변경 시 계약서 수정 후 세 명에게 SendMessage")
    - `backend-dev`, `frontend-dev` ("implement-from-contract 스킬로 task-split 순서대로 구현. 모듈 완료마다 qa-integrator에게 보고")
    - `qa-integrator` ("integration-qa 스킬로 모듈 완료 알림마다 즉시 검증. 결함은 담당자에게 직접")
+   - `frontend-designer` — 작업에 UI/UX 항목(레이아웃·사이드바·메시지 표현·반응형·접근성·디자인 시스템)이 있을 때만 띄운다 ("chat-ui-design·design-system 스킬로 설계 후 구현, ui-review로 자기 점검 후 qa-integrator에 보고. api.ts와 데이터 흐름은 frontend-dev 소유, 공동 파일은 사전 통지"). 디자인 시스템이 없으면 designer의 토큰 제안을 리더가 사용자에게 확인받은 뒤 적용한다
    모두 `run_in_background: true`, `model: "opus"`.
 
 2. 작업 목록: `.specify/feature.json`이 가리키는 `specs/<feature>/tasks.md`가 있으면 그것이 작업 목록이다 (Spec Kit 흐름). 팀원들은 완료한 태스크를 `- [x]`로 체크한다. tasks.md가 없으면 `_workspace/00_tasks.md`에 task-split을 체크리스트로 복사해 대신 쓴다
@@ -89,6 +92,8 @@ Agent(
    - QA → 개발자: `QA-N` 결함 형식, 경계면 결함은 양쪽에
    - 개발자 → CTO: `[계약 변경 요청]` 형식. CTO → 전원: 변경 통지
    - 개발자 ↔ 개발자: 계약서 읽고도 모호할 때만 직접 질의
+   - frontend-designer ↔ frontend-dev: 공동 파일(App/Chat/ConversationList/ProposalCard/SettingsPage) 수정 전 범위 통지. 표현은 designer, 데이터 흐름은 dev
+   - frontend-designer → qa-integrator: `[모듈 완료]`에 반응형·접근성 자체 점검 결과(ui-review) 첨부
 
 4. 리더 모니터링:
    - 팀원 완료/유휴 알림 수신 시 progress·findings 파일을 읽어 상태 파악
@@ -123,6 +128,7 @@ PRD ──→ [cto] ──→ 01_cto_tech-decisions.md
           ┌─────────────┴──────────────┐                          │
           ↓                            ↓                          │
    [backend-dev]  ←─ shape 질의 ─→  [frontend-dev] ───────────────┤
+                                   [frontend-designer] ─ 표현 계층 ─┘(공동 파일 사전 통지)
      backend/                        frontend/                    │
    02_backend_progress.md         02_frontend_progress.md         │
           │    [모듈 완료]                 │    [모듈 완료]          │

@@ -22,6 +22,7 @@ model: opus
 - **결함은 재현 가능하게 쓴다.** "안 됨"이 아니라 "POST /api/chat 응답이 `{data: {...}}`로 감싸져 오는데 `frontend/src/api.ts:42`는 감싸지지 않은 객체를 기대. 계약서 3.1절은 감싸지 않은 형태"
 - **경계면 이슈는 양쪽에 알린다.** 한쪽만 고치면 다른 쪽이 또 깨진다
 - `integration-qa` 스킬의 체크리스트를 따른다. 체크리스트는 이 프로젝트의 경계면에 맞춰져 있다
+- 화면(UI/UX) 변경을 검증할 때는 `ui-review` 스킬의 체크리스트를 병행한다. 경계면은 integration-qa, 시각·사용성·반응형·접근성은 ui-review
 
 ## 입력/출력 프로토콜
 - 입력: `_workspace/01_cto_api-contract.md`, `frontend/`, `backend/`, 양쪽 progress 파일, 개발자들의 모듈 완료 알림
