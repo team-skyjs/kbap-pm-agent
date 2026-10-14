@@ -47,14 +47,14 @@ NEEDS CLARIFICATION: 없음. 동작 가정 4개는 [research.md](./research.md) 
 
 | 원칙 | 판정 | 근거 |
 |---|---|---|
-| I. 계약이 경계다 | 준수 | 계약 v1.2는 공통 절 문구만 바꾼다(Base URL, 요청 헤더, 접근 계층 응답, CORS, 콜백 비고, 예시 호스트). 응답 shape는 그대로다. 원본과 `specs/001-pm-agent-prototype/contracts/` 분할본 diff 0을 확인했다. 헌법의 "`specs/<feature>/contracts/`로 복제·동기화"는 계약이 기능마다 따로 있을 때를 전제한 문구로 읽었다. 계약은 제품 전체에 하나라 002에 사본을 만들지 않고 [contracts/README.md](./contracts/README.md)가 정본 위치와 바뀐 절을 가리킨다(사본을 늘리면 동기화 대상이 늘어난다). |
+| I. 계약이 경계다 | 준수 | 계약 v1.2는 공통 절 문구만 바꾼다(Base URL, 요청 헤더, 접근 계층 응답, CORS, 콜백 비고, 예시 호스트). 응답 shape는 그대로다. 원본과 `specs/001-pm-agent-prototype/contracts/` 분할본 diff 0을 확인했다. 헌법 v1.2.0 원칙 I이 분할본 위치를 제품당 하나로 정했다. 그래서 002에 사본을 만들지 않고 [contracts/README.md](./contracts/README.md)가 정본 위치와 바뀐 절을 가리킨다(사본을 늘리면 동기화 대상이 늘어난다). |
 | II. 작동하는 가장 짧은 코드 | 준수 | 경로 분기는 nginx `location` 블록 하나이고, 터널 경로 규칙과 앱 코드 라우팅을 만들지 않는다. CORS 미들웨어와 `VITE_API_BASE_URL`은 지워서 코드가 준다. 세션 만료 판정은 `api.ts`의 `rawFetch` 한 곳이다. |
 | III. 갈아끼울 수 있는 외부 연동 | 준수 | LLM·Amplitude·GitHub seam과 `AGENT_MODE=fake`는 그대로다. Access는 앱 바깥 계층이라 seam 대상이 아니다. 로컬과 fake 모드는 Access 없이 같은 출처 구조로 돈다. |
 | IV. 비용 상한 | 준수 (강화) | 예산 상한 코드는 그대로이고, 허용 목록 밖 호출이 백엔드에 닿지 않아 예산 소진 경로가 닫힌다(SC-001). |
 | V. 모듈마다 검사 하나 | 준수 | G1~G5 모듈마다 검사 태스크와 QA 태스크를 둔다(tasks.md). 테스트 선작성 태스크는 없다. |
 
 기술 제약 절과의 대조:
-- **불일치(개정 대기)**: 헌법 기술 제약의 두 줄이 ADR-22와 어긋난다. "프론트: … GitHub Pages 프로젝트 페이지(`/kbap-pm-agent/`)에 배포하므로 … 백엔드 주소는 빌드 시 환경변수로 받는다"와 "FE↔BE: HTTPS 공개 엔드포인트(터널)"다. 거버넌스상 헌법 개정이 먼저다. 개정안은 team-lead에 전달했고 tasks.md "선행 조건"이다.
+- **일치(헌법 v1.2.0, 79d45b9)**: 기술 제약의 프론트 줄(홈서버 nginx 정적 컨테이너, 같은 출처, 상대 경로 `/api`), FE↔BE 줄(Cloudflare Access 뒤 터널, nginx가 `/api` 프록시), 비목표 줄(앱 내 인증 없음, 접근 제한은 인프라)이 ADR-22와 맞는다. 선행 조건은 해소됐다.
 - 비목표 "사용자 인증·권한"과 충돌하지 않는다. 앱 안의 인증은 계속 없고, 접근 제한은 인프라(Cloudflare Access)가 한다.
 
 ## Project Structure
