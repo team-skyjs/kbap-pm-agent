@@ -14,6 +14,7 @@ services:
       AGENT_MODEL: ${AGENT_MODEL:-anthropic:claude-sonnet-5-5}
       CODE_SUMMARY_MODEL: ${CODE_SUMMARY_MODEL:-anthropic:claude-haiku-5-5}
       REPOS_DIR: /data/repos
+      FAKE_DELAY_SECONDS: ${FAKE_DELAY_SECONDS:-0.5}
     volumes:
       - backend-data:/data
     depends_on:

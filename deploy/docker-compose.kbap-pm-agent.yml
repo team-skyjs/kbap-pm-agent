@@ -1,0 +1,27 @@
+# 서버용 (빌드 없음). /home/simhani1/files/docker-compose.kbap-pm-agent.yml 로 복사해 쓴다.
+# cloudflared 와 같은 docker 네트워크(monitor-net)에 붙여 터널 Service URL 을 http://kbap-pm-agent:8000 으로 잡는다.
+# 포트 8000은 kbap-amplitude가 쓰므로 호스트는 8001 (ADR-11).
+services:
+  kbap-pm-agent:
+    image: simhani1/kbap-pm-agent:latest
+    container_name: kbap-pm-agent
+    env_file: /home/simhani1/files/kbap-pm-agent.env   # 키는 이 파일에만
+    networks:
+      - monitor-net
+    ports:
+      - "127.0.0.1:8001:8000"   # 호스트에서 curl/헬스체크용
+    volumes:
+      - kbap-pm-agent-data:/data   # 저장소 클론·인덱스·화면 요약 캐시
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=5)\""]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  kbap-pm-agent-data:
+
+networks:
+  monitor-net:
+    external: true
