@@ -91,11 +91,11 @@ description: "질문 마법사 구현 태스크"
 
 **Independent Test**: `us12.spec.ts`(고정 응답)와 quickstart 시연 모드 시나리오 1~6.
 
-- [ ] T014 [P] [US1] [FE] `frontend/src/api.ts`에 다듬기 호출을 추가한다. (Q2)
+- [x] T014 [P] [US1] [FE] `frontend/src/api.ts`에 다듬기 호출을 추가한다. (Q2)
   - 타입: `RefineResponse{refinementId, refined, summary}`, `RefineChoice = 'refined' | 'original' | 'cancelled'`, `RefineChoiceResponse{refinementId, choice, chosenAt}`.
   - 함수: `refineQuestion(conversationId: number | null, question)`, `recordRefineChoice(id, choice)`.
   - 파서는 기존 방식(`any`·캐스팅 없음)이고, 에러는 기존 `ApiError`다.
-- [ ] T015 [US1] [FE] `frontend/src/refine.ts`(신규) 다듬기 상태 훅이다. (Q2)
+- [x] T015 [US1] [FE] `frontend/src/refine.ts`(신규) 다듬기 상태 훅이다. (Q2)
   - 상태: `idle | refining | card | error`.
   - 시작: `start(question, conversationId)`. 진행 중 대화가 바뀌면 결과를 버린다.
   - 선택 동작: 네 개이고, 각각 `recordRefineChoice`를 기다리지 않고 부르며 실패를 무시한다.
@@ -104,7 +104,7 @@ description: "질문 마법사 구현 태스크"
     - `insertRefined()`: 기록 `refined`, 입력창 값만 교체.
     - `close()`: 기록 `cancelled`, 원문 유지.
   - 오류: 다듬기 오류면 `error` 상태와 안내 문구이고 원문을 유지한다. `UNAUTHORIZED` 문구는 기존 규칙(003 UI-2)을 따른다.
-- [ ] T016 [US1] [FE] `frontend/checks/check-f9.ts`: 계약 `08b-questions.md`의 다듬기·선택 응답 예시가 `api.ts` 파서를 통과하고, `choice`가 세 값 밖이면 파서가 거부하는지 확인한다. `checks/run.ts`에 f9를 추가한다 (Q2 검사)
+- [x] T016 [US1] [FE] `frontend/checks/check-f9.ts`: 계약 `08b-questions.md`의 다듬기·선택 응답 예시가 `api.ts` 파서를 통과하고, `choice`가 세 값 밖이면 파서가 거부하는지 확인한다. `checks/run.ts`에 f9를 추가한다 (Q2 검사)
 - [ ] T017 [US1] [DS] `frontend/src/RefineCard.tsx`(신규)·`style.css`: 비교 카드 표현이다. (Q3)
   - 배치: 입력창 위에 둔다. 넓은 화면은 좌 원문·우 개선안 두 열, 375px은 위아래로 쌓는다. 개선안 아래에 변경 요약 한 줄이 있다.
   - 동작: 버튼 네 개(개선안으로 보내기·원문으로 보내기·입력창에 넣기·닫기)다.

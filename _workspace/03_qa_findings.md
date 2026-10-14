@@ -52,6 +52,7 @@
 | 2026-10-15 | us8 409 순서 케이스 커밋 (e69b9dd) | 통과 | 커밋본(UI_PORT=5195) check 7 OK, check:ui 256 통과·50 건너뜀·실패 0. 경합 회귀 검사가 원격에 남음 |
 | 2026-10-15 | UI-3 재검증 (2e6012b) | 확인됨 | playwright.config.ts: listen(0)로 빈 포트를 골라 UI_PORT에 넣고 reuseExistingServer false. 커밋본 두 사본에서 UI_PORT 없이 check:ui를 동시에 돌려 각각 다른 포트(55737·55738)로 떴고 둘 다 256 통과·50 건너뜀·실패 0. UI_PORT=5199를 미리 점유하면 재사용하지 않고 'already used'로 종료 1 |
 | 2026-10-15 | 도구 일부 실패 표시 (6db3a1c, 검사 07426fb) | 통과 | 커밋본 check 7·f6 OK, check:ui 265 통과·50 건너뜀·실패 0. QA 직접(상세 응답 가로채기, 도구 2건 중 1건 failed): 요약 "⚠ 조회 2건 중 1건 실패", details.has-failed, 펼치면 li.failed 1·"실패" 라벨, 대비 라이트 5.93·다크 9.48, axe 심각·중대 0. 실패를 글자로도 구분(색만 아님) |
+| 2026-10-15 | 004 질문 마법사 데이터 흐름 (3b5f09d, frontend T014~T016) | 정적 통과, 백엔드 대기 | 계약 v1.3 08b 절과 api.ts 대조: 요청 {conversationId(null 허용), question}, 응답 {refinementId, refined, summary}, 선택 기록 {choice: refined/original/cancelled} → {refinementId, choice, chosenAt} 필드 단위 일치, 캐스팅 없는 파서, REFINEMENT_NOT_FOUND 추가. 커밋본 npm run check f1~f5·f7~f9 OK(f9 단언 11), 계약 diff 0. 실제 백엔드 왕복은 다듬기 엔드포인트 완료 후 |
 
 ## 결함
 
