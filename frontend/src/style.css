@@ -23,3 +23,8 @@ main { padding: 16px; max-width: 960px; }
 .card tr.new { background: #fff6d6; font-weight: bold; }
 .decision { margin-top: 10px; border-top: 1px dashed #ccc; padding-top: 6px; }
 .decision input { flex: 1; }
+.layout { display: flex; align-items: flex-start; }
+.list { width: 260px; flex-shrink: 0; border-right: 1px solid #ddd; min-height: calc(100vh - 42px); }
+.list a { display: block; padding: 8px 12px; border-bottom: 1px solid #eee; color: inherit; text-decoration: none; }
+.list a.current { background: #eef3ff; }
+main { flex: 1; min-width: 0; }

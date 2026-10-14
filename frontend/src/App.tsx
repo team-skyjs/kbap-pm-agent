@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createConversation, describe, getHealth, MOCK } from './api.ts'
 import Chat from './Chat.tsx'
+import ConversationList from './ConversationList.tsx'
 
 // ponytail: 경로가 두세 개라 라우터 라이브러리 대신 location.hash를 직접 읽는다. 경로가 늘면 react-router HashRouter로.
 function useHash(): string {
@@ -22,12 +23,13 @@ function HealthBadge() {
   return <span className={`badge ${cls}`} title="GET /api/health">서버: {label}</span>
 }
 
-function NewConversationButton() {
+function NewConversationButton({ onCreated }: { onCreated: () => void }) {
   const [error, setError] = useState('')
   async function create() {
     setError('')
     try {
       const c = await createConversation()
+      onCreated()
       location.hash = `#/conversations/${c.id}`
     } catch (e) {
       setError(describe(e))
@@ -48,13 +50,16 @@ export default function App() {
         <a href="#/settings">설정</a>
         <HealthBadge />
         {MOCK && <span className="badge degraded">mock 데이터</span>}
-        <NewConversationButton />
+        <NewConversationButton onCreated={refreshList} />
       </header>
+      <div className="layout">
+      <ConversationList version={listVersion} currentId={conv ? Number(conv[1]) : null} />
       <main>
         {hash === '#/settings' ? <p>설정 화면 (F5)</p>
           : conv ? <Chat key={conv[1]} id={Number(conv[1])} onChanged={refreshList} />
           : <p>대화를 선택하거나 새로 시작하세요.</p>}
       </main>
+      </div>
     </>
   )
 }
