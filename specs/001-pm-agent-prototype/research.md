@@ -53,7 +53,7 @@ docker ps --format '{{.Names}} {{.Ports}}' | grep -E 'mysql|8001'
 
 ## 기술 선택 메모 (확정 ADR, 구현 시 주의)
 
-- **LangChain 구조화 응답**: `create_agent(..., response_format=AgentAnswer)`의 최종 구조화 응답은 공급자에 따라 도구 방식이나 네이티브 방식으로 만들어진다. B6에서 Claude와 GPT로 각각 한 번씩 실행해 `funnel_design`의 `location` 필수 규칙이 Pydantic 검증을 통과하는지 확인한다.
+- **LangChain 구조화 응답**: `ProviderStrategy(AgentAnswer)`로 공급자 네이티브 구조화 출력을 쓴다(ADR-17). `ToolStrategy`는 강제 tool_choice를 쓰는데 현행 Claude 모델이 이를 거부한다. JSON 스키마로 못 쓰는 교차 규칙(`funnel_design` 신규 단계 `location` 필수, `order` 연속)은 응답 후 Pydantic으로 검증한다. B6에서 Claude와 GPT로 각각 한 번씩 실행해 스키마가 거부되지 않는지 확인한다.
 - **SSE + Cloudflare**: 응답 헤더에 `Cache-Control: no-cache`, `X-Accel-Buffering: no`를 둔다. 15초 ping으로 터널 유휴 종료를 막는다.
 - **프론트 검사 스크립트 실행**: `.ts` 검사는 Node 22.6 이상의 `--experimental-strip-types` 또는 `tsx`로 실행한다. 고르는 것은 구현자 몫이며 `package.json` 스크립트 `check`에 고정한다.
 - **ripgrep 패턴**: kbap-fe는 `track(EVENTS.xxx, ...)` 단일 패턴이다(형제 레포에서 확인). 패턴은 `TRACK_CALL_PATTERN` 환경변수로 둔다.

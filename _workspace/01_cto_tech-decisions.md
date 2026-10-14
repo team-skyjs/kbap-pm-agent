@@ -34,7 +34,7 @@
 - 버린 대안: kbap-amplitude식 9노드 StateGraph. 품질 튜닝 단계에서는 유효하나 v1에서 "채택할 만한가"를 검증하기 전에 짓기엔 과하다. 필요해지면 같은 LangGraph 위에서 노드를 추가한다.
 - 바꾸면 영향: `backend/app/agent/` 내부만. SSE 이벤트 형식은 계약이므로 유지.
 - 가드: 질문당 도구 호출 상한 `AGENT_MAX_TOOL_CALLS`(기본 20). 초과 시 그때까지의 결과로 최종 응답을 강제한다.
-- 상태: 확정
+- 상태: 확정 (구조화 응답 전략은 ADR-17로 보정)
 
 ### ADR-3: Amplitude는 `langchain-mcp-adapters` + MCP Python SDK OAuth, 서버가 토큰 보관
 - 결정: `MultiServerMCPClient`로 `https://mcp.amplitude.com/mcp`(streamable HTTP)에 연결한다. 인증은 MCP SDK의 `OAuthClientProvider`(OAuth 2.1 + 동적 클라이언트 등록)를 `auth`로 넘기고, 토큰 저장소는 MySQL `app_settings`에 둔다. 최초 1회는 브라우저 승인이 필요하므로 계약서의 `POST /api/integrations/amplitude/connect` → 승인 URL → `GET /api/integrations/amplitude/callback` 흐름으로 처리한다.
@@ -147,6 +147,14 @@
 - 이유: 명세 SC-004(완성 제안 3분 이내)와 엣지 케이스(상한 시간 초과 시 부분 답변). 170초면 저장·전송 여유를 두고 3분 안에 끝난다.
 - 버린 대안: 상한 없음(SC-004 위반), 상한 초과 시 `error`(이미 모은 근거를 버림).
 - 바꾸면 영향: 에이전트 실행 함수 한 곳.
+- 상태: 확정
+
+### ADR-17: 구조화 최종 응답은 `ProviderStrategy(AgentAnswer)`로 명시한다 (ADR-2 보정)
+- 결정: `create_agent(..., response_format=ProviderStrategy(AgentAnswer))`로 공급자 네이티브 구조화 출력을 쓴다(Anthropic `output_config.format` json_schema, OpenAI `response_format`). Evidence는 JSON 스키마가 `anyOf`가 되도록 일반 Union으로 정의한다. 판별 유니온과 검증 결과는 같다. JSON 스키마로 표현되지 않는 교차 규칙(신규 단계 `location` 필수, `order` 연속)은 응답 수신 후 Pydantic 검증으로 강제한다.
+- 이유: LangChain 1.4의 `ToolStrategy` 경로는 `tool_choice="any"`를 강제하는데, claude-sonnet-5-5·claude-opus-5-5·claude-fable-5-1이 강제 tool_choice를 400으로 거부한다(backend-dev 보고, 2026-10-15).
+- 버린 대안: `ToolStrategy`(위 모델에서 실패), 최종 응답을 텍스트로 받아 JSON 파싱(FR-002 구조 보장이 약해짐).
+- 바꾸면 영향: `backend/app/agent.py`와 `schemas.py`의 Evidence 정의만. 계약·FE 영향 없음.
+- 미검증: 실제 키 호출 전이다. T042에서 스키마 제약(`minItems` 등) 거부가 나오면 해당 제약을 Pydantic 사후 검증으로 옮긴다.
 - 상태: 확정
 
 ## 위임 (구현자가 정하되 "설정으로 바꿀 수 있게"만 지킨다)
