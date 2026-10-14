@@ -5,6 +5,8 @@ import {
   type ConversationDetail, type Message, type Proposal, type StreamEvent, type ToolCall,
 } from './api.ts'
 import ProposalCard from './ProposalCard.tsx'
+import RefineCard from './RefineCard.tsx'
+import { useRefine } from './refine.ts'
 import { SessionBanner, Topbar } from './Shell.tsx'
 
 const SOURCE_LABEL: Record<ToolCall['source'], string> = { amplitude: 'Amplitude', code: '코드', taxonomy: '택사노미' }
@@ -112,6 +114,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   const inputRef = useRef<HTMLTextAreaElement>(null)
   // 사용자가 맨 아래를 보고 있을 때만 자동 스크롤
   const atBottom = useRef(true)
+  const refine = useRefine({ conversationId: id, setInput, send: (c) => { void submit(c) } })
 
   const applied = useRef(0)
   const load = useCallback(() => {
@@ -174,8 +177,8 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     onChanged()
   }
 
-  async function submit() {
-    const content = input.trim()
+  async function submit(text?: string) {
+    const content = (text ?? input).trim()
     if (!content || streaming) return
     setNotice('')
     setTokenError(false)
@@ -240,6 +243,11 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   if (loadError) return <><Topbar title="대화" /><div className="scroll"><div className="thread"><p className="error">{loadError}</p></div></div></>
   if (!detail) return <><Topbar title="대화" /><div className="scroll"><div className="thread"><p className="muted">불러오는 중…</p></div></div></>
   const disabled = streaming || running
+  const rs = refine.state
+  const refining = rs.phase === 'refining'
+  const refineError = rs.phase === 'error' ? rs : null
+  // 카드가 닫히거나 입력창에 넣은 뒤에는 입력창으로 포커스
+  const backToInput = (f: () => void) => () => { f(); inputRef.current?.focus() }
   return (
     <>
       <Topbar title={detail.title ?? '새 대화'} />
@@ -256,22 +264,39 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
         </div>
       </div>
       <div className="chat-input-wrap">
+        {rs.phase === 'card' && (
+          <RefineCard
+            original={rs.original} refined={rs.result.refined} summary={rs.result.summary}
+            onSendRefined={backToInput(refine.sendRefined)} onSendOriginal={backToInput(refine.sendOriginal)}
+            onInsert={backToInput(refine.insertRefined)} onClose={backToInput(refine.close)}
+          />
+        )}
         <div className="chat-input">
           <textarea
-            ref={inputRef} value={input} rows={1} maxLength={4000} disabled={disabled} aria-label="질문 입력"
+            ref={inputRef} value={input} rows={1} maxLength={4000} disabled={disabled || refining} aria-label="질문 입력"
             aria-describedby="chat-hint" placeholder="질문을 입력하세요"
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => { setInput(e.target.value); if (refineError) refine.dismissError() }}
             onKeyDown={(e) => {
               // 한글 조합 중 Enter는 글자 확정용이라 전송하지 않음
               if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void submit() }
             }}
           />
-          <button type="button" className="btn primary" onClick={() => void submit()} disabled={disabled || !input.trim()}>보내기</button>
+          <button
+            type="button" className="btn refine-btn" aria-busy={refining}
+            disabled={disabled || refining || !input.trim()} onClick={() => void refine.start(input)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" />
+            </svg>
+            <span className="refine-label">질문 다듬기</span>
+          </button>
+          <button type="button" className="btn primary" onClick={() => void submit()} disabled={disabled || refining || !input.trim()}>보내기</button>
         </div>
-        <p id="chat-hint" className={notice ? 'hint error' : 'hint muted'} aria-live="polite">
-          {tokenError
+        <p id="chat-hint" className={notice || refineError ? 'hint error' : 'hint muted'} aria-live="polite">
+          {tokenError || refineError?.code === 'UNAUTHORIZED'
             ? <>접근 토큰이 없거나 맞지 않습니다. <a href="#/settings">설정에서 확인하세요</a></>
-            : notice || (disabled ? '에이전트 실행 중에는 보낼 수 없습니다' : 'Enter로 전송, Shift+Enter로 줄바꿈')}
+            : notice || (refineError && `다듬지 못했습니다: ${refineError.message} 원문은 그대로 있습니다.`)
+              || (refining ? '질문을 다듬는 중입니다' : disabled ? '에이전트 실행 중에는 보낼 수 없습니다' : 'Enter로 전송, Shift+Enter로 줄바꿈')}
         </p>
       </div>
     </>
