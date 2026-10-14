@@ -60,7 +60,7 @@ NEEDS CLARIFICATION: 없음. 열린 항목은 모두 ADR "가정"으로 확정�
 | V. 모듈마다 검사 하나 | 준수 | B1~B8, F1~F6 모듈마다 검사 스크립트 태스크 하나와 QA 교차 검증 태스크 하나를 둔다(tasks.md). 테스트 선작성 태스크는 없다. |
 
 기술 제약 절과의 대조:
-- **불일치(개정 대기)**: 헌법 기술 제약의 "백엔드: Python 3.12, FastAPI, LangChain 1.x"가 ADR-20과 어긋난다. 거버넌스상 헌법 개정이 먼저다. 개정안은 "LangChain 1.x" → "공급자 공식 SDK(anthropic, openai-agents)"이고, MINOR 개정이다(team-lead 처리).
+- **일치(헌법 v1.1.0, d3302ae)**: 기술 제약의 백엔드 스택이 ADR-20(공급자 공식 SDK, LangChain 미사용)과 맞는다.
 - 레포 구조, 스택, SSE, 해시 라우팅, 조회 전용 Amplitude, 비목표 제외가 모두 ADR과 일치한다.
 - 공유 접근 토큰은 헌법이 "선택 장치"로 명시한 그대로다.
 
