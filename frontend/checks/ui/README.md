@@ -7,7 +7,7 @@ npm run check:ui                              # 전체: 스펙 × 9 프로젝트
 npx playwright test -c playwright.config.ts us6 --project 1280-dark   # 일부만
 ```
 
-- dev 서버는 `webServer`가 `UI_PORT`(기본 5183)로 띄운다. 다른 워크트리의 5173 서버를 잘못 재사용하지 않기 위한 전용 포트다. 경로는 `vite.config.ts`의 `base`를 따른다.
+- dev 서버는 실행마다 빈 포트로 새로 띄우고 기존 서버를 재사용하지 않는다(`reuseExistingServer: false`). 그래서 여러 트리에서 동시에 돌려도 각자 자기 코드를 검사한다. 포트를 정하려면 `UI_PORT`를 주되, 이미 쓰는 포트면 실패한다. 경로는 `vite.config.ts`의 `base`를 따른다.
 - 기존 모듈 검사(`npm run check`, f1~f8)와 분리된 명령이다.
 
 ## 프로젝트 (9)
