@@ -34,15 +34,23 @@ def _history(conversation_id: int) -> list[dict]:
     return sorted(rows, key=lambda r: (r["created_at"], r["id"]))
 
 
-def build_prompt(question: str, conversation_id: int | None) -> str:
-    """규칙 + 택사노미 이벤트 이름(정의·속성 없이) + 최근 대화 + 질문 + 출력 형식."""
+def taxonomy_names() -> list[str]:
     t = db.get_setting("taxonomy")
-    names = ", ".join(e["name"] for e in t["events"]) if t and t.get("events") else "택사노미 없음"
-    rows = _history(conversation_id) if conversation_id is not None else []
+    return [e["name"] for e in t["events"]] if t and t.get("events") else []
+
+
+def render_prompt(question: str, names: list[str], rows: list[dict]) -> str:
+    """규칙 + 택사노미 이벤트 이름(정의·속성 없이) + 최근 대화(rows: role·content, 오래된 순) + 질문 + 출력 형식."""
     history = "\n".join(f"[{'사용자' if r['role'] == 'user' else '에이전트'}] {r['content'][:HISTORY_CHARS]}"
                         for r in rows) or "이력 없음"
-    return (f"{REFINE_PROMPT}\n\n## 택사노미 이벤트 이름\n{names}\n\n## 직전 대화(오래된 순)\n{history}"
+    return (f"{REFINE_PROMPT}\n\n## 택사노미 이벤트 이름\n{', '.join(names) or '택사노미 없음'}"
+            f"\n\n## 직전 대화(오래된 순)\n{history}"
             f"\n\n## 다듬을 질문\n{question}\n\n## 출력\nrefined: 다듬은 질문. summary: 무엇이 달라졌는지 한 줄.")
+
+
+def build_prompt(question: str, conversation_id: int | None) -> str:
+    rows = _history(conversation_id) if conversation_id is not None else []
+    return render_prompt(question, taxonomy_names(), rows)
 
 
 @router.post("/refine")
