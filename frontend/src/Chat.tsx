@@ -5,6 +5,7 @@ import {
   type ConversationDetail, type Message, type Proposal, type StreamEvent, type ToolCall,
 } from './api.ts'
 import ProposalCard from './ProposalCard.tsx'
+import { Topbar } from './Shell.tsx'
 
 const SOURCE_LABEL: Record<ToolCall['source'], string> = { amplitude: 'Amplitude', code: '코드', taxonomy: '택사노미' }
 
@@ -43,15 +44,15 @@ function Progress({ calls }: { calls: ToolCall[] }) {
 
 function MessageView({ m, streamError, onProposal }: { m: Message; streamError?: string; onProposal: (p: Proposal) => void }) {
   return (
-    <div className={`msg ${m.role}`}>
-      <div className="muted">{m.role === 'user' ? '나' : '에이전트'} · {new Date(m.createdAt).toLocaleString()}</div>
+    <div className={`msg ${m.role}`} title={new Date(m.createdAt).toLocaleString()}>
+      <span className="sr-only">{m.role === 'user' ? '나' : '에이전트'}:</span>
       {m.content && <Markdown>{m.content}</Markdown>}
       <ToolCalls calls={m.toolCalls} />
       {m.status === 'running' && <Progress calls={m.toolCalls} />}
       {m.status === 'failed' && <div className="error">실행 실패: {streamError ?? errorText(m.errorCode ?? 'INTERNAL_ERROR')}</div>}
       {m.proposals.map((p) => <ProposalCard key={p.id} p={p} onUpdated={onProposal} />)}
       {m.usage && (
-        <div className="muted">
+        <div className="muted usage">
           {m.usage.model} · 입력 {m.usage.inputTokens} / 출력 {m.usage.outputTokens} 토큰 · ${m.usage.costUsd.toFixed(4)}
         </div>
       )}
@@ -142,24 +143,30 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     }
   }
 
-  if (loadError) return <p className="error">{loadError}</p>
-  if (!detail) return <p>불러오는 중…</p>
+  if (loadError) return <><Topbar title="대화" /><div className="scroll"><div className="thread"><p className="error">{loadError}</p></div></div></>
+  if (!detail) return <><Topbar title="대화" /><div className="scroll"><div className="thread"><p className="muted">불러오는 중…</p></div></div></>
   const disabled = streaming || running
   return (
-    <div className="chat">
-      <h3>{detail.title ?? '새 대화'}</h3>
-      {detail.messages.length === 0 && <p className="muted">질문을 입력하세요. 예: 스캔 퍼널에서 가장 큰 이탈 지점 찾아서 개선안 제안해줘</p>}
-      {detail.messages.map((m) => <MessageView key={m.id} m={m} streamError={streamErrors[m.id]} onProposal={onProposal} />)}
-      <div className="composer">
-        <textarea
-          value={input} rows={3} maxLength={4000} disabled={disabled}
-          placeholder={disabled ? '에이전트 실행 중에는 보낼 수 없습니다' : '질문 (Ctrl+Enter로 전송)'}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void submit() }}
-        />
-        <button onClick={() => void submit()} disabled={disabled || !input.trim()}>보내기</button>
+    <>
+      <Topbar title={detail.title ?? '새 대화'} />
+      <div className="scroll">
+        <div className="thread chat">
+          {detail.messages.length === 0 && <p className="muted empty">질문을 입력하세요. 예: 스캔 퍼널에서 가장 큰 이탈 지점 찾아서 개선안 제안해줘</p>}
+          {detail.messages.map((m) => <MessageView key={m.id} m={m} streamError={streamErrors[m.id]} onProposal={onProposal} />)}
+        </div>
       </div>
-      {notice && <p className="error">{notice}</p>}
-    </div>
+      <div className="chat-input-wrap">
+        <div className="chat-input">
+          <textarea
+            value={input} rows={1} maxLength={4000} disabled={disabled} aria-label="질문 입력"
+            placeholder={disabled ? '에이전트 실행 중에는 보낼 수 없습니다' : '질문 (Ctrl+Enter로 전송)'}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void submit() }}
+          />
+          <button type="button" className="btn primary" onClick={() => void submit()} disabled={disabled || !input.trim()}>보내기</button>
+        </div>
+        {notice && <p className="error notice">{notice}</p>}
+      </div>
+    </>
   )
 }
