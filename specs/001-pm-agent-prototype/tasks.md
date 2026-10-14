@@ -97,12 +97,12 @@ description: "PM Agent 프로토타입 구현 태스크"
   - 타입: `contracts/02-objects.md`의 ConversationSummary, Message, ToolCall, Proposal. Evidence는 `kind` 판별 유니온, FunnelStep `status`는 `"existing" | "new"`.
   - 함수: `createConversation()`, `getConversation(id)`.
   - `sendMessage(id, content, handlers)`: `fetch` + `ReadableStream`으로 SSE를 파싱한다. `: ping`은 무시하고 `message_created`·`tool_call`·`tool_result`·`final`·`error`를 처리하며, 스트림 전 JSON 에러는 `ApiError`로 던진다.
-- [ ] T024 [US1] [FE] `frontend/src/Chat.tsx`: 경로 `#/conversations/:id`. (F3)
+- [x] T024 [US1] [FE] `frontend/src/Chat.tsx`: 경로 `#/conversations/:id`. (F3)
   - 대화 열기·전송: "새 대화" → POST 후 이동. 메시지는 마크다운으로 렌더하고, 도구 호출은 접힌 목록으로 둔다.
   - 진행 표시: 실행 중 `tool_call`→`tool_result`로 진행 줄(어느 소스 조회 중인지)을 갱신하고, `final`로 메시지를 교체한다.
   - 오류·복구: `error`는 메시지 하단에 code별 문구로 표시한다. 스트림이 끊기면 상세를 다시 조회한다. 409·403은 입력창 아래에 안내하고, 실행 중에는 입력을 비활성화한다.
 - [x] T025 [US1] [FE] `frontend/checks/check-f3.ts`: `contracts/05-messages.md`의 SSE 예시 원문(ping 줄 추가)을 파서에 넣어 이벤트 순서와 타입이 맞고 `final`이 Message로 읽힌다. `contracts/04`의 상세 예시가 타입을 통과한다 (F3 검사)
-- [ ] T026 [US1] [QA] F3↔B3 교차 검증(fake): 질문 전송부터 첫 진행 표시까지 5초 이내(SC-004), 이벤트별 화면 상태, 새로고침 후 상세 일치, 409 표시, `check-f3.ts` 실행 (F3 QA)
+- [x] T026 [US1] [QA] F3↔B3 교차 검증(fake): 질문 전송부터 첫 진행 표시까지 5초 이내(SC-004), 이벤트별 화면 상태, 새로고침 후 상세 일치, 409 표시, `check-f3.ts` 실행 (F3 QA)
 
 ### F4 — 제안 카드 + 채택/보류
 
@@ -133,12 +133,12 @@ description: "PM Agent 프로토타입 구현 태스크"
   - 인덱스: rg로 `TRACK_CALL_PATTERN` 인덱스(이벤트명 → `[{file,line,function}]`)를 만들고, `SCREEN_GLOB`로 화면 수를 센다.
   - 실패 처리: 실패 사유를 `lastError` 문장으로 만든다.
   - fake 분기: 클론 없이 계약서 Settings 예시 값을 돌려준다.
-- [ ] T032 [US2] [BE] `backend/app/settings.py`: `contracts/07-settings.md` 그대로. (B4)
+- [x] T032 [US2] [BE] `backend/app/settings.py`: `contracts/07-settings.md` 그대로. (B4)
   - `GET /api/settings`: `models`·`agentMode`·`budget.limitUsd`는 환경변수, `spentUsd`는 `llm_usage` 합계.
   - `PUT /api/settings/repository`: `url`은 `https://github.com/` 또는 `file://`로 시작해야 한다. 클론과 인덱스 후 응답하고 `codeMapStatus`를 시작한다.
   - `POST /api/settings/repository/sync`: 미등록이면 409 `REPOSITORY_NOT_CONFIGURED`. 실패하면 502 `UPSTREAM_ERROR`를 내되 `lastError`를 저장하고 기존 클론을 유지한다.
   - `PUT /api/settings/taxonomy`: 전부 통과해야 교체한다. 실패하면 기존 값을 유지하고 `message`에 `"events[3].properties[0].type: ..."` 식으로 첫 위반 위치를 적는다. `app_settings` 키 `repository`·`taxonomy`.
-- [ ] T033 [US2] [BE] `backend/checks/check_b4.py`: `file://` 시험 저장소(`track(EVENTS.a)` 3곳)를 등록해 `trackedEventCount == 3`, sync 시 HEAD 변경 반영, 택사노미 계약 예시 업로드 `eventCount == 2`, `"date"` 타입 업로드가 400이고 `eventCount` 2 유지, fake 모드 `PUT /api/settings/repository` 응답이 계약 예시 값 (B4 검사)
+- [x] T033 [US2] [BE] `backend/checks/check_b4.py`: `file://` 시험 저장소(`track(EVENTS.a)` 3곳)를 등록해 `trackedEventCount == 3`, sync 시 HEAD 변경 반영, 택사노미 계약 예시 업로드 `eventCount == 2`, `"date"` 타입 업로드가 400이고 `eventCount` 2 유지, fake 모드 `PUT /api/settings/repository` 응답이 계약 예시 값 (B4 검사)
 - [ ] T034 [US2] [QA] B4 교차 검증: 실제 `team-skyjs/kbap-fe` 클론. `trackedEventCount`가 `rg -c 'track\(EVENTS\.'` 합과 같은지 본다. 토큰을 빼고 동기화했을 때 `UPSTREAM_ERROR`이면서 `lastError` 사유가 남고, 응답·로그에 토큰 문자열이 없는지 확인한다(research.md R6). `check_b4.py` 실행 (B4 QA)
 
 ### B5 — 코드 도구 + 요약 캐시 + 예산
@@ -213,14 +213,14 @@ description: "PM Agent 프로토타입 구현 태스크"
 
 ### F5 — 설정 화면
 
-- [ ] T051 [P] [US4] [FE] `frontend/src/api.ts`: Settings 타입, `getSettings()`, `putRepository()`, `syncRepository()`, `putTaxonomy()`, `connectAmplitude()` (F5)
+- [x] T051 [P] [US4] [FE] `frontend/src/api.ts`: Settings 타입, `getSettings()`, `putRepository()`, `syncRepository()`, `putTaxonomy()`, `connectAmplitude()` (F5)
 - [ ] T052 [US4] [FE] `frontend/src/SettingsPage.tsx`(`#/settings`): (F5)
   - 저장소: URL·브랜치 등록과 동기화 버튼을 둔다. `headCommit`·`codeMapStatus`·`screenCount`·`syncedAt`·`lastError`를 표시한다.
   - 택사노미: `.json` 파일을 고르면 내용을 그대로 PUT한다. 성공하면 `eventCount`·`uploadedAt`를, 실패하면 `message`를 그대로 보여준다.
   - Amplitude: 연결 버튼은 `window.open(authorizationUrl)` 뒤 settings를 3초 간격, 최대 2분 다시 읽는다.
   - 상태 표시: 모델·`agentMode`·예산(`spentUsd`/`limitUsd`)을 보여준다.
   - 접근 토큰: 입력값을 `localStorage`에 저장한다.
-- [ ] T053 [US4] [FE] `frontend/checks/check-f5.ts`: `contracts/02-objects.md` Settings 예시와 `contracts/07` 저장소·택사노미 응답 예시, `contracts/08` connect 예시가 타입을 통과하고, `repository: null`·`taxonomy: null` 변형도 통과 (F5 검사)
+- [x] T053 [US4] [FE] `frontend/checks/check-f5.ts`: `contracts/02-objects.md` Settings 예시와 `contracts/07` 저장소·택사노미 응답 예시, `contracts/08` connect 예시가 타입을 통과하고, `repository: null`·`taxonomy: null` 변형도 통과 (F5 검사)
 - [ ] T054 [US4] [QA] F5↔B4·B7 교차 검증: quickstart 시나리오 7~10을 fake와 real 각각, 잘못된 택사노미의 위치 메시지 표시와 기존 값 유지(US4-4), 토큰 미설정 저장소의 `lastError` 표시(엣지 케이스), `check-f5.ts` 실행 (F5 QA)
 
 **Checkpoint**: 네 스토리 모두 독립 동작.
@@ -232,8 +232,8 @@ description: "PM Agent 프로토타입 구현 태스크"
 - [ ] T055 [BE] `deploy/`: `../kbap-amplitude/deploy/`의 compose·배포 스크립트·env 예시를 복사해 이름을 바꾼다(`docker-compose.kbap-pm-agent.yml`: 이미지 `simhani1/kbap-pm-agent:latest`, `monitor-net`, `127.0.0.1:8001:8000`. `deploy.kbap-pm-agent.sh`: pull → up → `/api/health` 확인). 멀티아키 빌드·푸시 명령. 홈서버 MySQL 전용 DB·계정 SQL. research.md R4 확인 결과 기록 (B8)
 - [ ] T056 [BE] `backend/checks/check_b8.py`: `PUBLIC_BASE_URL`의 `/api/health`가 200, `Origin: https://simhani1.github.io` preflight 통과, SSE 응답이 100초 이상 끊기지 않음(fake 실행에 지연을 넣어 확인) (B8 검사)
 - [ ] T057 [QA] B8 교차 검증: 운영 도메인 health, cloudflared 경유 SSE ping 유지, 운영 `ACCESS_TOKEN` 사용 여부를 사용자에게 확인(R3) (B8 QA)
-- [ ] T058 [P] [FE] `.github/workflows/pages.yml`: `frontend/` 빌드(`VITE_API_BASE_URL`은 레포 Variables) 후 GitHub Pages 배포 (F6)
-- [ ] T059 [FE] `frontend/checks/check-f6.ts`: `frontend/dist/index.html`의 자산 경로가 `/kbap-pm-agent/`로 시작하고, 번들에 `VITE_API_BASE_URL` 값이 들어 있다 (F6 검사)
+- [x] T058 [P] [FE] `.github/workflows/pages.yml`: `frontend/` 빌드(`VITE_API_BASE_URL`은 레포 Variables) 후 GitHub Pages 배포 (F6)
+- [x] T059 [FE] `frontend/checks/check-f6.ts`: `frontend/dist/index.html`의 자산 경로가 `/kbap-pm-agent/`로 시작하고, 번들에 `VITE_API_BASE_URL` 값이 들어 있다 (F6 검사)
 - [ ] T060 [QA] F6↔B8 교차 검증: GitHub Pages URL에서 운영 백엔드로 health·대화·SSE·채택 왕복, `check-f6.ts` 실행 (F6 QA)
 - [ ] T061 [QA] 최종: quickstart.md 전 시나리오(fake·real), 계약 동기화 `cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md` 출력 없음, 모든 `check_*`·`check-*` 일괄 실행
 
