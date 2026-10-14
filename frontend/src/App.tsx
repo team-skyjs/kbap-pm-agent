@@ -4,7 +4,7 @@ import Chat from './Chat.tsx'
 import ConversationList from './ConversationList.tsx'
 import SettingsPage from './SettingsPage.tsx'
 
-// ponytail: 경로가 두세 개라 라우터 라이브러리 대신 location.hash를 직접 읽는다. 경로가 늘면 react-router HashRouter로.
+// ponytail: 경로가 두세 개라 라우터 라이브러리 없이 location.hash 직접 사용, 경로가 늘면 react-router HashRouter로
 function useHash(): string {
   const [hash, setHash] = useState(location.hash)
   useEffect(() => {

@@ -1,4 +1,4 @@
-/* ponytail: 읽히고 눌리면 된다. 디자인 시스템 없음. */
+/* ponytail: 읽히고 눌리면 충분, 디자인 시스템 없음 */
 body { margin: 0; font-family: system-ui, sans-serif; font-size: 14px; color: #222; }
 header { display: flex; gap: 16px; align-items: center; padding: 8px 16px; border-bottom: 1px solid #ddd; }
 header a { color: inherit; }

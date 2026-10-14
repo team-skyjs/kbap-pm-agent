@@ -1,4 +1,4 @@
-// F1 검사: contracts/03-health.md 두 예시와 01-common.md 에러 예시가 api.ts 파서를 통과한다.
+// 검사: health 두 예시와 공통 에러 예시의 api.ts 파서 통과
 import assert from 'node:assert/strict'
 import { parseHealth, parseErrorBody, type Health } from '../src/api.ts'
 
@@ -18,6 +18,6 @@ const err = parseErrorBody(JSON.parse(`{
 assert.equal(err.error.code, 'CONVERSATION_NOT_FOUND')
 assert.equal(err.error.message, '대화 7을 찾을 수 없습니다.')
 
-// 계약 밖 shape는 거부한다: FastAPI 기본 422, 키 누락
+// 계약 밖 형태 거부: FastAPI 기본 422, 키 누락
 assert.throws(() => parseErrorBody({ detail: [] }))
 assert.throws(() => parseHealth({ status: 'ok', version: '0.1.0' }))

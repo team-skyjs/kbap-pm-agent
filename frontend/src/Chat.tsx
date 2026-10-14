@@ -75,7 +75,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
 
   const running = detail?.messages.some((m) => m.status === 'running') ?? false
 
-  // 다른 탭에서 시작했거나 끊긴 실행: 스트림이 없으니 3초마다 상세를 다시 읽는다.
+  // 스트림 없는 실행 중 메시지(다른 탭·끊긴 실행)는 3초마다 상세 재조회
   useEffect(() => {
     if (!running || streaming) return
     const t = setInterval(load, 3000)
@@ -89,7 +89,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     switch (e.event) {
       case 'message_created': {
         const u = e.data.userMessage
-        // 실행 중 메시지 규칙(계약서 Message): content "", proposals [], usage null
+        // 계약상 실행 중 메시지 형태: content "", proposals [], usage null
         const placeholder: Message = {
           id: e.data.assistantMessageId, conversationId: u.conversationId, role: 'assistant', status: 'running',
           content: '', errorCode: null, toolCalls: [], proposals: [], usage: null, createdAt: u.createdAt,
@@ -130,10 +130,10 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
       const end = await sendMessage(id, content, onEvent)
       setInput('')
       if (end === 'disconnected') setNotice('스트림이 끊겨 저장된 상태를 다시 불러왔습니다.')
-      // 끝나면 항상 상세를 다시 읽는다: 서버가 채운 제목(첫 메시지 앞 40자)과 저장 상태를 그대로 반영 (QA-1)
+      // 종료 후 항상 상세 재조회: 서버가 채운 제목과 저장 상태 반영
       load()
     } catch (e) {
-      // 스트림 전 에러(409 RUN_IN_PROGRESS, 403 BUDGET_EXCEEDED, 400, 404, 401)는 입력창 아래에 안내
+      // 스트림 시작 전 에러(실행 중, 예산 초과, 입력 오류 등)는 입력창 아래에 안내
       setNotice(describe(e))
       if (e instanceof ApiError && e.code === 'RUN_IN_PROGRESS') load()
     } finally {
