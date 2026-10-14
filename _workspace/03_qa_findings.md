@@ -50,6 +50,7 @@
 | 2026-10-15 | PR #13 Codex 2건 (f1afd83) | 통과, 결함 1(검사 인프라) | 정적: fixtures가 항상 가로챔(LIVE 단락 제거), us8의 test.skip(LIVE) 제거·live 테스트만 skip(!LIVE), Markdown이 memo로 감싸짐, us6에 캔버스 MutationObserver 단언. 커밋본(고유 포트 UI_PORT=5193): check 7·f6 OK, check:ui 247 통과·50 건너뜀·실패 0. live 모드는 공용 개발 DB(8000)에 대화를 만들어 재실행하지 않음. 같은 커밋본을 기본 포트 5183으로 돌린 첫 실행은 78 실패 — 동시에 돈 다른 에이전트의 dev 서버를 reuseExistingServer로 재사용한 탓 → UI-3 |
 | 2026-10-15 | 409 경합 수정 (67c0fec) — frontend-dev가 us8 순서 케이스 작성 중 발견한 결함 | 통과 | 결함: 134d5aa에서 늦게 도착한 이전 재조회(completed)가 409 뒤 재조회(running)를 덮어 폴링이 멈추고 409 안내가 남음. 수정: Chat.tsx load()가 재조회마다 순번을 매기고 이미 반영한 순번보다 오래된 응답을 버림(Chat.tsx:114~119). 확인: 커밋본(UI_PORT=5194) check 7·f6 OK, check:ui 247 통과·50 건너뜀·실패 0. 공유 트리의 미커밋 us8 409 순서 케이스를 커밋본 사본에 넣어 9/9 통과, 수정 전 134d5aa Chat.tsx로 바꾸면 9/9 실패(반대 확인). 해당 케이스는 아직 원격에 없음(frontend-dev 커밋 대기) |
 | 2026-10-15 | us8 409 순서 케이스 커밋 (e69b9dd) | 통과 | 커밋본(UI_PORT=5195) check 7 OK, check:ui 256 통과·50 건너뜀·실패 0. 경합 회귀 검사가 원격에 남음 |
+| 2026-10-15 | UI-3 재검증 (2e6012b) | 확인됨 | playwright.config.ts: listen(0)로 빈 포트를 골라 UI_PORT에 넣고 reuseExistingServer false. 커밋본 두 사본에서 UI_PORT 없이 check:ui를 동시에 돌려 각각 다른 포트(55737·55738)로 떴고 둘 다 256 통과·50 건너뜀·실패 0. UI_PORT=5199를 미리 점유하면 재사용하지 않고 'already used'로 종료 1 |
 
 ## 결함
 
@@ -144,4 +145,4 @@
 - 수정 방향: `reuseExistingServer: false`(또는 `!process.env.CI`가 아니라 항상 false)로 바꾸거나, 실행마다 빈 포트를 잡는다. 최소한 README에 "동시 실행 시 UI_PORT를 다르게" 경고
 - 심각도: 높음(검사 결과 오판)
 - 수신: frontend-dev
-- 상태: 열림
+- 상태: 확인됨 (2e6012b: 실행마다 빈 포트, 재사용 끔. 동시 실행 두 사본 모두 256 통과, 점유 포트 지정 시 즉시 실패)
