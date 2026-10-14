@@ -1,10 +1,12 @@
 import logging
+import pathlib
 from contextlib import asynccontextmanager
 import secrets
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import amplitude, conversations, db, settings
@@ -34,9 +36,10 @@ app = FastAPI(title="kbap-pm-agent", version=VERSION, docs_url=None, redoc_url=N
 
 @app.middleware("http")
 async def auth_and_errors(request: Request, call_next):
-    # 인증이 라우팅보다 먼저: 없는 경로도 토큰 없으면 401
+    # 인증이 라우팅보다 먼저: 없는 /api 경로도 토큰 없으면 401. 정적 파일(화면)은 브라우저가 토큰을 못 붙여 제외
     token = env("ACCESS_TOKEN")
-    if token and request.method != "OPTIONS" and request.url.path not in OPEN_PATHS:
+    path = request.url.path
+    if token and request.method != "OPTIONS" and path.startswith("/api/") and path not in OPEN_PATHS:
         given = request.headers.get("authorization", "")
         if not secrets.compare_digest(given, f"Bearer {token}"):
             return err(401, "UNAUTHORIZED", "접근 토큰이 없거나 일치하지 않습니다.")
@@ -94,3 +97,9 @@ def health():
 app.include_router(conversations.router)
 app.include_router(settings.router)
 app.include_router(amplitude.router)
+
+# 빌드된 프론트를 같은 출처로 서빙. 라우터 뒤에 마운트해야 /api/* 가 먼저 매칭. 디렉토리 없으면(로컬 uvicorn) 생략
+# ponytail: 캐시는 StaticFiles의 ETag·Last-Modified 재검증으로 충분, 별도 캐시 헤더 없음
+_static = pathlib.Path(env("STATIC_DIR", "static"))
+if _static.is_dir():
+    app.mount("/", StaticFiles(directory=_static, html=True), name="static")

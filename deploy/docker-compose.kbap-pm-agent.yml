@@ -1,5 +1,5 @@
 # 서버용(빌드 없음). CI가 체크아웃한 이 파일을 그대로 사용, 경로·이미지는 환경변수로 필수 지정.
-# cloudflared와 같은 docker 네트워크(monitor-net). 터널은 웹 컨테이너로만 연결, 백엔드는 nginx 뒤에서만 노출.
+# cloudflared와 같은 docker 네트워크(monitor-net). 컨테이너 하나가 화면과 API를 같은 출처로 서빙.
 services:
   kbap-pm-agent:
     image: ${IMAGE:?IMAGE 필요}:${IMAGE_TAG:-latest}
@@ -14,22 +14,6 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=5)\""]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-
-  kbap-pm-agent-web:
-    image: ${IMAGE_WEB:?IMAGE_WEB 필요}:${IMAGE_TAG:-latest}   # 백엔드와 같은 커밋 태그
-    container_name: kbap-pm-agent-web
-    depends_on:
-      - kbap-pm-agent   # nginx가 기동 시 프록시 대상 이름을 해석하므로 백엔드가 먼저
-    networks:
-      - monitor-net
-    ports:
-      - "127.0.0.1:8002:80"   # 호스트에서 curl·헬스체크용
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null"]
       interval: 60s
       timeout: 10s
       retries: 3

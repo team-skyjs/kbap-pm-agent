@@ -30,9 +30,10 @@ try:
     assert r.status_code == 404, r.text
     r = c.get("/api/integrations/amplitude/callback")
     assert r.status_code != 401
+    assert c.get("/index.html").status_code != 401  # 화면 파일은 토큰 검사 대상 아님(브라우저가 토큰을 못 붙임)
     r = c.options("/api/conversations", headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "GET"})
     assert r.status_code == 200
-    ok("ACCESS_TOKEN 설정: health 200, /api/nope 401, 토큰 있으면 404, preflight 통과")
+    ok("ACCESS_TOKEN 설정: health 200, /api/nope 401, 토큰 있으면 404, 화면 경로는 토큰 검사 제외, preflight 통과")
 finally:
     os.environ["ACCESS_TOKEN"] = ""
 assert c.get("/api/nope").status_code == 404

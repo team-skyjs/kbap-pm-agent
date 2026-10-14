@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 검사: 배포 구성(두 서비스, 경로·이미지 필수화)과 운영 식별자 미노출
+# 검사: 배포 구성(서비스 하나, 경로·이미지 필수화)과 운영 식별자 미노출
 # 실행: 레포 루트에서 deploy/checks/check_g4.sh   (운영 도메인 검사는 PUBLIC_BASE_URL 환경변수가 있을 때만)
 set -uo pipefail
 cd "$(dirname "$0")/../.."
@@ -9,10 +9,10 @@ pass() { echo "PASS $*"; }
 fail() { echo "FAIL $*"; fails=$((fails + 1)); }
 tracked() { git ls-files deploy .github backend frontend | grep -vx "deploy/checks/check_g4.sh"; }   # 검사 패턴을 담은 이 파일 자신은 제외
 
-services=$(IMAGE=x/a IMAGE_WEB=x/b ENV_FILE=/dev/null docker compose -f "$COMPOSE" config --services 2>/dev/null | sort | tr '\n' ' ')
-[ "$services" = "kbap-pm-agent kbap-pm-agent-web " ] && pass "compose config: 서비스 kbap-pm-agent·kbap-pm-agent-web" || fail "compose 서비스 = '$services'"
+services=$(IMAGE=x/a ENV_FILE=/dev/null docker compose -f "$COMPOSE" config --services 2>/dev/null | sort | tr '\n' ' ')
+[ "$services" = "kbap-pm-agent " ] && pass "compose config: 서비스 kbap-pm-agent 하나" || fail "compose 서비스 = '$services'"
 
-if (unset ENV_FILE; IMAGE=x/a IMAGE_WEB=x/b docker compose -f "$COMPOSE" config >/dev/null 2>&1); then
+if (unset ENV_FILE; IMAGE=x/a docker compose -f "$COMPOSE" config >/dev/null 2>&1); then
   fail "ENV_FILE 없이 compose config 성공(필수화 안 됨)"
 else
   pass "ENV_FILE 없으면 compose 실패"

@@ -1,0 +1,13 @@
+# 빌드 컨텍스트가 레포 루트. 비밀·의존성·산출물 제외
+.git
+.env
+.env.*
+**/node_modules
+**/.venv
+**/__pycache__
+frontend/dist
+_workspace
+docs
+specs
+.claude
+.specify

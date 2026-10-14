@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# 서버에서 실행: pull → up → 백엔드·웹·nginx 경유 API 헬스 확인
-# CI(self-hosted 러너)가 COMPOSE_FILE·ENV_FILE·IMAGE·IMAGE_WEB·IMAGE_TAG를 넘김. 수동 실행도 같은 변수 필수
+# 서버에서 실행: pull → up → API 헬스·화면·토큰 잠금 확인
+# CI(self-hosted 러너)가 COMPOSE_FILE·ENV_FILE·IMAGE·IMAGE_TAG를 넘김. 수동 실행도 같은 변수 필수
 set -euo pipefail
 
 : "${COMPOSE_FILE:?COMPOSE_FILE 필요 (deploy/docker-compose.kbap-pm-agent.yml 경로)}"
 : "${ENV_FILE:?ENV_FILE 필요 (운영 env 파일 경로)}"
 : "${IMAGE:?IMAGE 필요}"
-: "${IMAGE_WEB:?IMAGE_WEB 필요}"
-export ENV_FILE IMAGE IMAGE_WEB
+export ENV_FILE IMAGE
 export IMAGE_TAG="${IMAGE_TAG:-latest}"
 NAME="kbap-pm-agent"
 
@@ -35,13 +34,12 @@ wait_for() {  # 이름 URL 검사식(grep -q 패턴) [curl 옵션]
     fi
     sleep 3
   done
-  echo "$name 실패. 로그:"; docker logs --tail 30 "$NAME"; docker logs --tail 30 "$NAME-web"; exit 1
+  echo "$name 실패. 로그:"; docker logs --tail 30 "$NAME"; exit 1
 }
 
 echo "[3/4] 헬스체크"
-wait_for "백엔드 /api/health" http://127.0.0.1:8001/api/health '"db":"ok"'
-wait_for "웹 / (HTML)" http://127.0.0.1:8002/ '<html'
-wait_for "웹 경유 /api/health (nginx 프록시)" http://127.0.0.1:8002/api/health '"db":"ok"'
+wait_for "/api/health" http://127.0.0.1:8001/api/health '"db":"ok"'
+wait_for "/ (화면 HTML)" http://127.0.0.1:8001/ '<html'
 
 echo "[3b] 토큰 잠금 확인 (보호 경로는 토큰 없이 401)"
 code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8001/api/conversations)

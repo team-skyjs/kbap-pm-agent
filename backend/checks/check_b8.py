@@ -1,4 +1,4 @@
-"""운영 검사: Cloudflare Access 서비스 토큰으로 바깥 경로(Access → 터널 → nginx → 백엔드) 전체 확인.
+"""운영 검사: Cloudflare Access 서비스 토큰으로 바깥 경로(Access → 터널 → 컨테이너) 전체 확인.
 - 토큰 있음: / 가 HTML, /api/health 가 계약 JSON, SSE 100초 이상 유지(서버가 AGENT_MODE=fake, FAKE_DELAY_SECONDS=21 이상일 때만)
 - 토큰 없음: API 호출이 백엔드에 닿지 않음(계약 JSON이 아님), X-Requested-With면 401
 - 다른 출처 preflight 불허
@@ -96,7 +96,7 @@ def preflight():
 
 guarded("다른 출처 preflight 불허", preflight)
 
-# --- SSE 장시간: 터널·Access·nginx가 스트림을 끊지 않는지(fake 지연 실행일 때만)
+# --- SSE 장시간: 터널·Access가 스트림을 끊지 않는지(fake 지연 실행일 때만)
 try:
     s = get("/api/settings", {**token, **app_auth})
     mode = s.json().get("agentMode") if s.headers.get("content-type", "").startswith("application/json") else None

@@ -1,4 +1,4 @@
-# backend/·frontend/ → 같은 커밋 태그의 이미지 두 개 → 홈서버(self-hosted 러너)에서 compose pull·up·헬스체크
+# backend/·frontend/ → 이미지 하나(백엔드가 빌드된 프론트를 함께 서빙) → 홈서버(self-hosted 러너)에서 compose pull·up·헬스체크
 # 운영 env 파일은 deploy job이 GitHub Secrets/Variables에서 생성하고 끝나면 삭제
 # Secrets: DATABASE_URL, ANTHROPIC_API_KEY, OPENAI_API_KEY, GH_PAT(→GITHUB_TOKEN), ACCESS_TOKEN, CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET
 # Variables: PUBLIC_BASE_URL, CORS_ORIGINS, AGENT_MODEL, CODE_SUMMARY_MODEL, AMPLITUDE_MCP_URL, LLM_BUDGET_USD
@@ -20,11 +20,10 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}
-  IMAGE_WEB: ghcr.io/${{ github.repository }}-web
 
 jobs:
   build:
-    name: build and push images
+    name: build and push image
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.version.outputs.tag }}
@@ -42,29 +41,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: backend image
+      - name: image (backend + built frontend)
         uses: docker/build-push-action@v6
         with:
-          context: backend
+          context: .   # 프론트 빌드 단계가 있어 레포 루트
+          file: backend/Dockerfile
           platforms: linux/amd64
           push: true
           tags: |
             ${{ env.IMAGE }}:${{ steps.version.outputs.tag }}
             ${{ env.IMAGE }}:latest
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,mode=max,scope=backend
-
-      - name: web image
-        uses: docker/build-push-action@v6
-        with:
-          context: frontend
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ env.IMAGE_WEB }}:${{ steps.version.outputs.tag }}
-            ${{ env.IMAGE_WEB }}:latest
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     name: deploy on home server
@@ -126,8 +114,7 @@ jobs:
       - name: compose pull · up · health
         env:
           IMAGE: ${{ env.IMAGE }}
-          IMAGE_WEB: ${{ env.IMAGE_WEB }}
-          IMAGE_TAG: ${{ needs.build.outputs.tag }}   # 두 이미지 모두 같은 커밋 해시 태그로 고정 배포(latest 아님)
+          IMAGE_TAG: ${{ needs.build.outputs.tag }}   # 커밋 해시 태그로 고정 배포(latest 아님)
           COMPOSE_FILE: ${{ github.workspace }}/deploy/docker-compose.kbap-pm-agent.yml
           ENV_FILE: ${{ github.workspace }}/deploy/.env.prod
         run: bash deploy/deploy.kbap-pm-agent.sh
@@ -139,7 +126,7 @@ jobs:
   verify:
     name: verify through Cloudflare Access
     needs: deploy
-    runs-on: ubuntu-latest   # 바깥 경로(Access → 터널 → nginx → 백엔드) 검사라 홈서버 밖에서 실행
+    runs-on: ubuntu-latest   # 바깥 경로(Access → 터널 → 컨테이너) 검사라 홈서버 밖에서 실행
     steps:
       - uses: actions/checkout@v4
         with:
@@ -180,4 +167,4 @@ jobs:
             --target "${{ github.sha }}" \
             --title "$TAG" \
             --generate-notes \
-            --notes "배포 이미지: \`${{ env.IMAGE }}:${{ needs.build.outputs.tag }}\`, \`${{ env.IMAGE_WEB }}:${{ needs.build.outputs.tag }}\` · 커밋 ${{ github.sha }}"
+            --notes "배포 이미지: \`${{ env.IMAGE }}:${{ needs.build.outputs.tag }}\` · 커밋 ${{ github.sha }}"
