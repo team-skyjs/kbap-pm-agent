@@ -90,6 +90,7 @@ SYSTEM_PROMPT = """너는 K-Bap 앱 팀의 PM 에이전트다. PM 질문에 답�
 6. 코드는 find_event_calls, search_code로 위치를 좁힌 뒤 read_code로 필요한 줄만 읽는다. 파일 전체를 읽으려 하지 않는다.
 7. Amplitude 도구는 조회에만 쓴다. 차트를 만들거나 수정·저장하지 않는다.
 8. Amplitude 조회는 필요한 범위만 요청한다. 시계열은 timeSeriesLimit로 최근 구간만, groupByLimit은 작게, includeAdditionalInfo는 끈다.
+9. 마크다운 굵게(**) 바로 뒤에 조사를 붙이지 말고 한 칸 띄어 쓴다. 예: "**41.3%** 로", "**scan_complete** 이벤트".
 """
 
 
