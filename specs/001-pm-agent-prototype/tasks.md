@@ -272,7 +272,7 @@ description: "PM Agent 프로토타입 구현 태스크"
   - Anthropic용 `anthropic_tools()`: `streamablehttp_client(url, auth=provider)` 세션과 `async_mcp_tool`로 도구 목록을 만든다. 세션 수명은 실행 1회이고, 설치본 헬퍼 이름은 확인한다.
   - OpenAI용 `openai_server()`: `MCPServerStreamableHttp(name="amplitude", params={"url": AMPLITUDE_MCP_URL, "auth": provider}, cache_tools_list=True)`.
   - 미연결이면 둘 다 빈 값이고, fake 분기는 그대로 둔다. MCP 호출 예외는 공통 래퍼에서 `tool_result` `failed`가 되게 한다(OpenAI 쪽은 `failure_error_function` 기본값으로 모델에 실패를 보이되, 래퍼 이벤트도 `failed`로 낸다).
-- [ ] T068 [P] [BE] `.env.example`, `deploy/kbap-pm-agent.env.example`: `AGENT_MODEL=anthropic:claude-sonnet-5-5`, `CODE_SUMMARY_MODEL=anthropic:claude-haiku-5-5`를 둔다. OpenAI로 바꾸는 예시(`openai:gpt-6-luna`)는 주석으로, `OPENAI_API_KEY`는 openai 접두사일 때만 필요하다고 적는다. LangChain 전용 변수가 있으면 제거한다 (B9)
+- [x] T068 [P] [BE] `.env.example`, `deploy/kbap-pm-agent.env.example`: `AGENT_MODEL=anthropic:claude-sonnet-5-5`, `CODE_SUMMARY_MODEL=anthropic:claude-haiku-5-5`를 둔다. OpenAI로 바꾸는 예시(`openai:gpt-6-luna`)는 주석으로, `OPENAI_API_KEY`는 openai 접두사일 때만 필요하다고 적는다. LangChain 전용 변수가 있으면 제거한다 (B9)
 - [x] T069 [BE] `backend/checks/check_b6.py` 갱신: 두 런타임 각각에 `_client()`를 교체해 스크립트 응답을 주입한다(Anthropic은 `httpx2.MockTransport`, OpenAI는 `httpx.MockTransport`, research.md R8). 스크립트는 1차 도구 호출(`find_event_calls`), 2차 최종 `AgentAnswer` JSON이다. assert 항목은 다음과 같다. (B9 검사)
   - 이벤트·사용량: SSE 이벤트 순서(`tool_call` → `tool_result` → `final`)가 계약 05와 같고, `final`이 Message 모델을 통과하며, `llm_usage` 행이 생긴다.
   - 실패 경로: 도구가 예외를 던져도 `final`로 끝나고 해당 `tool_result`가 `failed`다. 신규 단계 `location: null` 응답은 `error` `UPSTREAM_ERROR`, (Anthropic) `stop_reason: "refusal"` 응답도 `error` `UPSTREAM_ERROR`다.

@@ -29,6 +29,7 @@
 | 2026-10-15 | T072 헌법 정합 (d3302ae) | 결함 1(문서) | 헌법 v1.1.0 기술 제약 백엔드 줄 = ADR-20(공식 SDK, Claude tool runner, openai-agents, LangChain 미사용, 접두사 선택). 원칙 I~V 문구 무변경. plan.md Constitution Check·data-model.md에 개정 전 문구 잔존 → QA-5 |
 | 2026-10-15 | QA-5 재검증 (155daef) | 확인됨 | T072 체크 |
 | 2026-10-15 | B9 (9e1c2c6) T071 | 통과, 결함 1(문서) | 계약 diff 없음. backend/app·pyproject·uv.lock·설치 패키지에 langchain 0. check_b1~b7 OK(check_b6: 두 런타임 가짜 전송으로 SSE 순서·final=Message·llm_usage·도구 예외 failed 후 계속·location null·refusal UPSTREAM_ERROR·호출/시간 상한 부분 final·foo:bar 기동 실패, check_b7: 가짜 MCP 서버로 두 런타임 amplitude 성공/실패). fake SSE 원문의 이벤트 이름·data 키 구조가 전환 전 기준선과 diff 0. 정적: 내부 이벤트 형식·`conversations.py` 무변경, 공통 래퍼가 tool_call→tool_result 순서. real 무키 실서버: anthropic·openai 둘 다 message_created→error UPSTREAM_ERROR + DB failed, `foo:bar`면 기동 실패, 비용 0. 프론트 무변경으로 check-f1~f6 OK, 채팅·제안(첫 진행 0.76s)·목록·채택·Amplitude 화면 흐름 통과. 결함 QA-6 |
+| 2026-10-15 | B9 cto 추가 확인 (b3c572d) + QA-6 재검증 (da85244) | 통과 | (1) anthropic 1.13.0이 httpx2 사용·설치 확인(T069 정정 문구와 일치). (2) openai-agents 트레이스: DefaultTraceProvider `_manual_disabled=True`, 가짜 전송 실행 + force_flush 뒤 트레이스 URL 송신 0. (3) MCP 오류 두 경로 × 두 런타임(QA 스크립트, 가짜 FastMCP + 클라이언트 `call_tool` 예외 주입): isError 결과·클라이언트 예외 모두 `tool_result failed` → `final`. 참고: check_b7의 "MCP 예외"는 FastMCP가 isError로 바꿔 보내는 경로라 클라이언트 예외 경로는 검사 스크립트에 없다. QA-6: 운영 env 예시에 OpenAI 예시·키 조건 주석 확인, T068 체크 |
 
 ## 결함
 
@@ -84,4 +85,4 @@
 - 실제: `.env.example:14·18`에는 있다. `deploy/kbap-pm-agent.env.example:9~12`는 `AGENT_MODEL`·`CODE_SUMMARY_MODEL`·`ANTHROPIC_API_KEY=`·`OPENAI_API_KEY=` 값만 있고 두 안내가 없다. 운영자가 openai로 바꿀 때 두 변수를 같은 접두사로 맞춰야 한다는 사실(다르거나 틀리면 기동 실패)을 알 길이 없다
 - 수정 방향: 백엔드. `.env.example`의 두 주석을 운영 예시에도 옮긴다
 - 수신: backend-dev
-- 상태: 열림
+- 상태: 확인됨 (20355dd·da85244: 접두사 규칙, openai 예시, ANTHROPIC/OPENAI 키 조건 주석)

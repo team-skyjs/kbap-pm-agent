@@ -73,12 +73,14 @@ T061(최종)은 fake 부분(계약 diff 없음, check 13개, quickstart 1~10)을
 | T071 B9 교차 검증 (fake + 가짜 전송) | 통과 | 계약 diff 0, langchain 0(코드·lock·설치본), check_b1~b7 OK, fake SSE 이벤트 이름·data 키 구조가 전환 전 기준선과 diff 0, 두 런타임 무키 실서버 error 경로 계약대로, 프론트 무변경 화면 흐름 통과 |
 | T072 헌법 정합 | 통과 | 헌법 v1.1.0 = ADR-20. QA-5(plan·data-model 개정 전 문구) 확인됨 |
 | T073 실제 키 검증 | 미검증 | `ANTHROPIC_API_KEY`·`OPENAI_API_KEY` 없음. 비용 0 원칙 |
-| T068 env 예시 | 결함 QA-6(열림) | 운영 env 예시에 OpenAI 전환·`OPENAI_API_KEY` 조건 안내 누락 |
+| T068 env 예시 | 통과 | QA-6(운영 env 예시 안내 누락) 확인됨 |
+| cto 추가 확인 | 통과 | anthropic SDK는 httpx2(가짜 전송도 httpx2), openai-agents 트레이스 꺼짐·송신 0, MCP 오류 isError 결과·클라이언트 예외 두 경로 모두 두 런타임에서 `tool_result failed` → `final` |
 
 남은 위험(Phase 8):
 - **두 실제 공급자 모두 실호출 미검증.** Anthropic `output_format=AgentAnswer`가 스키마 제약(`min_length`, `ge`, 판별 유니온)을 받아들이는지, OpenAI strict 스키마가 판별 유니온을 받아들이는지는 실제 API로만 확인된다(research.md R8). 가짜 전송 검사는 요청 파라미터와 응답 처리만 본다.
 - **Anthropic 최종 응답은 `parsed_output`이 아니라 마지막 text 블록 JSON을 `AgentAnswer`로 다시 검증한다.** T065 문구와 다르지만 검증 결과는 같다. text 블록이 없으면 `UPSTREAM_ERROR`로 끝난다.
 - **잘못된 모델 접두사는 서버 기동 실패다(ADR-20 의도).** 운영 env를 고칠 때 헬스체크가 아예 안 뜨는 형태로 드러난다. 배포 스크립트 3단계 헬스체크가 이를 잡는다.
+- **MCP 클라이언트 예외 경로는 검사 스크립트에 없다.** check_b7은 FastMCP가 isError로 바꿔 보내는 경로만 시험한다. QA가 예외 주입으로 한 번 확인했지만 회귀 검사는 없다.
 - **OpenAI 사용량은 실행 1회 합계 1행.** 요청별 비용 추적은 안 된다.
 - 위 Phase 1~7 남은 위험의 "실제 LLM 경로 실호출 미검증"은 런타임이 바뀌었을 뿐 그대로다(ProviderStrategy 문구는 ADR-20으로 대체됨).
 
