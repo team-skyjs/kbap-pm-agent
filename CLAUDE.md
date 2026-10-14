@@ -19,4 +19,5 @@
 |------|----------|------|------|
 | 2026-10-15 | 초기 구성 (cto, frontend-dev, backend-dev, qa-integrator / 4 스킬) | 전체 | - |
 | 2026-10-15 | PRD를 `docs/prd/`로 이동, PRD 스킬 산출물 경로 규칙 추가 | CLAUDE.md, 참조 경로 전체 | 사용자 요청 |
+| 2026-10-15 | 첫 빌드 완료. 61 태스크 중 54 통과, 미검증 7(키·승인·배포 필요). 결함 4건 모두 경계면 아님(표시 1, 인덱스 범위 1, 운영 출처 2). ADR-17~19 추가 | 전체 | 하네스 첫 실행 결과 |
 | 2026-10-15 | Spec Kit 도입. 헌법 v1.0.0, specs/001-pm-agent-prototype. 오케스트레이터·implement 스킬이 tasks.md를 작업 목록으로 사용 | CLAUDE.md, orchestrator, implement-from-contract | 사용자 요청 "speckit으로 기술 명세서 작성 후 구현" |
