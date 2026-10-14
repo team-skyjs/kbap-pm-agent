@@ -214,29 +214,29 @@
 ### ADR-21: (결번)
 - 조사·종합 2단계 설계(fd70782)는 사용자 철회로 revert했다(c636aab). 다음 사이클 PRD가 같은 주제를 다시 다루면 새 번호를 쓴다.
 
-### ADR-22: 프론트를 홈서버 nginx 컨테이너로 옮기고, 같은 호스트명·같은 출처를 Cloudflare Access 뒤에 둔다 (ADR-5·18 대체, ADR-6 일부 대체)
+### ADR-22: 백엔드 컨테이너가 빌드된 프론트를 함께 서빙하고, 같은 호스트명·같은 출처를 Cloudflare Access 뒤에 둔다 (ADR-5·18 대체, ADR-6 일부 대체)
 - 결정:
-  - **프론트 컨테이너**: `frontend/Dockerfile`이 node로 `dist/`를 빌드해 `nginx:alpine`에 넣는다. Vite `base: '/'`. API 호출은 상대 경로 `/api/...`이고 `VITE_API_BASE_URL`을 없앤다. 해시 라우팅은 유지한다.
-  - **경로 분기는 nginx가 한다**: 같은 컨테이너의 nginx가 `/api/`를 `http://kbap-pm-agent:8000`으로 프록시하고 나머지는 정적 파일이다. SSE를 위해 `proxy_buffering off`, `proxy_read_timeout 200s`를 둔다. 터널 ingress는 운영 호스트명 → 웹 컨테이너(`http://kbap-pm-agent-web:80`) 규칙 하나다. 백엔드 컨테이너는 터널에 직접 연결되지 않는다.
+  - **단일 컨테이너·단일 이미지**: 백엔드 `Dockerfile`이 node 단계에서 `frontend/`를 빌드한다. 산출물 `dist/`를 이미지에 넣고 FastAPI `StaticFiles`로 `/`에서 서빙한다. 마운트는 모든 `/api` 라우터 뒤에 둔다. 정의되지 않은 `/api/...`는 지금처럼 계약 404 `NOT_FOUND` JSON이고, `index.html`로 떨어지지 않는다. Vite는 `base: '/'`, API 호출은 상대 경로 `/api/...`이며 `VITE_API_BASE_URL`을 없앤다. 해시 라우팅은 유지한다.
+  - **앱 토큰 검사 범위**: 공유 토큰 미들웨어(ADR-7)는 `/api/` 아래 경로에만 적용한다. 정적 파일(`/`, `/assets/...`)에도 토큰을 요구하면 브라우저가 앱을 내려받지 못한다. 예외 경로(`/api/health`, OAuth 콜백)는 그대로다.
+  - **터널**: 기존 공개 호스트 규칙(운영 호스트명 → `http://kbap-pm-agent:8000`)을 그대로 쓴다. 경로 규칙과 프록시 컨테이너는 없다.
   - **Cloudflare Access**: 운영 호스트명 전체에 애플리케이션 하나를 둔다. 정책은 "이메일이 허용 목록에 있음"이고, 로그인은 일회용 PIN, 세션은 24시간이다(PRD 열린 질문, 대시보드에서 조정). 허용 목록과 정책은 사람이 대시보드에서 관리하고 코드에는 없다.
-  - **CORS 제거**: 같은 출처라 백엔드 CORS 미들웨어와 `CORS_ORIGINS`를 지운다. 로컬 개발은 Vite dev 서버 `server.proxy`(`/api` → `http://localhost:8000`)로 같은 출처를 만든다.
+  - **CORS 제거**: 같은 출처라 백엔드 CORS 미들웨어와 `CORS_ORIGINS`를 지운다(002 CORS 제거 배포 시점, ADR-6). 로컬 개발은 Vite dev 서버 `server.proxy`(`/api` → `http://localhost:8000`)로 같은 출처를 만들고, 컨테이너 확인은 `http://localhost:8000/`이다.
   - **세션 만료 구분**: 프론트 `api.ts`는 모든 요청에 `X-Requested-With: XMLHttpRequest`를 보낸다(Access가 만료 세션에 302 대신 401을 주는 조건). `redirect: 'manual'`로 리다이렉트를 따라가지 않는다. 다음 셋 중 하나면 `SESSION_EXPIRED`(프론트 내부 코드)로 처리하고 "다시 로그인" 안내를 보인다. 입력값은 보존한다.
     - 계약 에러 형식이 아닌 401·403
     - `opaqueredirect`
-    - `text/html` 응답
-  - **배포**: `deploy-backend.yml`을 `deploy.yml`로 바꾸고 웹 이미지(`ghcr.io/<owner>/kbap-pm-agent-web`) 빌드·푸시를 추가한다. compose에 `kbap-pm-agent-web` 서비스를 둔다. 배포 한 번에 둘 다 같은 커밋 태그다. `pages.yml`은 삭제한다.
+    - 상태 5xx가 아닌 `text/html` 응답
+    - 5xx HTML(터널·Cloudflare 오류 페이지)은 연결 실패다.
+  - **배포**: 배포 워크플로우는 이미지 하나(백엔드+프론트)를 빌드·배포한다. 트리거 경로에 `frontend/**`를 포함한다. `pages.yml`은 삭제한다.
   - **공유 토큰(전환 장치)**: `ACCESS_TOKEN`(ADR-7)은 Access 운영 검증(002 T025)까지 운영 필수로 켜 둔다. 검증 뒤 T037→T038→T039 순서로 끈다. 그 뒤에는 Access가 유일한 잠금이다.
-- 이유: GitHub Pages에는 Access를 걸 수 없고, github.io 주소가 우회로로 남는다(PRD 3절). 2026-10-15 재개 근거는 두 가지다. Pages 프로젝트 사이트는 조직 공용 출처라 브라우저 저장소의 공유 토큰이 같은 조직의 다른 Pages 사이트에 노출될 수 있다. 그리고 공유 토큰에는 사용자 구분과 만료가 없다. 같은 출처면 CORS·API 주소 노출·토큰 동기화가 모두 사라진다. 경로 분기를 nginx(레포 안 설정)에 두면 다음 이점이 있다.
-  - 로컬 `docker compose up`에서 운영과 같은 같은 출처 구조를 재현할 수 있다(첫 모듈 검증 조건).
-  - 대시보드의 손 설정이 규칙 하나로 준다.
-  - 라우팅이 코드 리뷰 대상이 된다.
+- 이유: GitHub Pages에는 Access를 걸 수 없고, github.io 주소가 우회로로 남는다(PRD 3절). 2026-10-15 재개 근거는 두 가지다. Pages 프로젝트 사이트는 조직 공용 출처라 브라우저 저장소의 공유 토큰이 같은 조직의 다른 Pages 사이트에 노출될 수 있다. 그리고 공유 토큰에는 사용자 구분과 만료가 없다. 같은 출처면 CORS·API 주소 노출·토큰 동기화가 모두 사라진다. 단일 컨테이너는 홈서버의 다른 앱과 같은 운영 방식이다(서버에 nginx가 없고, 앱마다 컨테이너 하나가 직접 서빙). 그래서 터널 규칙·컨테이너 수·배포 단위가 바뀌지 않는다(2026-10-15 사용자 결정).
 - 버린 대안:
-  - 터널 ingress의 경로 규칙(`^/api` → 백엔드, 나머지 → 프론트, PRD 7.2 원안): 동작은 하지만 로컬에서 같은 출처를 재현하려면 결국 프록시가 따로 필요하다. 라우팅 규칙이 대시보드에만 있어 리뷰·검사가 안 된다. 바꾸려면 nginx `location /api/` 블록을 지우고 대시보드 규칙 두 개를 만들면 된다.
+  - nginx 웹 컨테이너 + `/api` 프록시(이 ADR의 첫 판): 서버 운영 방식과 다르고, 컨테이너·이미지·SSE 버퍼링 설정이 하나씩 는다.
+  - 터널 ingress의 경로 규칙(`^/api` → 백엔드, 나머지 → 프론트, PRD 7.2 원안): 컨테이너가 둘이 되고 라우팅이 대시보드에만 있다.
   - 공유 토큰만으로 영구 잠금(헌법 v1.3.0 상태): 위 재개 근거 두 가지 때문에 전환 장치로만 쓴다.
   - 자체 로그인, VPN 전용 접속: PRD 6절.
   - 백엔드의 Access JWT 검증: 터널 외 경로가 없어 지금은 불필요(PRD 8절 다음 버전).
-- 바꾸면 영향: `frontend/Dockerfile`·`nginx.conf`·`vite.config.ts`·`api.ts`, `backend/app/main.py`(CORS 제거), compose 두 개, 배포 워크플로우. API 계약은 공통 절 문구(Base URL, CORS, 접근 계층 응답)만 바뀌고 응답 shape는 그대로다.
-- 상태: 확정 (세 가지는 가정이며 research.md 002 R1~R3로 검증한다. Access가 XHR 헤더에 401을 주는지, Amplitude 콜백이 Access 뒤에서 이어지는지, SSE 170초가 Access를 통과하는지. 헌법 "기술 제약" 정합은 v1.4.0에서 끝났다. 2026-10-15 재개, 이전 보관 기간에는 v1.3.0이 Pages 유지였다)
+- 바꾸면 영향: 백엔드 `Dockerfile`(프론트 빌드 단계)·`main.py`(정적 마운트, 토큰 검사 범위, CORS 제거), `frontend/vite.config.ts`·`api.ts`, 배포 워크플로우. API 계약은 공통 절 문구(Base URL, 인증 범위, CORS, 접근 계층 응답)만 바뀌고 응답 shape는 그대로다. 프론트만 바뀌어도 백엔드 이미지를 다시 빌드한다(배포 단위가 하나라서).
+- 상태: 확정 (세 가지는 가정이며 research.md 002 R1~R3로 검증한다. Access가 XHR 헤더에 401을 주는지, Amplitude 콜백이 Access 뒤에서 이어지는지, SSE 170초가 Access를 통과하는지. 헌법 "기술 제약" 정합은 v1.4.0에서 끝났다. 정적 서빙 방식 변경은 같은 버전 안의 문구 수정. 2026-10-15 재개, 이전 보관 기간에는 v1.3.0이 Pages 유지였다)
 
 ### ADR-23: 운영 검사(check_b8)는 Cloudflare Access 서비스 토큰으로 바깥에서 돌린다
 - 결정:
@@ -246,7 +246,7 @@
     - Access 서비스 토큰이 없으면 `/api/health`가 백엔드 JSON이 아니어야 한다(Access 거부, US2 검증). 앱 토큰(`ACCESS_TOKEN`) 유무와는 별개다.
     - 다른 출처 preflight는 허용되지 않아야 한다(US3-2).
   - **실행 위치**: 배포 워크플로우의 배포 후 단계에서 돌린다. 토큰은 GitHub Secrets에 둔다.
-- 이유: 이번 기능이 바꾸는 것은 터널·Access·nginx 경로 분기이고, 서버 내부 실행은 이 셋을 하나도 지나지 않는다. 서비스 토큰 방식은 "막혀야 할 것이 막히는지"(토큰 없는 호출)도 같은 스크립트로 잰다.
+- 이유: 이번 기능이 바꾸는 것은 터널 뒤의 Access와 같은 출처 정적 서빙이고, 서버 내부 실행(`127.0.0.1`)은 Access를 지나지 않는다. 서비스 토큰 방식은 "막혀야 할 것이 막히는지"(토큰 없는 호출)도 같은 스크립트로 잰다.
 - 버린 대안: 홈서버 내부 실행(`127.0.0.1:8001`): 바뀐 경로를 검증하지 못한다. 내부 헬스체크는 기존 `deploy.kbap-pm-agent.sh`가 이미 한다.
 - 위험과 통제: 서비스 토큰이 새면 Access를 통과한다. Secrets에만 두고, 만료(대시보드 기본 1년)와 교체 절차를 deploy README에 적는다.
 - 바꾸면 영향: `check_b8.py`의 헤더와 검사 항목, 배포 워크플로우 단계 하나.

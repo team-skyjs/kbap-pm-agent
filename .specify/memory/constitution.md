@@ -3,7 +3,7 @@ SYNC IMPACT REPORT
 ==================
 Version change: 1.3.0 → 1.4.0   (개정 2026-10-15)
 Bump rationale (MINOR): "기술 제약"의 프론트 배포·FE↔BE 연결 줄을 접근 제한 설계(ADR-22·23)로 실질 변경.
-  사유: 사용자 결정(2026-10-15 재개) — 프론트를 홈서버 nginx 컨테이너로 옮기고 같은 호스트명·같은 출처를
+  사유: 사용자 결정(2026-10-15 재개) — 프론트를 홈서버 백엔드 컨테이너가 함께 서빙하도록 옮기고 같은 호스트명·같은 출처를
   Cloudflare Access 뒤에 둔다. GitHub Pages 프로젝트 사이트는 조직 공용 출처라 브라우저 저장소의 공유 토큰이
   다른 Pages 프로젝트에 노출될 수 있고, 공유 토큰은 사용자 구분·만료가 없다.
   v1.3.0(Pages 유지 + 공유 접근 토큰)은 전환 기간의 임시 상태로 남는다.
@@ -89,9 +89,9 @@ PRD 5·7.3·8절과 CTO ADR(`_workspace/01_cto_tech-decisions.md`)에서 확정�
 - 백엔드: Python 3.12, FastAPI, MySQL. 패키지는 uv. LLM 호출은 공급자 공식 SDK로 한다(Claude는 `anthropic` SDK의
   tool runner, GPT는 `openai-agents`). LangChain 계열은 쓰지 않는다. 공급자 선택은 모델 문자열 접두사(`anthropic:`/`openai:`)로 한다(ADR-20). 홈서버 Docker 컨테이너로 운영.
   로컬은 `docker compose up` 한 번으로 백엔드+MySQL이 떠야 한다.
-- 프론트: TypeScript, React, Vite 정적 SPA. 홈서버 nginx 정적 컨테이너로 배포하고 백엔드와 같은 호스트명·같은
+- 프론트: TypeScript, React, Vite 정적 SPA. 백엔드 컨테이너가 빌드된 정적 파일을 함께 제공하고 백엔드와 같은 호스트명·같은
   출처에서 제공한다. 해시 라우팅을 쓰고 API는 상대 경로 `/api`로 호출한다. 빌드 시 백엔드 주소 환경변수는 없다.
-- FE↔BE: 같은 호스트명 아래 Cloudflare Access 뒤의 터널. 웹 컨테이너 nginx가 `/api`를 백엔드로 프록시한다(CORS
+- FE↔BE: 같은 호스트명 아래 Cloudflare Access 뒤의 터널. 백엔드가 `/api`와 정적 프론트를 한 컨테이너에서 함께 제공한다(CORS
   없음). 에이전트 응답은 POST 응답 자체를 SSE 스트림으로 보낸다.
 - Amplitude: 공식 원격 MCP(조회 전용). 이벤트 전송·택사노미 자동 수정은 하지 않는다.
 - 비목표(v1): 앱 안의 사용자 인증·권한·멀티테넌시(접근 제한은 인프라인 Cloudflare Access가 한다), 백엔드 코드 분석,
