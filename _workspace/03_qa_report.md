@@ -82,8 +82,8 @@ T061(최종)은 fake 부분(계약 diff 없음, check 13개, quickstart 1~10)을
 - **Anthropic 최종 응답은 `parsed_output`이 아니라 마지막 text 블록 JSON을 `AgentAnswer`로 다시 검증한다.** T065 문구와 다르지만 검증 결과는 같다. text 블록이 없으면 `UPSTREAM_ERROR`로 끝난다.
 - **잘못된 모델 접두사는 서버 기동 실패다(ADR-20 의도).** 운영 env를 고칠 때 헬스체크가 아예 안 뜨는 형태로 드러난다. 배포 스크립트 3단계 헬스체크가 이를 잡는다.
 - **MCP 클라이언트 예외 경로 → 검사로 통제됨.** a75addd로 check_b7이 isError 결과와 `call_tool` ConnectionError 두 경로를 두 런타임에서 모두 검사한다(T070, 9718928). QA 재실행 OK.
-- **없는 도구 이름 호출 시 런타임 동작이 다르다.** OpenAI 런타임은 `ModelBehaviorError`로 실행 전체가 `UPSTREAM_ERROR`가 되고, Anthropic 런타임은 오류 결과를 모델에 돌려주고 계속한다. 계약 위반은 아니지만 OpenAI로 바꾸면 모델 실수 한 번에 답 전체를 잃는다.
-- **`docs/architecture/agent-loop-langchain.*`에 옛 변수 `AGENT_MAX_TOOL_CALLS(5)`가 남아 있다.** LangChain 시절 구조도라 현행 코드와 다르다.
+- **없는 도구 이름 호출 시 런타임 동작이 다르다 — 알려진 차이, ADR-20 기록(bdbeb6c).** OpenAI 런타임은 `ModelBehaviorError`로 실행 전체가 `UPSTREAM_ERROR`(추론 모델 자체 실패), Anthropic 런타임은 도구 실패로 보고 계속한다. 둘 다 계약 안이다. T073 실제 실행에서 OpenAI 쪽에 반복되면 부분 final로 돌리고 계약 비고에 사유를 추가한다(CTO 결정).
+- **`docs/architecture/agent-loop-langchain.*`는 ADR-20 전환 전 기준선으로 보관한다(CTO 결정).** 옛 변수 `AGENT_MAX_TOOL_CALLS(5)`가 남아 있지만 상한 변수명 주석이 달려 있다(fc9b033). 현행 구조로 읽지 않는다.
 - **OpenAI 사용량은 실행 1회 합계 1행.** 요청별 비용 추적은 안 된다.
 - 위 Phase 1~7 남은 위험의 "실제 LLM 경로 실호출 미검증"은 런타임이 바뀌었을 뿐 그대로다(ProviderStrategy 문구는 ADR-20으로 대체됨).
 
