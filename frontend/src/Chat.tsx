@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import Markdown from 'react-markdown'
+import Markdown from './Markdown.tsx'
 import {
   ApiError, describe, errorText, getConversation, sendMessage,
   type ConversationDetail, type Message, type Proposal, type StreamEvent, type ToolCall,
