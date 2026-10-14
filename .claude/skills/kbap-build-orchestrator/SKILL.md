@@ -12,7 +12,7 @@ PRD를 동작하는 프로토타입으로 바꾸는 팀을 조율한다. 리더(
 | Phase | 모드 | 이유 |
 |-------|------|------|
 | Phase 2 (기술 결정) | 서브 에이전트 (`cto` 단독) | 결정은 한 사람이 내려야 일관된다. 통신 상대가 아직 없다 |
-| Phase 3 (구현 + 점진 QA) | 에이전트 팀 (`frontend-dev`, `backend-dev`, `qa-integrator`, 대기 중인 `cto`) | FE↔BE 계약 질의, QA→개발자 결함 보고, 개발자→CTO 계약 변경 요청이 실시간으로 오간다 |
+| Phase 3 (구현 + 점진 QA) | 에이전트 팀 (`frontend-dev`, `backend-dev`, `qa-integrator`, 대기 중인 `cto`, UI 작업이 있으면 `frontend-designer`) | FE↔BE 계약 질의, QA→개발자 결함 보고, 개발자→CTO 계약 변경 요청이 실시간으로 오간다 |
 | Phase 4 (최종 QA) | 팀 유지, `qa-integrator`만 작업 | 수정 요청이 개발자에게 바로 가야 한다 |
 
 **도구 매핑:** 이 환경에 TeamCreate/TaskCreate가 있으면 그것을 쓴다. 없으면 `Agent`(name 지정, `run_in_background: true`, `model: "opus"`)로 팀원을 띄우고 `SendMessage({to: name})`로 통신한다. 작업 목록은 `specs/<feature>/tasks.md`(없으면 `_workspace/00_tasks.md`) 파일로 대신한다.
@@ -78,7 +78,7 @@ Agent(
 ### Phase 3: 병렬 구현 + 점진 QA
 **실행 모드:** 에이전트 팀
 
-1. 팀 띄우기 — 한 메시지에서 네 명을 동시에:
+1. 팀 띄우기 — 한 메시지에서 핵심 4명을 동시에, 작업에 UI/UX 항목이 있으면 frontend-designer까지 5명:
    - `cto` (대기 모드: "계약 변경 요청과 질의에만 응답하라. 변경 시 계약서 수정 후 세 명에게 SendMessage")
    - `backend-dev`, `frontend-dev` ("implement-from-contract 스킬로 task-split 순서대로 구현. 모듈 완료마다 qa-integrator에게 보고")
    - `qa-integrator` ("integration-qa 스킬로 모듈 완료 알림마다 즉시 검증. 결함은 담당자에게 직접")
@@ -161,7 +161,7 @@ PRD ──→ [cto] ──→ 01_cto_tech-decisions.md
 2. Phase 0: `_workspace/` 없음 → 초기 실행
 3. Phase 1: PRD 읽기, 스택 선호 "Python" 기록
 4. Phase 2: cto가 ADR 8개, 계약서(6개 이상 엔드포인트), 작업 분할 작성. 가정 ADR 2개 사용자에 보고
-5. Phase 3: 네 명 띄움. 양쪽 헬스체크 모듈 완료 → QA 왕복 확인 통과. 채팅 모듈에서 QA-1(응답 감싸기 불일치) → 백엔드 수정 → 확인됨. 제안 카드 모듈에서 프론트가 CTO에 필드 추가 요청 → 계약 갱신 → 전원 통지
+5. Phase 3: 핵심 4명 띄움(UI 항목이 있으면 designer 포함 5명). 양쪽 헬스체크 모듈 완료 → QA 왕복 확인 통과. 채팅 모듈에서 QA-1(응답 감싸기 불일치) → 백엔드 수정 → 확인됨. 제안 카드 모듈에서 프론트가 CTO에 필드 추가 요청 → 계약 갱신 → 전원 통지
 6. Phase 4: 최종 리포트. Amplitude·LLM은 키 없어 미검증
 7. Phase 5: 실행 방법, 가정 2개, 통과 N/실패 0/미검증 2, 필요한 키 목록 보고
 
