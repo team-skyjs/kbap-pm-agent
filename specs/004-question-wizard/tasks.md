@@ -40,7 +40,7 @@ description: "질문 마법사 구현 태스크"
   - `llm_usage.purpose`는 `ENUM('agent','code_summary','refine') NOT NULL`로 바꾼다.
 - [ ] T003 [BE] `backend/app/db.py` `init()`: `schema.sql` 실행 뒤 마이그레이션을 실행한다(ADR-29). `information_schema.COLUMNS`에서 `llm_usage.purpose`의 `COLUMN_TYPE`에 `'refine'`이 없을 때만 `ALTER TABLE llm_usage MODIFY purpose ENUM('agent','code_summary','refine') NOT NULL`이다. 주석에 이유(기존 테이블 ENUM은 CREATE IF NOT EXISTS로 안 바뀜)를 적는다 (Q1)
 - [ ] T004 [BE] `backend/app/schemas.py`에 두 모델을 추가한다. (Q1)
-  - `RefineResult`: `refined` 1~4000자, `summary` 1~300자.
+  - `RefineResult`: `refined` 1~4000자, `summary` 1~300자. 모델 출력이 벗어나면 엔드포인트가 502 `UPSTREAM_ERROR`(자르지 않음, 행 없음)다.
   - 요청 모델: `question` 1~4000자이고 공백만이면 거절, `conversationId`는 int 또는 null.
 - [ ] T005 [BE] `backend/app/agent.py` `refine(prompt) -> (RefineResult, model_str)`: 다듬기 seam이다. 실제 런타임은 T010에서 채운다. (Q1)
   - 모델: `env("REFINE_MODEL") or env("CODE_SUMMARY_MODEL")`.
@@ -50,7 +50,7 @@ description: "질문 마법사 구현 태스크"
 - [ ] T006 [BE] `backend/app/refine.py`(신규)에 `POST /api/questions/refine`를 만들고 `main.py`에 라우터를 등록한다. (Q1)
   - 처리 순서: 요청 검증(400 `VALIDATION_ERROR`), `conversationId`가 있으면 존재 확인(404 `CONVERSATION_NOT_FOUND`), `budget.check()`(403 `BUDGET_EXCEEDED`), 입력 조립(T011이 채운다. 그 전에는 질문만 넘긴다), `agent.refine()`, `question_refinements` 행 삽입, 응답 `{refinementId, refined, summary}`.
   - 잘림 표시: 조립 결과가 `truncated`면 요약 끝에 " (택사노미 이름이 많아 앞부분만 참고)"를 붙인다. 합계가 300자를 넘으면 모델 요약 쪽을 줄인다(계약 v1.3).
-  - 실패 처리: 모델 실패·구조화 검증 실패는 502 `UPSTREAM_ERROR`이고 행을 만들지 않는다.
+  - 실패 처리: 모델 실패·구조화 검증 실패(`refined` 4,000자 초과 포함)는 502 `UPSTREAM_ERROR`이고 행을 만들지 않는다.
 - [ ] T007 [BE] `backend/checks/check_b10.py`(신규, fake 모드): assert 항목은 다음과 같다. (Q1 검사)
   - 응답·기록: 다듬기 응답 키가 계약 예시와 같고(`refinementId`는 새 정수, `refined`·`summary`는 예시와 글자 단위로 같음), 행 1개, `llm_usage`에 `purpose='refine'` 0원 행 1개가 생긴다.
   - 검증: 빈 문자열·공백만·4001자는 400이다. 없는 `conversationId`는 404, `conversationId: null`은 200이다.
@@ -74,12 +74,12 @@ description: "질문 마법사 구현 태스크"
   - `agent.refine()` real 분기가 이를 부르고 `budget.record("refine", model_str, ...)`한다.
 - [ ] T010 [US2] [BE] `backend/app/refine.py` `REFINE_PROMPT` 상수: ADR-30의 규칙 여덟 개(7·8은 실제 키 QA 관찰로 추가. 아래는 1~6의 요지:의도 유지, 기간·실제 이벤트 이름·지표·산출물 드러내기, 지어내지 않기·목록에 없는 대상은 사용자 말 유지, 기본값은 요약에 "(원문에 없음)", 이미 구체적이면 그대로, 한국어 두 문장 이내·요약 한 줄)를 문장으로 둔다 (Q1)
 - [ ] T011 [US2] [BE] `refine.py` 입력 조립 함수 `build_prompt(question, conversation_id)`(research R5): (Q1)
-  - 택사노미: `app_settings.taxonomy`의 `events[].name`만 쉼표로 잇고, 없으면 "택사노미 없음"이다. 4,000자를 넘으면 앞에서부터 4,000자 안에 드는 이름까지만 넣고 `truncated=True`를 함께 반환한다.
+  - 택사노미: `app_settings.taxonomy`의 `events[].name`만 쉼표로 잇고, 없으면 "택사노미 없음"이다. 4,000자를 넘을 때만 고르는 순서를 바꾼다. 질문과 겹치는 이름(이름 전체가 질문에 들어 있거나, 이름을 `_`로 나눈 조각 하나가 질문의 영숫자 낱말(소문자)과 같음)을 원래 순서대로 먼저 넣는다. 남은 자리는 나머지 이름을 원래 순서대로 4,000자 안에서 채운다. 잘렸으면 `truncated=True`를 함께 반환한다.
   - 이력: 대화의 `status='completed'`이고 비어 있지 않은 메시지 중 최근 사용자 2개·에이전트 2개, 각 앞 500자, 오래된 순이다. null 대화면 이력 없음이다.
   - 마지막에 질문을 붙인다.
 - [ ] T012 [US2] [BE] `check_b10.py`에 항목을 추가한다. (Q1 검사)
   - 프롬프트: `REFINE_PROMPT`에 규칙 키 문장 여덟 개가 들어 있다.
-  - 조립: `build_prompt`에 택사노미 정의·속성 문자열이 없고 이름만 있다. 이력이 4개 이하이고 각 500자 이하이며 순서가 맞다. 택사노미가 없으면 "택사노미 없음"이다. 이름 합계가 4,000자를 넘는 택사노미면 넣은 이름 문자열이 4,000자 이하이고 `truncated`이며, fake 응답 요약 끝에 고정 문구가 붙고 300자 이하다.
+  - 조립: `build_prompt`에 택사노미 정의·속성 문자열이 없고 이름만 있다. 이력이 4개 이하이고 각 500자 이하이며 순서가 맞다. 택사노미가 없으면 "택사노미 없음"이다. 이름 합계가 4,000자를 넘는 택사노미면 넣은 이름 문자열이 4,000자 이하이고 `truncated`이며, fake 응답 요약 끝에 고정 문구가 붙고 300자 이하다. 질문 "scan_complete 왜 줄었어?"와 4,000자를 넘는 택사노미(뒤쪽에 `scan_complete`)면, 넣은 목록에 `scan_complete`가 포함된다(겹치는 이름 우선). 겹치지 않는 이름은 원래 순서다.
   - 가짜 전송: 두 런타임이 `RefineResult`를 돌려주고 사용량 행이 생긴다(기존 `checks/llm_mock.py` 재사용). refusal과 잘못된 JSON은 502이고 행이 없다.
 - [x] T013 [US2] [QA] US2 검증: `check_b10.py`를 실행한다. 실제 키가 있으면 spec US2 수락 시나리오 질문 네 개(일상어, 택사노미에 없는 대상, 후속 질문, 이미 구체적)를 다듬어 규칙 위반을 리포트한다. 키가 없으면 "미검증"으로 둔다 (Q1 QA)
 
@@ -101,7 +101,7 @@ description: "질문 마법사 구현 태스크"
   - 선택 동작: 네 개이고, 각각 `recordRefineChoice`를 기다리지 않고 부르며 실패를 무시한다.
     - `sendRefined()`: 기록 `refined`, 개선안을 전송 함수로 넘김.
     - `sendOriginal()`: 기록 `original`, 원문 전송.
-    - `insertRefined()`: 기록 `refined`, 입력창 값만 교체.
+    - `insertRefined()`: 입력창 값만 교체하고 아직 기록하지 않는다. 같은 `refinementId`를 들고 있다가 그 입력으로 실제 전송하면 `refined`, 전송 없이 입력을 비우거나 대화를 떠나면 `cancelled`를 기록한다(PRD 3차).
     - `close()`: 기록 `cancelled`, 원문 유지.
   - 오류: 다듬기 오류면 `error` 상태와 안내 문구이고 원문을 유지한다. `UNAUTHORIZED` 문구는 기존 규칙(003 UI-2)을 따른다.
 - [x] T016 [US1] [FE] `frontend/checks/check-f9.ts`: 계약 `08b-questions.md`의 다듬기·선택 응답 예시가 `api.ts` 파서를 통과하고, `choice`가 세 값 밖이면 파서가 거부하는지 확인한다. `checks/run.ts`에 f9를 추가한다 (Q2 검사)
@@ -118,7 +118,7 @@ description: "질문 마법사 구현 태스크"
 - [ ] T019 [US1] [FE] `frontend/checks/ui/fixtures.ts`에 다듬기·선택 고정 응답(계약 08b 예시, 오류 502, 선택 500)을 추가하고 `frontend/checks/ui/us12.spec.ts`를 쓴다. (Q3 검사)
   - 수락 시나리오: spec US1의 1~9를 다룬다.
     - 버튼 상태: 빈 입력 비활성, 실행 중 비활성.
-    - 진행·선택: 진행 중 입력창 잠금, 네 선택의 결과(전송 본문, 입력창 값), 선택 POST 본문의 `choice` 값.
+    - 진행·선택: 진행 중 입력창 잠금, 네 선택의 결과(전송 본문, 입력창 값), 선택 POST 본문의 `choice` 값. "입력창에 넣기"는 클릭 시 POST가 없고, 전송 시 `refined`, 입력을 비우면 `cancelled`다.
     - 실패·키보드: 다듬기 502이면 안내와 원문 유지, 키보드만으로 버튼 → 카드 → 선택, 포커스 이동.
   - 기록 실패: 선택 기록 500이어도 전송된다.
   - 공통: axe critical·serious 0, 9조합 스크린샷이다.
@@ -139,7 +139,7 @@ description: "질문 마법사 구현 태스크"
   - 에러: 404와 400이다.
   - 집계: 네 행(`refined` 2, `original` 1, `cancelled` 1)에 data-model.md의 채택 비율 SQL을 돌리면 `50.0`이고 `shown`은 4다.
 - [ ] T023 [US3] [QA] US3 경계면 검증: (Q1 QA)
-  - 매핑: 프론트 선택 POST 본문과 계약 enum이 일치하고, "입력창에 넣기"가 `refined`로 기록된다.
+  - 매핑: 프론트 선택 POST 본문과 계약 enum이 일치한다. "입력창에 넣기"는 넣는 순간 기록이 없고, 전송하면 `refined`, 비우거나 대화를 떠나면 `cancelled`다.
   - 기록: quickstart 시나리오 3~8 후 DB 행이 맞다.
   - 예산: `settings.budget.spentUsd`에 다듬기 비용이 합산된다(real 모드면 0 초과).
 

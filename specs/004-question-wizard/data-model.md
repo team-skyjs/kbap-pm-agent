@@ -17,7 +17,7 @@
 | chosen_at | DATETIME(3) NULL | choice 기록 시각, 덮어쓰면 갱신 | `chosenAt` |
 
 - 모델 호출이 실패하면 행을 만들지 않는다(계약: `UPSTREAM_ERROR`).
-- 상태 전이: `NULL → refined|original|cancelled`이고, 다시 부르면 마지막 값으로 덮어쓴다.
+- 상태 전이: `NULL → refined|original|cancelled`이고, 다시 부르면 마지막 값으로 덮어쓴다. "입력창에 넣기"를 눌렀다면 그 뒤 전송 때 `refined`, 전송 없이 비우거나 대화를 떠나면 `cancelled`가 되며, 그때까지는 NULL이다.
 
 채택 비율(SC-002) 조회 한 줄:
 
@@ -38,6 +38,6 @@ FROM question_refinements WHERE choice IS NOT NULL;
 
 ```python
 class RefineResult(BaseModel):
-    refined: str   # 1~4000자, 한국어 두 문장 이내(프롬프트 규칙)
+    refined: str   # 1~4000자(벗어나면 502, 자르지 않음), 한국어 두 문장 이내(프롬프트 규칙)
     summary: str   # 1~300자
 ```
