@@ -129,6 +129,7 @@ button:disabled { cursor: default; opacity: 0.5; }
 .badge.ok { background: color-mix(in srgb, var(--color-ok) var(--tint), var(--color-bg)); }
 .badge.degraded { background: color-mix(in srgb, var(--color-warn) var(--tint), var(--color-bg)); }
 .badge.down { background: color-mix(in srgb, var(--color-danger) var(--tint), var(--color-bg)); }
+.scroll:focus-visible { outline-offset: calc(-1 * var(--focus-offset)); }
 .scroll { position: relative; flex: 1; min-height: 0; overflow-y: auto; }
 .thread { max-width: var(--content-max); margin: 0 auto; padding: var(--space-4) var(--space-4) var(--space-7); box-sizing: border-box; }
 .empty { padding-top: var(--space-8); text-align: center; }
@@ -287,7 +288,7 @@ button:disabled { cursor: default; opacity: 0.5; }
 .status.down { background: color-mix(in srgb, var(--color-danger) var(--tint), var(--color-bg)); }
 
 /* 질문 다듬기: 입력창 위 비교 카드, 그림자 없이 테두리 한 줄 */
-.refine-card { margin-bottom: var(--space-2); padding: var(--space-3) var(--space-4) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-bg); animation: refine-in var(--duration-base) var(--ease); }
+.refine-card { max-height: calc(var(--viewport-h) / 2); overflow-y: auto; margin-bottom: var(--space-2); padding: var(--space-3) var(--space-4) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-bg); animation: refine-in var(--duration-base) var(--ease); }
 @keyframes refine-in { from { opacity: 0; transform: translateY(var(--space-2)); } }
 .refine-head { display: flex; align-items: center; justify-content: space-between; }
 .refine-head h2 { margin: 0; font-size: var(--text-sm); font-weight: 600; letter-spacing: 0; }

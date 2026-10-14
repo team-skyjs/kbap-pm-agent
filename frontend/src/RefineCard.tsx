@@ -8,10 +8,12 @@ type Props = {
   onSendOriginal: () => void
   onInsert: () => void
   onClose: () => void
+  // 에이전트 실행 중에는 보내기·넣기를 막아 잘못된 선택 기록 방지
+  busy?: boolean
 }
 
 // 다듬기 결과 비교 카드. 기록·전송은 호출한 쪽이 담당
-export default function RefineCard({ original, refined, summary, onSendRefined, onSendOriginal, onInsert, onClose }: Props) {
+export default function RefineCard({ original, refined, summary, onSendRefined, onSendOriginal, onInsert, onClose, busy = false }: Props) {
   const titleId = useId()
   const primary = useRef<HTMLButtonElement>(null)
   useEffect(() => { primary.current?.focus() }, [])
@@ -42,10 +44,10 @@ export default function RefineCard({ original, refined, summary, onSendRefined, 
         </div>
       </div>
       <div className="refine-actions">
-        <button type="button" className="btn" onClick={onInsert}>입력창에 넣기</button>
+        <button type="button" className="btn" disabled={busy} onClick={onInsert}>입력창에 넣기</button>
         <span className="refine-send">
-          <button type="button" className="btn" onClick={onSendOriginal}>원문으로 보내기</button>
-          <button type="button" className="btn primary" ref={primary} onClick={onSendRefined}>개선안으로 보내기</button>
+          <button type="button" className="btn" disabled={busy} onClick={onSendOriginal}>원문으로 보내기</button>
+          <button type="button" className="btn primary" ref={primary} disabled={busy} onClick={onSendRefined}>개선안으로 보내기</button>
         </span>
       </div>
     </section>

@@ -254,7 +254,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     <>
       <Topbar title={detail.title ?? '새 대화'} />
       {sessionExpired && <SessionBanner />}
-      <div className="scroll" ref={scrollRef} onScroll={onScroll}>
+      <div className="scroll" ref={scrollRef} onScroll={onScroll} tabIndex={0} role="region" aria-label="대화 내용">
         <div className="thread chat">
           {detail.messages.length === 0 && <p className="muted empty">질문을 입력하세요. 예: 스캔 퍼널에서 가장 큰 이탈 지점 찾아서 개선안 제안해줘</p>}
           {detail.messages.map((m, i) => (
@@ -270,7 +270,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
           <RefineCard
             original={rs.original} refined={rs.result.refined} summary={rs.result.summary}
             onSendRefined={backToInput(refine.sendRefined)} onSendOriginal={backToInput(refine.sendOriginal)}
-            onInsert={backToInput(refine.insertRefined)} onClose={backToInput(refine.close)}
+            onInsert={backToInput(refine.insertRefined)} onClose={backToInput(refine.close)} busy={disabled}
           />
         )}
         <div className="chat-input">
