@@ -114,10 +114,12 @@ def runtime(model: str):
 
 
 def check_models() -> None:
-    """기동 시 호출. real 모드에서 AGENT_MODEL·CODE_SUMMARY_MODEL 접두사가 틀리면 기동 실패."""
+    """기동 시 호출. real 모드에서 AGENT_MODEL·CODE_SUMMARY_MODEL·REFINE_MODEL(설정 시) 접두사가 틀리면 기동 실패."""
     if not is_fake():
         runtime(agent_model())
         runtime(env("CODE_SUMMARY_MODEL"))
+        if env("REFINE_MODEL"):
+            runtime(env("REFINE_MODEL"))
 
 
 class Refused(Exception):
@@ -284,3 +286,27 @@ def summarize(text: str) -> str:
     out, input_tokens, output_tokens = asyncio.run(mod.summarize(name, SUMMARY_PROMPT + text))
     budget.record("code_summary", model_str, input_tokens, output_tokens, None)
     return out
+
+
+# 계약 시연 모드 다듬기 응답 예시
+FAKE_REFINED = ("최근 7일 scan_start → scan_complete(success=true) 퍼널에서 이탈이 가장 큰 단계를 찾고, "
+                "그 원인이 되는 화면 동작과 개선안을 제안해줘.")
+FAKE_REFINE_SUMMARY = "기간을 최근 7일로 정하고(원문에 없음), 이벤트 이름과 원하는 산출물(개선안)을 명시했다."
+
+
+def refine_model() -> str:
+    return env("REFINE_MODEL") or env("CODE_SUMMARY_MODEL")
+
+
+async def refine(prompt: str):
+    """질문 다듬기 seam: 도구 없이 1회 호출, 구조화 출력 RefineResult. (결과, 실제 모델 문자열).
+    거절·검증 실패·공급자 오류는 예외로 올려 호출자가 UPSTREAM_ERROR로 응답"""
+    from app.schemas import RefineResult
+    if is_fake():
+        budget.record("refine", "fake", 0, 0, None)
+        return RefineResult(refined=FAKE_REFINED, summary=FAKE_REFINE_SUMMARY), "fake"
+    model_str = refine_model()
+    mod, name = runtime(model_str)
+    result, input_tokens, output_tokens = await mod.refine(name, prompt)
+    budget.record("refine", model_str, input_tokens, output_tokens, None)
+    return result, model_str

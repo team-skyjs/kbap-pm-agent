@@ -98,3 +98,11 @@ async def summarize(model: str, prompt: str) -> tuple[str, int, int]:
     result = await Runner.run(Agent(name="code-summary", model=_model(model)), prompt)
     u = result.context_wrapper.usage
     return str(result.final_output), u.input_tokens, u.output_tokens
+
+
+async def refine(model: str, prompt: str):
+    """질문 다듬기: 도구 없는 단발 실행, 구조화 출력 RefineResult"""
+    from app.schemas import RefineResult
+    result = await Runner.run(Agent(name="question-refine", model=_model(model), output_type=RefineResult), prompt)
+    u = result.context_wrapper.usage
+    return result.final_output, u.input_tokens, u.output_tokens

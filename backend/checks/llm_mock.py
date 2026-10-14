@@ -1,5 +1,6 @@
 """두 LLM SDK에 가짜 HTTP 전송을 넣는 검사 도우미. 실제 SDK 요청 생성·응답 파싱 경로를 그대로 사용. 비용 0.
-스크립트 단계: ("tool", 도구이름, 입력) | ("tools", [(도구이름, 입력), ...]) 병렬 호출 | ("final", AgentAnswer dict) | ("refusal",)"""
+스크립트 단계: ("tool", 도구이름, 입력) | ("tools", [(도구이름, 입력), ...]) 병렬 호출 | ("final", AgentAnswer dict)
+| ("raw", 텍스트) 그대로의 텍스트 응답(잘못된 JSON 시험) | ("refusal",)"""
 import asyncio
 import json
 
@@ -23,25 +24,29 @@ def _anthropic_reply(step, n):
         content = [{"type": "tool_use", "id": f"tu{n}_{i}", "name": name, "input": args}
                    for i, (name, args) in enumerate(_calls(step))]
         stop = "tool_use"
-    elif step[0] == "final":
-        content, stop = [{"type": "text", "text": json.dumps(step[1], ensure_ascii=False)}], "end_turn"
+    elif step[0] in ("final", "raw"):
+        text = step[1] if step[0] == "raw" else json.dumps(step[1], ensure_ascii=False)
+        content, stop = [{"type": "text", "text": text}], "end_turn"
     else:
         content, stop = [], "refusal"
     return {"id": f"msg{n}", "type": "message", "role": "assistant", "model": "claude-sonnet-5-5", "content": content,
             "stop_reason": stop, "stop_sequence": None, "usage": usage}
 
 
-def _openai_reply(step, n):
+def _openai_reply(step, n, stream=True):
     if step[0] in ("tool", "tools"):
         out = [{"type": "function_call", "id": f"fc{n}_{i}", "call_id": f"call{n}_{i}", "name": name,
                 "arguments": json.dumps(args), "status": "completed"} for i, (name, args) in enumerate(_calls(step))]
     else:
         out = [{"type": "message", "id": f"m{n}", "role": "assistant", "status": "completed",
-                "content": [{"type": "output_text", "annotations": [], "text": json.dumps(step[1], ensure_ascii=False)}]}]
+                "content": [{"type": "output_text", "annotations": [],
+                             "text": step[1] if step[0] == "raw" else json.dumps(step[1], ensure_ascii=False)}]}]
     r = {"id": f"r{n}", "object": "response", "created_at": 1, "model": "gpt-6-luna", "status": "completed", "output": out,
          "parallel_tool_calls": True, "tool_choice": "auto", "tools": [],
          "usage": {"input_tokens": 100, "output_tokens": 10, "total_tokens": 110,
                    "input_tokens_details": {"cached_tokens": 0}, "output_tokens_details": {"reasoning_tokens": 0}}}
+    if not stream:  # Runner.run(비스트리밍)은 응답 객체 JSON을 받음
+        return r
     return "".join(f"event: {t}\ndata: {json.dumps({'type': t, 'sequence_number': k, 'response': r})}\n\n"
                    for k, t in enumerate(["response.created", "response.completed"]))
 
@@ -58,6 +63,8 @@ def script(provider: str, steps, delay: float = 0.0):
         step, n = next(it), len(sent)
         if provider == "anthropic":
             return httpx2.Response(200, json=_anthropic_reply(step, n))
+        if not sent[-1].get("stream"):
+            return httpx.Response(200, json=_openai_reply(step, n, stream=False))
         return httpx.Response(200, text=_openai_reply(step, n), headers={"content-type": "text/event-stream"})
 
     if provider == "anthropic":  # anthropic 1.x SDK는 httpx2 사용

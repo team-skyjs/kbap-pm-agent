@@ -1,7 +1,7 @@
 # backend/ → ghcr.io 이미지 → 홈서버(self-hosted 러너)에서 compose pull·up·헬스체크
 # techmoa app/deploy.yml 패턴. 운영 env 파일은 deploy job이 GitHub Secrets/Variables에서 생성한다 (ADR-11)
 # Secrets: DATABASE_URL, ANTHROPIC_API_KEY, OPENAI_API_KEY, GH_PAT(→GITHUB_TOKEN), ACCESS_TOKEN
-# Variables: PUBLIC_BASE_URL, CORS_ORIGINS, AGENT_MODEL, CODE_SUMMARY_MODEL, AMPLITUDE_MCP_URL, LLM_BUDGET_USD
+# Variables: PUBLIC_BASE_URL, CORS_ORIGINS, AGENT_MODEL, CODE_SUMMARY_MODEL, REFINE_MODEL, AMPLITUDE_MCP_URL, LLM_BUDGET_USD
 name: deploy-backend
 
 on:
@@ -78,6 +78,7 @@ jobs:
           CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
           AGENT_MODEL: ${{ vars.AGENT_MODEL }}
           CODE_SUMMARY_MODEL: ${{ vars.CODE_SUMMARY_MODEL }}
+          REFINE_MODEL: ${{ vars.REFINE_MODEL }}
           AMPLITUDE_MCP_URL: ${{ vars.AMPLITUDE_MCP_URL }}
           LLM_BUDGET_USD: ${{ vars.LLM_BUDGET_USD }}
         run: |
@@ -93,6 +94,7 @@ jobs:
           PUBLIC_BASE_URL=$PUBLIC_BASE_URL
           AGENT_MODEL=${AGENT_MODEL:-anthropic:claude-sonnet-5-5}
           CODE_SUMMARY_MODEL=${CODE_SUMMARY_MODEL:-anthropic:claude-haiku-5-5}
+          REFINE_MODEL=${REFINE_MODEL:-}
           ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
           OPENAI_API_KEY=$OPENAI_API_KEY
           AGENT_MAX_TURNS=10

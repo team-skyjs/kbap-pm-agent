@@ -227,3 +227,26 @@ class SendMessageIn(M):
 class PatchProposalIn(M):
     status: Literal["pending", "adopted", "on_hold"]
     note: str | None = Field(default=None, max_length=1000)
+
+
+# --- 질문 다듬기
+class RefineResult(M):
+    """다듬기 모델의 구조화 출력. 두 문장 이내 규칙은 한국어 문장 분리가 불안정해 프롬프트로만 강제"""
+    refined: str = Field(min_length=1, max_length=4000)
+    summary: str = Field(min_length=1, max_length=300)
+
+
+class RefineIn(M):
+    conversation_id: int | None = None
+    question: str = Field(min_length=1, max_length=4000)
+
+    @field_validator("question")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("공백만 있는 질문")
+        return v
+
+
+class RefineChoiceIn(M):
+    choice: Literal["refined", "original", "cancelled"]

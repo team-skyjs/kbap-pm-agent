@@ -1,0 +1,162 @@
+"""질문 다듬기 검사: 시연 모드 응답·기록, 요청 검증, 예산, ENUM 마이그레이션 멱등성, 프롬프트 규칙, 입력 조립,
+두 런타임 가짜 전송(성공·거절·잘못된 JSON), 선택 기록·덮어쓰기·집계. 실제 LLM 호출 없음."""
+import os
+import time
+
+from common import client, ok
+from examples import REFINE, REFINE_CHOICE, TAXONOMY_BODY
+from llm_mock import script
+
+from app import db
+from app.refine import REFINE_PROMPT, build_prompt
+
+c = client()
+
+
+def refinements() -> int:
+    return db.one("SELECT COUNT(*) AS n FROM question_refinements")["n"]
+
+
+def refine_usage() -> int:
+    return db.one("SELECT COUNT(*) AS n FROM llm_usage WHERE purpose = 'refine'")["n"]
+
+
+# --- 시연 모드 응답·기록
+r = c.post("/api/questions/refine", json={"conversationId": None, "question": "스캔 이탈 왜 많아?"})
+assert r.status_code == 200, r.text
+body = r.json()
+assert set(body) == set(REFINE) and isinstance(body["refinementId"], int) and body["refinementId"] > 0, body
+assert body["refined"] == REFINE["refined"] and body["summary"] == REFINE["summary"], body
+assert refinements() == 1 and refine_usage() == 1
+assert db.one("SELECT cost_usd, model FROM llm_usage WHERE purpose = 'refine'") == {"cost_usd": 0, "model": "fake"}
+ok("fake: 응답 키·refined·summary = 계약 예시, 기록 1행, llm_usage refine 0원 1행")
+
+# --- 요청 검증
+for bad in [{"conversationId": None, "question": ""}, {"conversationId": None, "question": "   "},
+            {"conversationId": None, "question": "가" * 4001}, {"conversationId": None}, {"question": 3}]:
+    r = c.post("/api/questions/refine", json=bad)
+    assert r.status_code == 400 and r.json()["error"]["code"] == "VALIDATION_ERROR", (bad, r.text)
+r = c.post("/api/questions/refine", json={"conversationId": 999999, "question": "x"})
+assert r.status_code == 404 and r.json()["error"]["code"] == "CONVERSATION_NOT_FOUND", r.text
+cid = c.post("/api/conversations", json={}).json()["id"]
+assert c.post("/api/questions/refine", json={"conversationId": cid, "question": "x"}).status_code == 200
+assert c.post("/api/questions/refine", json={"question": "conversationId 생략"}).status_code == 200
+assert refinements() == 3  # 실패 요청은 행을 만들지 않음
+ok("검증: 빈·공백만·4001자·누락·타입 400, 없는 대화 404, 대화 있음·null·생략 200, 실패는 행 없음")
+
+# --- 예산
+os.environ["LLM_BUDGET_USD"] = "0"
+try:
+    r = c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})
+    assert r.status_code == 403 and r.json()["error"]["code"] == "BUDGET_EXCEEDED", r.text
+finally:
+    os.environ.pop("LLM_BUDGET_USD")
+ok("LLM_BUDGET_USD=0 → 403 BUDGET_EXCEEDED")
+
+# --- 마이그레이션: 옛 ENUM 테이블에서 init() 두 번
+db.x("DROP TABLE llm_usage")
+db.x("""CREATE TABLE llm_usage (id BIGINT AUTO_INCREMENT PRIMARY KEY, message_id BIGINT NULL,
+        purpose ENUM('agent','code_summary') NOT NULL, model VARCHAR(100) NOT NULL, input_tokens INT NOT NULL,
+        output_tokens INT NOT NULL, cost_usd DECIMAL(10,4) NOT NULL, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3))""")
+db.init()
+db.init()
+col = db.one("""SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'llm_usage' AND COLUMN_NAME = 'purpose'""")["COLUMN_TYPE"]
+assert "'refine'" in col, col
+ok("마이그레이션: 옛 ENUM → init() 두 번(두 번째 무에러) 후 refine 포함")
+
+# --- 프롬프트 규칙 문장
+for rule in ["사용자의 의도를 바꾸지 않는다.",
+             "기간, 대상 이벤트(아래 목록에 있는 실제 이름만), 보고 싶은 지표, 원하는 산출물(개선안인지 측정 설계인지)을 드러낸다.",
+             "목록에 없는 이벤트 이름이나 원문에 없는 사실을 지어내지 않는다. 대상이 목록에 없으면 사용자의 말을 그대로 둔다.",
+             '정보가 없으면 합리적 기본값(예: 최근 7일)을 쓰되 요약에 "(원문에 없음)"으로 밝힌다.',
+             "이미 구체적이면 거의 그대로 두고 요약에 그렇게 적는다.",
+             "개선안은 한국어 두 문장 이내, 요약은 한 줄이다."]:
+    assert rule in REFINE_PROMPT, rule
+ok("REFINE_PROMPT: 규칙 문장 여섯 개")
+
+# --- 입력 조립
+p = build_prompt("질문입니다", None)
+assert "택사노미 없음" in p and "이력 없음" in p and p.rstrip().endswith("summary: 무엇이 달라졌는지 한 줄.")
+c.put("/api/settings/taxonomy", json=TAXONOMY_BODY)
+cid = c.post("/api/conversations", json={}).json()["id"]
+for i, (role, status, text) in enumerate([("user", "completed", "옛질문"), ("assistant", "completed", "옛답"),
+                                          ("user", "completed", "가" * 600), ("assistant", "failed", "실패답"),
+                                          ("assistant", "completed", "나" * 600), ("user", "completed", "최근질문"),
+                                          ("assistant", "completed", ""), ("assistant", "completed", "최근답")]):
+    db.x("INSERT INTO messages (conversation_id, role, status, content, created_at) VALUES (%s,%s,%s,%s, NOW(3) + INTERVAL %s SECOND)",
+         (cid, role, status, text, i))
+p = build_prompt("그걸 주 단위로", cid)
+assert "scan_complete, scan_start" in p and "스캔 성공 여부" not in p and "메뉴판 스캔이" not in p, "택사노미는 이름만"
+hist = p.split("## 직전 대화(오래된 순)\n")[1].split("\n\n## 다듬을 질문")[0].splitlines()
+assert hist == ["[사용자] " + "가" * 500, "[에이전트] " + "나" * 500, "[사용자] 최근질문", "[에이전트] 최근답"], hist
+assert "옛질문" not in p and "실패답" not in p and p.split("## 다듬을 질문\n")[1].startswith("그걸 주 단위로")
+ok("조립: 택사노미 이름만, 이력 역할별 최근 2개·500자·오래된 순, 실패·빈 메시지 제외, 질문은 마지막")
+
+# --- 두 런타임 가짜 전송
+os.environ["AGENT_MODE"] = "real"
+os.environ["AGENT_MODEL"] = "anthropic:claude-sonnet-5-5"
+os.environ["CODE_SUMMARY_MODEL"] = "anthropic:claude-haiku-5-5"
+answer = {"refined": "최근 7일 scan_start 대비 scan_complete 전환율을 보여줘.", "summary": "기간을 최근 7일로 정했다(원문에 없음)."}
+try:
+    for provider, model in [("anthropic", "anthropic:claude-haiku-5-5"), ("openai", "openai:gpt-6-luna")]:
+        os.environ["REFINE_MODEL"] = model
+        before_rows, before_usage = refinements(), refine_usage()
+        script(provider, [("final", answer)])
+        r = c.post("/api/questions/refine", json={"conversationId": None, "question": "전환율"})
+        assert r.status_code == 200 and r.json()["refined"] == answer["refined"], r.text
+        assert refinements() == before_rows + 1 and refine_usage() == before_usage + 1
+        assert db.one("SELECT model FROM question_refinements ORDER BY id DESC LIMIT 1")["model"] == model
+        u = db.one("SELECT model, input_tokens FROM llm_usage WHERE purpose = 'refine' ORDER BY id DESC LIMIT 1")
+        assert u["model"] == model and u["input_tokens"] > 0, u
+        for step in ([("refusal",)] if provider == "anthropic" else []) + [("raw", "JSON 아님")]:
+            before = refinements()
+            script(provider, [step])
+            r = c.post("/api/questions/refine", json={"conversationId": None, "question": "전환율"})
+            assert r.status_code == 502 and r.json()["error"]["code"] == "UPSTREAM_ERROR", (provider, step, r.text)
+            assert refinements() == before, "실패면 기록 행 없음"
+        ok(f"{provider}: RefineResult 반환·기록·usage 행, " + ("거절·" if provider == "anthropic" else "") + "잘못된 JSON 502 행 없음")
+    os.environ.pop("REFINE_MODEL")
+    script("anthropic", [("final", answer)])
+    c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})
+    assert db.one("SELECT model FROM question_refinements ORDER BY id DESC LIMIT 1")["model"] == "anthropic:claude-haiku-5-5"
+    ok("REFINE_MODEL 비면 CODE_SUMMARY_MODEL 사용")
+    os.environ["REFINE_MODEL"] = "foo:bar"
+    from app import agent
+    try:
+        agent.check_models()
+        raise AssertionError("잘못된 REFINE_MODEL 접두사가 통과")
+    except ValueError:
+        pass
+    ok("REFINE_MODEL 잘못된 접두사 → 기동 검사 실패")
+finally:
+    os.environ["AGENT_MODE"] = "fake"
+    os.environ.pop("REFINE_MODEL", None)
+
+# --- 선택 기록
+rid = c.post("/api/questions/refine", json={"conversationId": None, "question": "x"}).json()["refinementId"]
+r = c.post(f"/api/questions/refine/{rid}/choice", json={"choice": "original"})
+assert r.status_code == 200 and set(r.json()) == set(REFINE_CHOICE) and r.json()["choice"] == "original", r.text
+first = r.json()["chosenAt"]
+time.sleep(0.01)
+r = c.post(f"/api/questions/refine/{rid}/choice", json={"choice": "refined"})
+assert r.json()["choice"] == "refined" and r.json()["chosenAt"] > first and r.json()["chosenAt"].endswith("Z"), r.json()
+assert db.one("SELECT choice FROM question_refinements WHERE id = %s", (rid,))["choice"] == "refined"
+r = c.post("/api/questions/refine/999999/choice", json={"choice": "refined"})
+assert r.status_code == 404 and r.json()["error"]["code"] == "REFINEMENT_NOT_FOUND", r.text
+for bad in [{"choice": "maybe"}, {}]:
+    r = c.post(f"/api/questions/refine/{rid}/choice", json=bad)
+    assert r.status_code == 400 and r.json()["error"]["code"] == "VALIDATION_ERROR", r.text
+ok("선택: 응답 키 = 계약 예시, 덮어쓰기와 chosenAt 갱신, 404 REFINEMENT_NOT_FOUND, 400")
+
+# --- 채택 비율 집계(data-model.md 쿼리 그대로)
+db.x("DELETE FROM question_refinements")
+for choice in ["refined", "refined", "original", "cancelled"]:
+    rid = c.post("/api/questions/refine", json={"conversationId": None, "question": "x"}).json()["refinementId"]
+    c.post(f"/api/questions/refine/{rid}/choice", json={"choice": choice})
+c.post("/api/questions/refine", json={"conversationId": None, "question": "선택 전"})
+agg = db.one("""SELECT ROUND(100 * SUM(choice = 'refined') / COUNT(*), 1) AS adopted_pct, COUNT(*) AS shown
+FROM question_refinements WHERE choice IS NOT NULL;""")
+assert float(agg["adopted_pct"]) == 50.0 and agg["shown"] == 4, agg
+ok("집계: refined 2·original 1·cancelled 1(+선택 전 1) → 채택 50.0%, shown 4")
+print("check_b10 OK")

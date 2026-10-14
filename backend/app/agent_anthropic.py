@@ -73,3 +73,17 @@ async def summarize(model: str, prompt: str) -> tuple[str, int, int]:
     resp = await _client().messages.create(model=model, max_tokens=4000, output_config={"effort": "low"},
                                            messages=[{"role": "user", "content": prompt}])
     return "".join(b.text for b in resp.content if b.type == "text"), *_usage(resp.usage)
+
+
+async def refine(model: str, prompt: str):
+    """질문 다듬기: 도구·tool_choice·thinking 없이 구조화 출력 1회. 거절이면 agent.Refused"""
+    from app.agent import Refused
+    from app.schemas import RefineResult
+    resp = await _client().messages.parse(model=model, max_tokens=2000, output_format=RefineResult,
+                                          output_config={"effort": "low"},
+                                          messages=[{"role": "user", "content": prompt}])
+    if resp.stop_reason == "refusal":  # 본문을 읽기 전에 확인
+        raise Refused()
+    if resp.parsed_output is None:
+        raise ValueError("구조화 출력 없음")
+    return resp.parsed_output, *_usage(resp.usage)
