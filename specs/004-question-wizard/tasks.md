@@ -56,7 +56,7 @@ description: "질문 마법사 구현 태스크"
   - 검증: 빈 문자열·공백만·4001자는 400이다. 없는 `conversationId`는 404, `conversationId: null`은 200이다.
   - 예산: `LLM_BUDGET_USD=0`이면 403이다.
   - 마이그레이션: 검사 DB에 옛 ENUM(`'agent','code_summary'`)으로 `llm_usage`를 만들고 `init()`을 두 번 호출하면 `COLUMN_TYPE`에 `refine`이 있고 두 번째 호출이 에러 없이 끝난다.
-- [ ] T008 [QA] Q1 교차 검증: curl 응답을 계약 08b 예시와 키 단위로 대조하고 `check_b10.py`를 순차 실행한다. 계약 diff 0(`cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md`)을 확인한다 (Q1 QA)
+- [x] T008 [QA] Q1 교차 검증: curl 응답을 계약 08b 예시와 키 단위로 대조하고 `check_b10.py`를 순차 실행한다. 계약 diff 0(`cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md`)을 확인한다 (Q1 QA)
 
 **Checkpoint**: fake 백엔드로 다듬기가 왕복하고 기록이 남는다.
 

@@ -55,6 +55,8 @@
 | 2026-10-15 | 004 질문 마법사 데이터 흐름 (3b5f09d, frontend T014~T016) | 정적 통과, 백엔드 대기 | 계약 v1.3 08b 절과 api.ts 대조: 요청 {conversationId(null 허용), question}, 응답 {refinementId, refined, summary}, 선택 기록 {choice: refined/original/cancelled} → {refinementId, choice, chosenAt} 필드 단위 일치, 캐스팅 없는 파서, REFINEMENT_NOT_FOUND 추가. 커밋본 npm run check f1~f5·f7~f9 OK(f9 단언 11), 계약 diff 0. 실제 백엔드 왕복은 다듬기 엔드포인트 완료 후 |
 | 2026-10-15 | 004 Q1 질문 다듬기 백엔드 (2d9f7ae) T008 | 통과, 결함 1(낮음) | 커밋본 이미지·별도 DB(fake): refine 응답 키 = 계약 08b, fake refined·summary = 예시 원문, conversationId null·생략 200, 빈·공백만·4001자·누락·깨진 JSON 400, 4000자 200, 없는 대화 404, choice 키 = 계약·chosenAt ISO·덮어쓰기와 갱신·허용값 밖·누락 400·없는 기록 404 REFINEMENT_NOT_FOUND, DB choice = 마지막 값, llm_usage refine 0원, 대화 messages에 안 나타남. check_b1~b7·b9·b10 OK, 계약 diff 0. 결함 QA-11 |
 | 2026-10-15 | 004 T013 US2 수락 시나리오(실제 키, Haiku 5.5 기본값) | 실행 완료, 규칙 위반 리포트 | 별도 실제 모드 컨테이너·별도 DB, kbap-fe EVENTS 45개 택사노미. 4건 모두 200, 지연 2.4~3.4초, 건당 $0.0002~0.0003. (1) 일상어 "스캔 이탈 왜 많아?" 이벤트·기간·기본값 표시 통과(error_state_view 범위 추가는 경계선) (2) 택사노미에 없는 "결제 화면" → 없는 이름은 안 지었으나 order_card_open·order_done으로 대상을 바꿈(사용자 말 유지 규칙 부분 위반, 요약에는 대체 사실 표시) (3) 후속 "그걸 주 단위로" 직전 대상 반영 통과, 원문에 없는 목적 문장 추가 (4) 이미 구체적 질문: 의미 유지, 요약에 '거의 그대로' 표시 없음 + 원문에 없는 산출물 조건 추가(위반). 출력 원문은 QA 산출물 t013_out.json으로 보관, 05_refine_comparison에 반영 예정 |
+| 2026-10-15 | 004 T025 모델 비교 (실제 키, 프롬프트 01050f7·c51a5ea) | 통과, 결론 Haiku | 샘플 10건 × Haiku·Sonnet 순차 2회 실행. 최종 프롬프트 Sonnet 76·Haiku 72(4점 차, 기준 8 미만), Haiku 의도 0점 0건. Haiku 지연 중앙값 3.22초(SC-001 통과), 평균 $0.0004(SC-004 통과). 새 문제: 규칙 7 이후 처리 메모가 다듬은 질문 본문에 들어감(backend-dev에 전달). 상세 `05_refine_comparison.md` |
+| 2026-10-15 | QA-11 재검증·T008 (01050f7) | 확인됨 | 커밋본 이미지·별도 DB: qa_refine.py 실패 0, check_b1~b7·b9·b10 OK(b4·b5는 rg가 PATH에 있어야 함), 계약 diff 0 |
 
 ## 결함
 
@@ -158,4 +160,4 @@
 - 실제: `{"conversationId": "7", "question": "x"}` → 400이 아니라 404 `CONVERSATION_NOT_FOUND`(그 DB에 대화 7이 없어서). Pydantic 기본(lax) 모드가 "7"을 7로 강제 변환. 대화 7이 있으면 200으로 통과한다
 - 수정 방향: 백엔드. 요청 모델 `conversationId: int | None`을 strict(`StrictInt` 또는 `model_config strict`)로. check_b10 타입 400 케이스에 문자열 ID 추가
 - 수신: backend-dev
-- 상태: 열림
+- 상태: 확인됨 (4918a52: RefineIn.conversation_id를 StrictInt로, check_b10에 문자열·불리언 케이스 추가. 01050f7 커밋본 재검증: "7"·7.0·true 모두 400 VALIDATION_ERROR, null 200)
