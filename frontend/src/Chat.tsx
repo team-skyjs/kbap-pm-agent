@@ -245,8 +245,9 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={disabled || !input.trim()}>보내기</button>
         </div>
         <p id="chat-hint" className={notice ? 'hint error' : 'hint muted'} aria-live="polite">
-          {notice || (disabled ? '에이전트 실행 중에는 보낼 수 없습니다' : 'Enter로 전송, Shift+Enter로 줄바꿈')}
-          {tokenError && <> <a href="#/settings">설정 열기</a></>}
+          {tokenError
+            ? <>접근 토큰이 없거나 맞지 않습니다. <a href="#/settings">설정에서 확인하세요</a></>
+            : notice || (disabled ? '에이전트 실행 중에는 보낼 수 없습니다' : 'Enter로 전송, Shift+Enter로 줄바꿈')}
         </p>
       </div>
     </>
