@@ -52,7 +52,11 @@ async def run(model: str, system: str, history: list[dict], tools: list, emit, u
     if server:
         try:
             await server.connect()
-            servers, amp = [server], "있음"
+            if await server.list_tools():  # 허용 목록 적용 후 목록, 0개면 서버를 모델에 붙이지 않음
+                servers, amp = [server], "있음"
+            else:
+                amp = amplitude.MISMATCH
+                await server.cleanup()
         except Exception as e:  # Amplitude가 막혀도 나머지 소스로 답변
             log.warning("amplitude unavailable: %s", e)
             amp = "없음(연결 실패)"

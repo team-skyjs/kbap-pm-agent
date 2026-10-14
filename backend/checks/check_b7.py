@@ -48,8 +48,15 @@ def query_amplitude_data(events: list[str]) -> str:
 
 
 # 허용 목록 밖 도구: 모델에 가면 안 되는 것들(실제 서버는 수십 개)
-for extra in ["get_amplitude_context", "create_chart", "save_chart_edits", "list_dashboards"]:
+for extra in ["create_chart", "save_chart_edits", "list_dashboards"]:
     fake_amp.add_tool(lambda: "ok", name=extra, description=f"{extra} 시험용")
+
+
+@fake_amp.tool()
+def get_amplitude_context() -> list:
+    """텍스트와 이미지를 함께 반환(비텍스트 블록 상한 우회 시험)."""
+    from mcp.server.fastmcp import Image
+    return ["프로젝트 맥락 요약", Image(data=b"\x89PNG\r\n\x1a\nFAKEIMAGEBYTES", format="png")]
 
 
 server = uvicorn.Server(uvicorn.Config(fake_amp.streamable_http_app(), host="127.0.0.1", port=8766, log_level="warning"))
@@ -89,6 +96,30 @@ try:
             given = {t["name"] for t in sent[0]["tools"]} & ALL  # 모델 요청에 실린 Amplitude 도구
             assert given == expect, (provider, value, given)
         ok(f"{provider}: 모델에는 허용 목록 2개만, AMPLITUDE_TOOLS 빈 값이면 5개 전부")
+
+        # 허용 목록과 0개 일치: 도구 미전달, 소스 상태 "허용 목록 불일치"
+        os.environ["AMPLITUDE_TOOLS"] = "no_such_tool"
+        script(provider, [("final", done)])
+        evs = sse(c, c.post("/api/conversations", json={}).json()["id"])
+        os.environ.pop("AMPLITUDE_TOOLS")
+        req = sent[0]
+        prompt = req["system"] if provider == "anthropic" else req["instructions"]
+        prompt = prompt if isinstance(prompt, str) else json.dumps(prompt, ensure_ascii=False)
+        assert evs[-1][0] == "final" and not ({t["name"] for t in req["tools"]} & ALL), req["tools"]
+        assert "Amplitude 없음(허용 목록 불일치)" in prompt, prompt[-120:]
+        ok(f"{provider}: 허용 목록 0개 일치 → Amplitude 도구 미전달, 소스 상태 '없음(허용 목록 불일치)'")
+
+        # 비텍스트 MCP 결과: 모델 사본에는 텍스트만
+        script(provider, [("tool", "get_amplitude_context", {}), ("final", done)])
+        evs = sse(c, c.post("/api/conversations", json={}).json()["id"])
+        if provider == "anthropic":
+            to_model = sent[1]["messages"][-1]["content"][0]["content"]
+        else:
+            to_model = next(i["output"] for i in sent[1]["input"] if i.get("type") == "function_call_output")
+        dumped = json.dumps(to_model, ensure_ascii=False)
+        assert "프로젝트 맥락 요약" in dumped and "image" not in dumped.lower() and "FAKEIMAGE" not in dumped, dumped[:300]
+        assert evs[2][1]["status"] == "succeeded", evs[2]
+        ok(f"{provider}: 텍스트+이미지 MCP 결과 → 모델에는 텍스트만")
 
     for provider, model in [("anthropic", "anthropic:claude-sonnet-5-5"), ("openai", "openai:gpt-6-luna")]:
         os.environ["AGENT_MODEL"] = model

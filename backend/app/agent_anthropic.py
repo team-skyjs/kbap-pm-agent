@@ -5,6 +5,7 @@ import logging
 from anthropic import AsyncAnthropic, beta_async_tool
 
 from app import amplitude
+from app.config import is_fake
 
 log = logging.getLogger("app.agent_anthropic")
 BETAS = ["server-side-fallback-2026-07-01"]  # fallbacks="default"와 짝 (배열형은 2026-06-01 헤더라 섞으면 400)
@@ -49,6 +50,8 @@ async def run(model: str, system: str, history: list[dict], tools: list, emit, u
                                           name=t.name, description=t.description or t.name, input_schema=t.inputSchema))
         if mcp:
             amp = "있음"
+        elif amp == "없음(연결 안 됨)" and amplitude.connected() and not is_fake():  # 연결은 됐지만 허용 목록과 0개 일치
+            amp = amplitude.MISMATCH
         runner = _client().beta.messages.tool_runner(
             model=model, max_tokens=16000, system=f"{system}, Amplitude {amp}", messages=history, tools=btools,
             output_format=AgentAnswer, thinking={"type": "adaptive"}, cache_control={"type": "ephemeral"},

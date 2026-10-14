@@ -84,8 +84,14 @@ def keep(tools: list) -> list:
     서버가 내려주는 도구 전체를 매 턴 넘기면 입력 토큰·첫 응답 지연이 크게 늘어서 필요한 것만 전달."""
     allow = {n.strip() for n in env("AMPLITUDE_TOOLS", DEFAULT_TOOLS).split(",") if n.strip()}
     kept = [t for t in tools if not allow or t.name in allow]
-    log.info("amplitude tools: kept %d of %d", len(kept), len(tools))
+    if allow and tools and not kept:  # 오타·서버 도구 이름 변경: 런타임이 소스 상태를 "허용 목록 불일치"로 표시
+        log.warning("amplitude tools: allowlist matched 0 of %d", len(tools))
+    else:
+        log.info("amplitude tools: kept %d of %d", len(kept), len(tools))
     return kept
+
+
+MISMATCH = "없음(허용 목록 불일치)"
 
 
 @contextlib.asynccontextmanager
@@ -130,8 +136,9 @@ def openai_server(**kwargs):
             result = await super().call_tool(tool_name, arguments, meta)
             text = "\n".join(getattr(c, "text", "") for c in result.content)
             self.originals.setdefault(call_key(tool_name, arguments), []).append(text)
-            if clip(text) == text:
+            if clip(text) == text and all(isinstance(c, TextContent) for c in result.content):
                 return result
+            # 이미지·오디오·리소스 블록은 상한을 우회하므로 모델 사본에서 제거, 텍스트만 하나로
             return result.model_copy(update={"content": [TextContent(type="text", text=clip(text))]})
 
     Allowlisted.originals = {}
