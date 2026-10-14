@@ -3,7 +3,7 @@ import json
 
 from fastapi import APIRouter, Request
 
-from app import budget, code_tools, db, repo
+from app import amplitude, budget, code_tools, db, repo
 from app.config import env, is_fake, num
 from app.errors import ApiError
 from app.schemas import M
@@ -20,7 +20,7 @@ class RepositoryIn(M):
 def amplitude_state() -> dict:
     a = db.get_setting("amplitude") or {}
     return {"status": "connected" if a.get("connectedAt") else "disconnected",
-            "serverUrl": env("AMPLITUDE_MCP_URL", "https://mcp.amplitude.com/mcp"), "connectedAt": a.get("connectedAt")}
+            "serverUrl": amplitude.server_url(), "connectedAt": a.get("connectedAt")}
 
 
 @router.get("")

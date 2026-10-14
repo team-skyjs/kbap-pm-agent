@@ -1,0 +1,138 @@
+"""외부 seam: Amplitude 원격 MCP (조회 전용). OAuth 2.1 + 동적 클라이언트 등록은 MCP SDK OAuthClientProvider가 하고,
+토큰·클라이언트 정보는 app_settings 'amplitude_oauth'에 둔다(API로 노출하지 않음). 연결 상태는 'amplitude' {connectedAt}.
+fake면 계약서 예시 승인 URL을 돌려주고 즉시 connected."""
+import asyncio
+import html
+import logging
+
+from fastapi import APIRouter
+from fastapi.responses import HTMLResponse
+
+from app import db
+from app.config import env, is_fake
+from app.errors import ApiError
+
+log = logging.getLogger("app.amplitude")
+router = APIRouter(prefix="/api/integrations/amplitude")
+FAKE_AUTH_URL = ("https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri="
+                 "https%3A%2F%2Fpm-agent-api.simhani1.dev%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ"
+                 "&code_challenge=Q9v0aR3&code_challenge_method=S256")
+# ponytail: 진행 중 OAuth 하나를 프로세스 메모리에 둔다(단일 워커, 사용자 2명). 다중 워커면 state를 DB에
+_pending: dict = {}
+
+
+def server_url() -> str:
+    return env("AMPLITUDE_MCP_URL", "https://mcp.amplitude.com/mcp")
+
+
+def connected() -> bool:
+    return bool((db.get_setting("amplitude") or {}).get("connectedAt"))
+
+
+def _oauth() -> dict:
+    return db.get_setting("amplitude_oauth") or {}
+
+
+def _provider(redirect_handler=None, callback_handler=None):
+    from mcp.client.auth import OAuthClientProvider, TokenStorage
+    from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata, OAuthToken
+
+    class DbStorage(TokenStorage):
+        async def get_tokens(self):
+            t = _oauth().get("tokens")
+            return OAuthToken.model_validate(t) if t else None
+
+        async def set_tokens(self, tokens):
+            db.set_setting("amplitude_oauth", {**_oauth(), "tokens": tokens.model_dump(mode="json")})
+
+        async def get_client_info(self):
+            c = _oauth().get("client")
+            return OAuthClientInformationFull.model_validate(c) if c else None
+
+        async def set_client_info(self, info):
+            db.set_setting("amplitude_oauth", {**_oauth(), "client": info.model_dump(mode="json")})
+
+    redirect_uri = env("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/") + "/api/integrations/amplitude/callback"
+    meta = OAuthClientMetadata(client_name="kbap-pm-agent", redirect_uris=[redirect_uri], scope="all:read",
+                               grant_types=["authorization_code", "refresh_token"], response_types=["code"],
+                               token_endpoint_auth_method="none")
+    return OAuthClientProvider(server_url(), meta, DbStorage(), redirect_handler=redirect_handler,
+                               callback_handler=callback_handler)
+
+
+async def _list_tools(auth) -> list:
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
+    async with streamablehttp_client(server_url(), auth=auth) as (read, write, _):
+        async with ClientSession(read, write) as s:
+            await s.initialize()
+            return (await s.list_tools()).tools
+
+
+async def tools() -> list:
+    """에이전트에 붙일 Amplitude MCP 도구(langchain BaseTool). 연결 안 됐으면 []. 실패는 호출자가 잡는다."""
+    if is_fake() or not connected():
+        return []
+    from langchain_mcp_adapters.client import MultiServerMCPClient
+
+    async def no_browser(_url):  # 실행 중에는 재승인을 할 수 없다
+        raise RuntimeError("Amplitude 재승인이 필요합니다. 설정 화면에서 다시 연결해 주세요.")
+    client = MultiServerMCPClient({"amplitude": {"transport": "streamable_http", "url": server_url(),
+                                                 "auth": _provider(redirect_handler=no_browser)}})
+    return await client.get_tools()
+
+
+@router.post("/connect")
+async def connect():
+    if is_fake():
+        db.set_setting("amplitude", {"connectedAt": db.now_iso()})
+        return {"authorizationUrl": FAKE_AUTH_URL}
+    old = _pending.pop("task", None)
+    if old:
+        old.cancel()
+    loop = asyncio.get_running_loop()
+    url_fut, code_fut = loop.create_future(), loop.create_future()
+
+    async def redirect(url: str):
+        url_fut.set_result(url)
+
+    async def callback():
+        return await code_fut
+
+    oauth = _oauth()
+    db.set_setting("amplitude_oauth", {k: v for k, v in oauth.items() if k != "tokens"})  # 재승인 강제, 클라이언트 등록은 재사용
+    db.del_setting("amplitude")
+
+    async def handshake():
+        await _list_tools(_provider(redirect, callback))
+        db.set_setting("amplitude", {"connectedAt": db.now_iso()})
+
+    task = asyncio.create_task(handshake())
+    _pending.update(task=task, code=code_fut)
+    await asyncio.wait({url_fut, task}, timeout=30, return_when=asyncio.FIRST_COMPLETED)
+    if url_fut.done():
+        return {"authorizationUrl": url_fut.result()}
+    task.cancel()
+    reason = "응답 시간 초과" if not task.done() or task.cancelled() else type(task.exception()).__name__
+    log.error("amplitude connect failed: %s", task.exception() if task.done() and not task.cancelled() else reason)
+    raise ApiError(502, "UPSTREAM_ERROR", f"Amplitude OAuth를 시작하지 못했습니다. ({reason})")
+
+
+def _page(text: str) -> HTMLResponse:
+    return HTMLResponse(f"<!doctype html><meta charset=utf-8><p>{html.escape(text)}</p>")
+
+
+@router.get("/callback")
+async def callback(code: str | None = None, state: str | None = None, error: str | None = None):
+    fut, task = _pending.get("code"), _pending.get("task")
+    if error:
+        return _page(f"Amplitude 연결 실패: {error}")
+    if not code or fut is None or fut.done():
+        return _page("Amplitude 연결 실패: 진행 중인 연결 요청이 없습니다. 설정 화면에서 다시 연결해 주세요.")
+    fut.set_result((code, state))
+    try:
+        await asyncio.wait_for(asyncio.shield(task), 60)
+        return _page("Amplitude 연결 완료. 이 탭을 닫아도 됩니다.")
+    except Exception as e:
+        log.exception("amplitude token exchange failed")
+        return _page(f"Amplitude 연결 실패: {type(e).__name__}")

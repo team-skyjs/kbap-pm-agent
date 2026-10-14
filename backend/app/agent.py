@@ -92,9 +92,9 @@ def _model():
     return init_chat_model(agent_model(), max_tokens=16000)
 
 
-def _tools():
+async def _tools():
     """(도구 목록, 이름 → source, 소스 상태 문장). 쓸 수 있는 소스의 도구만 넣는다."""
-    from app import code_tools, repo
+    from app import amplitude, code_tools, repo
     tools, source = [], {}
     has_code = bool(repo.state()) and repo.clone_dir().exists()
     has_tax = bool(db.get_setting("taxonomy"))
@@ -104,8 +104,17 @@ def _tools():
     if has_tax:
         tools += code_tools.TAXONOMY_TOOLS
         source.update({f.__name__: "taxonomy" for f in code_tools.TAXONOMY_TOOLS})
-    status = (f"소스 상태: 코드 저장소 {'있음' if has_code else '없음'}, 택사노미 {'있음' if has_tax else '없음'}, "
-              f"Amplitude 없음")
+    amp = "없음(연결 안 됨)"
+    try:
+        amp_tools = await amplitude.tools()
+        if amp_tools:
+            tools += amp_tools
+            source.update({t.name: "amplitude" for t in amp_tools})
+            amp = "있음"
+    except Exception as e:  # Amplitude가 막혀도 나머지 소스로 답한다(US1-4)
+        log.warning("amplitude tools unavailable: %s", e)
+        amp = "없음(연결 실패)"
+    status = f"소스 상태: 코드 저장소 {'있음' if has_code else '없음'}, 택사노미 {'있음' if has_tax else '없음'}, Amplitude {amp}"
     return tools, source, status
 
 
@@ -128,7 +137,7 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
 
     from app.schemas import AgentAnswer
 
-    tools, source, status = _tools()
+    tools, source, status = await _tools()
     max_calls, timeout = int(num("AGENT_MAX_TOOL_CALLS", 20)), num("AGENT_TIMEOUT_SECONDS", 170)
     results: list[tuple[str, str]] = []  # (도구 이름, 결과 요약) — 상한 도달 시 부분 답에 쓴다
     names: dict[str, str] = {}
@@ -156,7 +165,8 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
                                 yield {"type": "tool_call", "key": tc["id"], "source": source[tc["name"]],
                                        "name": tc["name"], "input": tc["args"]}
                         elif msg.type == "tool" and msg.tool_call_id in names:
-                            text = msg.content if isinstance(msg.content, str) else str(msg.content)
+                            text = msg.content if isinstance(msg.content, str) else "\n".join(
+                                b.get("text", "") if isinstance(b, dict) else str(b) for b in msg.content)  # MCP 결과는 블록 목록
                             failed = getattr(msg, "status", "success") == "error"
                             summary = text.splitlines()[0][:500] if text else ""
                             results.append((names[msg.tool_call_id], summary))

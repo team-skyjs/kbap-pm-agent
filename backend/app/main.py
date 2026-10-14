@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app import conversations, db, settings
+from app import amplitude, conversations, db, settings
 from app.config import env
 from app.errors import ApiError, err
 
@@ -91,3 +91,4 @@ def health():
 
 app.include_router(conversations.router)
 app.include_router(settings.router)
+app.include_router(amplitude.router)
