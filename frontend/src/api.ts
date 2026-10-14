@@ -121,17 +121,27 @@ function sessionExpired(): never {
 
 export type ResponseLike = Pick<Response, 'type' | 'status' | 'ok' | 'headers' | 'json'>
 
-// 응답 판정: 접근 계층 응답이면 SESSION_EXPIRED, 비 2xx는 계약 에러 형식으로 파싱해 ApiError로 변환
-// 접근 계층 응답: 리다이렉트, JSON·SSE가 아닌 응답, 계약 에러 JSON이 아닌 401·403
+// 백엔드에 닿지 못한 5xx(nginx·터널 오류 페이지)는 로그인과 무관한 연결 실패
+function unreachable(status: number): never {
+  throw new ApiError('NETWORK_ERROR', '백엔드에 연결할 수 없습니다.', status)
+}
+
+// 응답 판정: 접근 계층 응답이면 SESSION_EXPIRED, 계약 JSON 없는 5xx는 NETWORK_ERROR,
+// 그 외 비 2xx는 계약 에러 형식으로 파싱해 ApiError로 변환
+// 접근 계층 응답: 리다이렉트, 5xx 아닌 JSON·SSE 외 응답, 계약 에러 JSON이 아닌 401·403
 export async function checkResponse(res: ResponseLike): Promise<void> {
   if (res.type === 'opaqueredirect') sessionExpired()
   const ct = res.headers.get('content-type') ?? ''
-  if (!ct.includes('application/json') && !ct.includes('text/event-stream')) sessionExpired()
+  if (!ct.includes('application/json') && !ct.includes('text/event-stream')) {
+    if (res.status >= 500) unreachable(res.status)
+    sessionExpired()
+  }
   if (res.ok) return
   let parsed: ErrorBody
   try {
     parsed = parseErrorBody(await res.json())
   } catch {
+    if (res.status >= 500) unreachable(res.status)
     if (res.status === 401 || res.status === 403) sessionExpired()
     throw new ApiError('BAD_RESPONSE', `HTTP ${res.status}: 에러 응답이 계약 형식이 아닙니다.`, res.status)
   }
