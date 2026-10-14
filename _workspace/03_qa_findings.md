@@ -30,6 +30,7 @@
 | 2026-10-15 | QA-5 재검증 (155daef) | 확인됨 | T072 체크 |
 | 2026-10-15 | B9 (9e1c2c6) T071 | 통과, 결함 1(문서) | 계약 diff 없음. backend/app·pyproject·uv.lock·설치 패키지에 langchain 0. check_b1~b7 OK(check_b6: 두 런타임 가짜 전송으로 SSE 순서·final=Message·llm_usage·도구 예외 failed 후 계속·location null·refusal UPSTREAM_ERROR·호출/시간 상한 부분 final·foo:bar 기동 실패, check_b7: 가짜 MCP 서버로 두 런타임 amplitude 성공/실패). fake SSE 원문의 이벤트 이름·data 키 구조가 전환 전 기준선과 diff 0. 정적: 내부 이벤트 형식·`conversations.py` 무변경, 공통 래퍼가 tool_call→tool_result 순서. real 무키 실서버: anthropic·openai 둘 다 message_created→error UPSTREAM_ERROR + DB failed, `foo:bar`면 기동 실패, 비용 0. 프론트 무변경으로 check-f1~f6 OK, 채팅·제안(첫 진행 0.76s)·목록·채택·Amplitude 화면 흐름 통과. 결함 QA-6 |
 | 2026-10-15 | B9 cto 추가 확인 (b3c572d) + QA-6 재검증 (da85244) | 통과 | (1) anthropic 1.13.0이 httpx2 사용·설치 확인(T069 정정 문구와 일치). (2) openai-agents 트레이스: DefaultTraceProvider `_manual_disabled=True`, 가짜 전송 실행 + force_flush 뒤 트레이스 URL 송신 0. (3) MCP 오류 두 경로 × 두 런타임(QA 스크립트, 가짜 FastMCP + 클라이언트 `call_tool` 예외 주입): isError 결과·클라이언트 예외 모두 `tool_result failed` → `final`. 참고: check_b7의 "MCP 예외"는 FastMCP가 isError로 바꿔 보내는 경로라 클라이언트 예외 경로는 검사 스크립트에 없다. QA-6: 운영 env 예시에 OpenAI 예시·키 조건 주석 확인, T068 체크 |
+| 2026-10-15 | check_b7 클라이언트 예외 경로 (a75addd) | 통과 | 재빌드 컨테이너(= 커밋본)에서 check_b7 OK: 두 런타임 × MCP 성공·isError·ConnectionError·연결 실패. 첫 실행은 backend-dev 수정 중 같은 검사용 DB를 동시에 써 저장 단계 IndexError로 실패했고, 단독 재실행은 통과(결함 아님). 리포트 남은 위험 항목 닫음 |
 
 ## 결함
 
