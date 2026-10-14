@@ -33,7 +33,9 @@ ok("fake: 응답 키·refined·summary = 계약 예시, 기록 1행, llm_usage r
 
 # --- 요청 검증
 for bad in [{"conversationId": None, "question": ""}, {"conversationId": None, "question": "   "},
-            {"conversationId": None, "question": "가" * 4001}, {"conversationId": None}, {"question": 3}]:
+            {"conversationId": None, "question": "가" * 4001}, {"conversationId": None}, {"question": 3},
+            {"conversationId": "7", "question": "x"}, {"conversationId": True, "question": "x"},
+            {"conversationId": 7.5, "question": "x"}]:
     r = c.post("/api/questions/refine", json=bad)
     assert r.status_code == 400 and r.json()["error"]["code"] == "VALIDATION_ERROR", (bad, r.text)
 r = c.post("/api/questions/refine", json={"conversationId": 999999, "question": "x"})
@@ -42,7 +44,7 @@ cid = c.post("/api/conversations", json={}).json()["id"]
 assert c.post("/api/questions/refine", json={"conversationId": cid, "question": "x"}).status_code == 200
 assert c.post("/api/questions/refine", json={"question": "conversationId 생략"}).status_code == 200
 assert refinements() == 3  # 실패 요청은 행을 만들지 않음
-ok("검증: 빈·공백만·4001자·누락·타입 400, 없는 대화 404, 대화 있음·null·생략 200, 실패는 행 없음")
+ok("검증: 빈·공백만·4001자·누락·타입·문자열·불리언 ID 400, 없는 대화 404, 대화 있음·null·생략 200, 실패는 행 없음")
 
 # --- 예산
 os.environ["LLM_BUDGET_USD"] = "0"
@@ -71,9 +73,11 @@ for rule in ["사용자의 의도를 바꾸지 않는다.",
              "목록에 없는 이벤트 이름이나 원문에 없는 사실을 지어내지 않는다. 대상이 목록에 없으면 사용자의 말을 그대로 둔다.",
              '정보가 없으면 합리적 기본값(예: 최근 7일)을 쓰되 요약에 "(원문에 없음)"으로 밝힌다.',
              "이미 구체적이면 거의 그대로 두고 요약에 그렇게 적는다.",
-             "개선안은 한국어 두 문장 이내, 요약은 한 줄이다."]:
+             "개선안은 한국어 두 문장 이내, 요약은 한 줄이다.",
+             "질문의 대상 이벤트가 택사노미에 없으면 대상을 바꾸지 말고 원문 표현을 유지하며, 요약에 '택사노미에 없는 이벤트'라고 적는다.",
+             "기간·이벤트·지표·산출물이 이미 분명하면 문장을 거의 바꾸지 않고 요약에 '거의 그대로'라고 적는다. 없는 조건을 추가하지 않는다."]:
     assert rule in REFINE_PROMPT, rule
-ok("REFINE_PROMPT: 규칙 문장 여섯 개")
+ok("REFINE_PROMPT: 규칙 문장 여덟 개")
 
 # --- 입력 조립
 p, truncated = build_prompt("질문입니다", None)

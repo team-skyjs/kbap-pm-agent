@@ -2,7 +2,7 @@
 라우트는 dict를 직접 생성, 이 모델은 계약 검증(검사 스크립트)과 에이전트 최종 응답 강제(AgentAnswer)용."""
 from typing import Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -237,7 +237,7 @@ class RefineResult(M):
 
 
 class RefineIn(M):
-    conversation_id: int | None = None
+    conversation_id: StrictInt | None = None  # ID는 JSON number만. 문자열 "7"을 정수로 바꿔 받지 않음
     question: str = Field(min_length=1, max_length=4000)
 
     @field_validator("question")
