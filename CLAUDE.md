@@ -1,0 +1,22 @@
+# K-Bap PM Agent
+
+레포 구조: `frontend/` (GitHub Pages), `backend/` (홈서버 Docker), `docs/prd/` (PRD 문서), `specs/` (Spec Kit).
+
+## PRD 문서 위치
+
+모든 PRD는 `docs/prd/`에 둔다. `create-prd`(pm-execution) 등 PRD 스킬로 문서를 생성·수정할 때 산출물 경로를 반드시 `docs/prd/PRD-<product-name>.md`로 지정한다. 루트에 PRD를 만들지 않는다. 현재 PRD: `docs/prd/PRD-kbap-pm-agent.md`.
+
+## 하네스: K-Bap PM Agent 구현
+
+**목표:** PRD를 동작하는 프로토타입으로 바꾼다. CTO가 결정하고, FE·BE 개발자가 병렬 구현하고, QA가 경계면을 모듈마다 검증한다.
+
+**문서 흐름:** PRD → `.specify/memory/constitution.md` → `specs/<feature>/spec.md` → plan.md → tasks.md → 구현. Spec Kit 스킬(`speckit-*`)로 생성한다.
+
+**트리거:** 구현·빌드·개발 시작, 프론트/백엔드 작업, 재실행·부분 재실행·이어서 구현 요청 시 `kbap-build-orchestrator` 스킬을 사용하라. PRD 작성·수정은 `create-prd`. 단순 질문은 직접 응답 가능.
+
+**변경 이력:**
+| 날짜 | 변경 내용 | 대상 | 사유 |
+|------|----------|------|------|
+| 2026-10-15 | 초기 구성 (cto, frontend-dev, backend-dev, qa-integrator / 4 스킬) | 전체 | - |
+| 2026-10-15 | PRD를 `docs/prd/`로 이동, PRD 스킬 산출물 경로 규칙 추가 | CLAUDE.md, 참조 경로 전체 | 사용자 요청 |
+| 2026-10-15 | Spec Kit 도입. 헌법 v1.0.0, specs/001-pm-agent-prototype. 오케스트레이터·implement 스킬이 tasks.md를 작업 목록으로 사용 | CLAUDE.md, orchestrator, implement-from-contract | 사용자 요청 "speckit으로 기술 명세서 작성 후 구현" |
