@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import pathlib
+import re
 import sys
 import time
 
@@ -66,6 +67,12 @@ async def run_one(model: str, prompt: str) -> dict:
             "input_tokens": i, "output_tokens": o, "cost_usd": cost}
 
 
+def sentences(text: str) -> str:
+    """두 문장 이내 규칙 확인용(경고만). 한국어 문장 분리가 불안정해 마침표·물음표 기준 근사"""
+    n = len([x for x in re.split(r"[.?!。]\s*", text) if x.strip()])
+    return f"{n} ⚠" if n > 2 else str(n)
+
+
 def cell(text: str) -> str:
     return text.replace("|", "\\|").replace("\n", " ")
 
@@ -78,12 +85,12 @@ def write_md(rows: list[dict], names_source: str) -> str:
         out += [f"## {n}. {r['type']}", "", f"원문: {r['question']}"]
         if r["history"]:
             out.append("직전 대화: " + " / ".join(f"[{h['role']}] {h['content']}" for h in r["history"]))
-        out += ["", "| 모델 | 개선안 | 요약 | 지연(초) | 토큰(입력/출력) | 비용(USD) |", "|---|---|---|---|---|---|"]
+        out += ["", "| 모델 | 개선안 | 문장 수 | 요약 | 지연(초) | 토큰(입력/출력) | 비용(USD) |", "|---|---|---|---|---|---|---|"]
         for res in r["results"]:
             if "error" in res:
-                out.append(f"| {res['model']} | 오류: {cell(res['error'])} | | {res['latency_s']} | | |")
+                out.append(f"| {res['model']} | 오류: {cell(res['error'])} | | | {res['latency_s']} | | |")
             else:
-                out.append(f"| {res['model']} | {cell(res['refined'])} | {cell(res['summary'])} | {res['latency_s']} | "
+                out.append(f"| {res['model']} | {cell(res['refined'])} | {sentences(res['refined'])} | {cell(res['summary'])} | {res['latency_s']} | "
                            f"{res['input_tokens']}/{res['output_tokens']} | {res['cost_usd']} |")
         out += ["", "| 채점 | Haiku | Sonnet |", "|---|---|---|"] + [f"| {c} | | |" for c in CRITERIA] + [""]
     out += ["## 합계", "", "| | Haiku | Sonnet |", "|---|---|---|", "| 합계(80점 만점) | | |",

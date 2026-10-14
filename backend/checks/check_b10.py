@@ -1,6 +1,7 @@
 """질문 다듬기 검사: 시연 모드 응답·기록, 요청 검증, 예산, ENUM 마이그레이션 멱등성, 프롬프트 규칙, 입력 조립,
 두 런타임 가짜 전송(성공·거절·잘못된 JSON), 선택 기록·덮어쓰기·집계. 실제 LLM 호출 없음."""
 import os
+import re
 import time
 
 from common import client, ok
@@ -68,22 +69,21 @@ assert "'refine'" in col, col
 ok("마이그레이션: 옛 ENUM → init() 두 번(두 번째 무에러) 후 refine 포함")
 
 # --- 프롬프트 규칙 문장
-for rule in ["사용자의 의도를 바꾸지 않는다.",
-             "기간, 대상 이벤트(아래 목록에 있는 실제 이름만), 보고 싶은 지표, 원하는 산출물(개선안인지 측정 설계인지)을 드러낸다.",
-             "목록에 없는 이벤트 이름이나 원문에 없는 사실을 지어내지 않는다. 대상이 목록에 없으면 사용자의 말을 그대로 둔다.",
+for rule in ['사용자의 의도를 바꾸지 않는다.',
+             '기간, 대상 이벤트(아래 목록에 있는 실제 이름만), 보고 싶은 지표, 원하는 산출물(개선안인지 측정 설계인지)을 드러낸다.',
+             "목록에 없는 이벤트 이름이나 원문에 없는 사실을 지어내지 않는다. 질문의 대상 이벤트가 택사노미에 없으면 대상을 바꾸거나 비슷해 보이는 이벤트로 대신하지 말고 원문 표현을 유지하며, 요약에 '택사노미에 없는 이벤트'라고 적는다. 이 사실은 요약에만 적고 다듬은 질문에는 쓰지 않는다.",
              '정보가 없으면 합리적 기본값(예: 최근 7일)을 쓰되 요약에 "(원문에 없음)"으로 밝힌다.',
-             "이미 구체적이면 거의 그대로 두고 요약에 그렇게 적는다.",
-             "개선안은 한국어 두 문장 이내, 요약은 한 줄이다.",
-             "질문의 대상 이벤트가 택사노미에 없으면 대상을 바꾸지 말고 원문 표현을 유지하며, 요약에 '택사노미에 없는 이벤트'라고 적는다.",
              "기간·이벤트·지표·산출물이 이미 분명하면 문장을 거의 바꾸지 않고 요약에 '거의 그대로'라고 적는다. 없는 조건을 추가하지 않는다.",
-             "개선된 질문은 4,000자 이내로 쓴다.",
-             "처리 메모·설명은 summary에만 쓰고 refined에는 질문 문장만 쓴다."]:
+             '개선안은 한국어(한글)로만 두 문장 이내로 쓰고, 요약은 한 줄이다.',
+             '개선된 질문은 4,000자 이내로 쓴다.',
+             '처리 메모·설명은 summary에만 쓰고 refined에는 질문 문장만 쓴다.']:
     assert rule in REFINE_PROMPT, rule
 assert "refined: 에이전트에게 보낼 질문 문장만(처리 메모·설명 없이)." in build_prompt("x", None)[0]
 from app.schemas import RefineResult  # noqa: E402
 props = RefineResult.model_json_schema(by_alias=True)["properties"]
 assert "처리 메모" in props["refined"]["description"] and "처리 메모" in props["summary"]["description"]
-ok("REFINE_PROMPT: 규칙 문장 열 개, 출력 형식과 구조화 출력 설명에 '처리 메모는 summary에만'")
+assert REFINE_PROMPT.count("\n9. ") == 0 and "\n8. " in REFINE_PROMPT  # 겹치던 규칙을 합쳐 여덟 개
+ok("REFINE_PROMPT: 규칙 문장 여덟 개(겹침 합침, 대체 금지·요약에만·한글만), 출력 형식과 구조화 출력 설명에 '처리 메모는 summary에만'")
 
 # --- 입력 조립
 p, truncated = build_prompt("질문입니다", None)
@@ -198,4 +198,8 @@ agg = db.one("""SELECT ROUND(100 * SUM(choice = 'refined') / COUNT(*), 1) AS ado
 FROM question_refinements WHERE choice IS NOT NULL;""")
 assert float(agg["adopted_pct"]) == 50.0 and agg["shown"] == 4, agg
 ok("집계: refined 2·original 1·cancelled 1(+선택 전 1) → 채택 50.0%, shown 4")
+# 두 문장 이내는 프롬프트 규칙으로만 강제(한국어 문장 분리가 불안정). 저장된 개선안 중 세 문장 이상은 경고만
+long = [r["refined_question"][:40] for r in db.q("SELECT refined_question FROM question_refinements")
+        if len([x for x in re.split(r"[.?!。]\s*", r["refined_question"]) if x.strip()]) > 2]
+print(f"WARN 세 문장 이상 개선안 {len(long)}건" if long else "PASS 저장된 개선안 모두 두 문장 이내(경고 항목)")
 print("check_b10 OK")
