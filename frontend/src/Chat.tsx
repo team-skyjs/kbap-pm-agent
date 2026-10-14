@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Markdown from './Markdown.tsx'
 import {
   ApiError, describe, errorText, getConversation, sendMessage,
   type ConversationDetail, type Message, type Proposal, type StreamEvent, type ToolCall,
 } from './api.ts'
 import ProposalCard from './ProposalCard.tsx'
-import { Topbar } from './Shell.tsx'
+import { SessionBanner, Topbar } from './Shell.tsx'
 
 const SOURCE_LABEL: Record<ToolCall['source'], string> = { amplitude: 'Amplitude', code: '코드', taxonomy: '택사노미' }
 
@@ -14,18 +14,40 @@ function upsertTool(list: ToolCall[], t: ToolCall): ToolCall[] {
   return [...rest, t].sort((a, b) => a.seq - b.seq)
 }
 
-function ToolCalls({ calls }: { calls: ToolCall[] }) {
-  if (calls.length === 0) return null
+export type ViewState = 'sending' | 'progress' | 'done' | 'partial' | 'error'
+
+// 상한 중단 시 서버가 본문 첫 문장에 넣는 사유 문구의 앞부분
+const LIMIT_PREFIXES = ['모델 호출 상한(', '실행 시간 상한(']
+
+export function viewState(m: Pick<Message, 'status' | 'content' | 'toolCalls'>): ViewState {
+  if (m.status === 'failed') return 'error'
+  if (m.status === 'running') return m.toolCalls.length ? 'progress' : 'sending'
+  return LIMIT_PREFIXES.some((x) => m.content.startsWith(x)) ? 'partial' : 'done'
+}
+
+// 사유 첫 문장과 나머지 본문 분리
+function splitReason(content: string): [string, string] {
+  const i = content.search(/[.。]\s|\n/)
+  return i < 0 ? [content, ''] : [content.slice(0, i + 1).trim(), content.slice(i + 1).trim()]
+}
+
+const TOOL_MARK: Record<ToolCall['status'], string> = { running: '…', succeeded: '✓', failed: '✕' }
+
+function ToolRow({ calls, running }: { calls: ToolCall[]; running: boolean }) {
+  const cur = [...calls].reverse().find((t) => t.status === 'running')
+  const summary = cur ? `${SOURCE_LABEL[cur.source]} 조회 중… (${cur.name})`
+    : running ? `조회 ${calls.length}건 완료, 답변 정리 중…` : `✓ 조회 ${calls.length}건`
   return (
     <details className="tools">
-      <summary>도구 호출 {calls.length}개</summary>
+      <summary aria-live={running ? 'polite' : undefined}>{summary}</summary>
       <ol>
         {calls.map((t) => (
           <li key={t.id}>
-            [{SOURCE_LABEL[t.source]}] <code>{t.name}</code> {t.status === 'running' ? '실행 중' : t.status === 'failed' ? '실패' : '완료'}
+            <span aria-hidden="true">{TOOL_MARK[t.status]} </span>
+            <span className="sr-only">{t.status === 'running' ? '실행 중' : t.status === 'failed' ? '실패' : '완료'}: </span>
+            {SOURCE_LABEL[t.source]} <code>{t.name}</code>
             {t.durationMs !== null && ` · ${t.durationMs}ms`}
             {t.resultSummary && <div>{t.resultSummary}</div>}
-            <div className="muted"><code>{JSON.stringify(t.input)}</code></div>
           </li>
         ))}
       </ol>
@@ -33,23 +55,32 @@ function ToolCalls({ calls }: { calls: ToolCall[] }) {
   )
 }
 
-function Progress({ calls }: { calls: ToolCall[] }) {
-  const cur = [...calls].reverse().find((t) => t.status === 'running')
+function MessageView({ m, streamError, onProposal, onRetry }: {
+  m: Message; streamError?: string; onProposal: (p: Proposal) => void; onRetry?: () => void
+}) {
+  if (m.role === 'user') {
+    return (
+      <div className="msg user" title={new Date(m.createdAt).toLocaleString()}>
+        <span className="sr-only">나:</span>
+        <p className="user-text">{m.content}</p>
+      </div>
+    )
+  }
+  const state = viewState(m)
+  const [reason, rest] = state === 'partial' ? splitReason(m.content) : ['', m.content]
   return (
-    <div className="progress">
-      {cur ? `${SOURCE_LABEL[cur.source]} 조회 중… (${cur.name})` : calls.length ? `조회 ${calls.length}건 완료, 답변 정리 중…` : '에이전트 실행 중…'}
-    </div>
-  )
-}
-
-function MessageView({ m, streamError, onProposal }: { m: Message; streamError?: string; onProposal: (p: Proposal) => void }) {
-  return (
-    <div className={`msg ${m.role}`} title={new Date(m.createdAt).toLocaleString()}>
-      <span className="sr-only">{m.role === 'user' ? '나' : '에이전트'}:</span>
-      {m.content && <Markdown>{m.content}</Markdown>}
-      <ToolCalls calls={m.toolCalls} />
-      {m.status === 'running' && <Progress calls={m.toolCalls} />}
-      {m.status === 'failed' && <div className="error">실행 실패: {streamError ?? errorText(m.errorCode ?? 'INTERNAL_ERROR')}</div>}
+    <div className={`msg assistant ${state}`} title={new Date(m.createdAt).toLocaleString()}>
+      <span className="sr-only">에이전트:</span>
+      {state === 'sending' && <div className="typing" role="status" aria-label="에이전트 실행 중"><span /><span /><span /></div>}
+      {m.toolCalls.length > 0 && <ToolRow calls={m.toolCalls} running={m.status === 'running'} />}
+      {state === 'partial' && <div className="notice-block" role="note">{reason}</div>}
+      {rest && <Markdown>{rest}</Markdown>}
+      {state === 'error' && (
+        <div className="error-row" role="alert">
+          <span className="error">실행 실패: {streamError ?? errorText(m.errorCode ?? 'INTERNAL_ERROR')}</span>
+          {onRetry && <button type="button" className="btn" onClick={onRetry}>다시 시도</button>}
+        </div>
+      )}
       {m.proposals.map((p) => <ProposalCard key={p.id} p={p} onUpdated={onProposal} />)}
       {m.usage && (
         <div className="muted usage">
@@ -67,6 +98,11 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   const [streaming, setStreaming] = useState(false)
   const [notice, setNotice] = useState('')
   const [streamErrors, setStreamErrors] = useState<Record<number, string>>({})
+  const [sessionExpired, setSessionExpired] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  // 사용자가 맨 아래를 보고 있을 때만 자동 스크롤
+  const atBottom = useRef(true)
 
   const load = useCallback(() => {
     getConversation(id).then((d) => { setDetail(d); setLoadError('') }, (e) => setLoadError(describe(e)))
@@ -136,11 +172,37 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     } catch (e) {
       // 스트림 시작 전 에러(실행 중, 예산 초과, 입력 오류 등)는 입력창 아래에 안내
       setNotice(describe(e))
+      if (e instanceof ApiError && e.code === 'UNAUTHORIZED') setSessionExpired(true)
       if (e instanceof ApiError && e.code === 'RUN_IN_PROGRESS') load()
     } finally {
       setStreaming(false)
       onChanged()
     }
+  }
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (el && atBottom.current) el.scrollTop = el.scrollHeight
+  }, [detail])
+
+  // field-sizing 미지원 브라우저용 자동 높이
+  useLayoutEffect(() => {
+    const ta = inputRef.current
+    if (!ta || CSS.supports('field-sizing', 'content')) return
+    ta.style.height = 'auto'
+    ta.style.height = `${ta.scrollHeight}px`
+  }, [input])
+
+  function onScroll() {
+    const el = scrollRef.current
+    if (el) atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40
+  }
+
+  // 실패한 답변 직전의 사용자 질문을 입력창에 되돌림
+  function retry(index: number) {
+    const prev = detail?.messages.slice(0, index).reverse().find((m) => m.role === 'user')
+    if (prev) setInput(prev.content)
+    inputRef.current?.focus()
   }
 
   if (loadError) return <><Topbar title="대화" /><div className="scroll"><div className="thread"><p className="error">{loadError}</p></div></div></>
@@ -149,23 +211,34 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   return (
     <>
       <Topbar title={detail.title ?? '새 대화'} />
-      <div className="scroll">
+      {sessionExpired && <SessionBanner />}
+      <div className="scroll" ref={scrollRef} onScroll={onScroll}>
         <div className="thread chat">
           {detail.messages.length === 0 && <p className="muted empty">질문을 입력하세요. 예: 스캔 퍼널에서 가장 큰 이탈 지점 찾아서 개선안 제안해줘</p>}
-          {detail.messages.map((m) => <MessageView key={m.id} m={m} streamError={streamErrors[m.id]} onProposal={onProposal} />)}
+          {detail.messages.map((m, i) => (
+            <MessageView
+              key={m.id} m={m} streamError={streamErrors[m.id]} onProposal={onProposal}
+              onRetry={disabled ? undefined : () => retry(i)}
+            />
+          ))}
         </div>
       </div>
       <div className="chat-input-wrap">
         <div className="chat-input">
           <textarea
-            value={input} rows={1} maxLength={4000} disabled={disabled} aria-label="질문 입력"
-            placeholder={disabled ? '에이전트 실행 중에는 보낼 수 없습니다' : '질문 (Ctrl+Enter로 전송)'}
+            ref={inputRef} value={input} rows={1} maxLength={4000} disabled={disabled} aria-label="질문 입력"
+            aria-describedby="chat-hint" placeholder="질문을 입력하세요"
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void submit() }}
+            onKeyDown={(e) => {
+              // 한글 조합 중 Enter는 글자 확정용이라 전송하지 않음
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void submit() }
+            }}
           />
           <button type="button" className="btn primary" onClick={() => void submit()} disabled={disabled || !input.trim()}>보내기</button>
         </div>
-        {notice && <p className="error notice">{notice}</p>}
+        <p id="chat-hint" className={notice ? 'hint error' : 'hint muted'} aria-live="polite">
+          {notice || (disabled ? '에이전트 실행 중에는 보낼 수 없습니다' : 'Enter로 전송, Shift+Enter로 줄바꿈')}
+        </p>
       </div>
     </>
   )

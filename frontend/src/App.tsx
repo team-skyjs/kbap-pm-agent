@@ -75,10 +75,27 @@ export default function App() {
   useEffect(() => {
     if (!drawerOpen) return
     document.body.style.overflow = 'hidden'
-    sidebarRef.current?.querySelector<HTMLElement>('button, a')?.focus()
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawer(false) }
+    const panel = sidebarRef.current
+    const focusables = () => [...(panel?.querySelectorAll<HTMLElement>('button, a[href], [tabindex="0"]') ?? [])]
+    // 열림 전환으로 패널이 보이게 된 다음 프레임에 포커스 이동
+    const raf = requestAnimationFrame(() => focusables()[0]?.focus())
+    // ESC 닫기, Tab은 Drawer 안에서만 순환
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setDrawer(false); return }
+      if (e.key !== 'Tab') return
+      const f = focusables()
+      const first = f[0], last = f[f.length - 1]
+      if (!panel?.contains(document.activeElement)) { e.preventDefault(); first?.focus() }
+      else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus() }
+    }
     addEventListener('keydown', onKey)
-    return () => { document.body.style.overflow = ''; removeEventListener('keydown', onKey) }
+    return () => {
+      cancelAnimationFrame(raf)
+      document.body.style.overflow = ''
+      removeEventListener('keydown', onKey)
+      document.querySelector<HTMLElement>('[data-menu-button]')?.focus()
+    }
   }, [drawerOpen])
 
   const sidebarOpen = mobile ? drawer : !collapsed

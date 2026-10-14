@@ -6,6 +6,9 @@
 | US-001 디자인 토큰 | 적용 완료 | 강조색 B(파랑) 확정. `style.css` `:root` + 다크 + reduced-motion |
 | US-002 앱 셸 | 구현 완료 | 사이드 패널 접기(localStorage), 768px 이하 Drawer(ESC·배경 탭·스크롤 잠금), 하단 고정 입력창. 설계 `04_designer_shell.md` |
 | US-003 사이드 패널 | 구현 완료 | 새 대화 최상단, 제목 한 줄 말줄임, 제안·채택 수, 설정 하단 고정, aria-current. 설계 `04_designer_sidebar.md` |
+| US-005 마크다운 표현 | 구현 완료 | 제목·목록·작업 목록·인용·구분선·표·코드 블록 스타일, Chat·ProposalCard 렌더러 연결 |
+| US-007 입력창 | 구현 완료 | Enter 전송·Shift+Enter 줄바꿈·한글 조합 중 미전송, 최대 6줄 자동 높이, 안내 줄 높이 예약 |
+| US-008 상태 | 구현 완료 | `viewState()`로 전송 직후·진행·완료·부분 완료·오류 판정, 세션 만료 배너는 표시만(401 응답 시) |
 | US-004 메시지 | 구현 완료 | 사용자만 오른쪽 배경 블록, AI 배경 없음, 역할 라벨은 스크린리더 전용. 설계 `04_designer_messages.md` |
 
 ## 토큰 변경 (제안서 대비)
@@ -20,8 +23,10 @@
 | `--viewport-h` | `100dvh` | 앱 셸 전체 높이. 모바일 주소창 높이 변화 반영 |
 | `--text-code` | `0.9em` | 인라인 코드 크기(주변 글자 기준) |
 
+## 토큰 이름 정렬 (data-model.md 1절)
+`--color-bg-user`→`--color-user-bubble`, `--color-on-accent`→`--color-accent-contrast`, `--leading`→`--leading-body`, `--tracking`→`--tracking-body`, `--shadow-sm`→`--shadow-overlay`, `--sidebar-w`→`--sidebar-width`, `--content-max-w`→`--content-max`, `--dur-*`→`--duration-*`, `--input-max-h`→`--composer-max-lines`(6). 추가: `--color-focus`, `--chart-1`~`4`, `--chart-grid`, `--chart-h`(280px, 차트 높이 예약).
+
 ## 미결
 - `SettingsPage.tsx`의 인라인 폭(`flex: 0 0 160px`)은 설정 화면 재스타일 때 클래스로 옮김(공동 파일이라 지금은 미수정)
-- 굵게(`**…**로`처럼 한글 조사가 붙는 경우)와 GFM 표는 마크다운 렌더러 교체(frontend-dev) 후 다시 확인
-- 입력창 Enter 전송·자동 높이 세부는 입력창 스토리에서. 지금은 CSS `field-sizing`으로 자동 높이, 미지원 브라우저는 한 줄 고정
-- Drawer 포커스 가두기는 접근성 스토리에서
+- 세션 만료 배너를 api.ts 이벤트에 연결하는 일은 접근 제한 PR 몫
+- 차트 폭: ChartBlock의 비율 고정 해제를 frontend-dev에 요청

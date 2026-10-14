@@ -17,7 +17,7 @@ export function Topbar({ title, children }: { title: string; children?: ReactNod
   return (
     <header className="topbar">
       {(mobile || !sidebarOpen) && (
-        <button type="button" className="icon-btn" aria-label={label} aria-expanded={sidebarOpen} onClick={toggle}>
+        <button type="button" className="icon-btn" data-menu-button aria-label={label} aria-expanded={sidebarOpen} aria-controls="sidebar" onClick={toggle}>
           <span aria-hidden="true">☰</span>
         </button>
       )}
@@ -25,5 +25,15 @@ export function Topbar({ title, children }: { title: string; children?: ReactNod
       {children}
       <HealthBadge label={health} />
     </header>
+  )
+}
+
+// 표시만 담당, 보이기 조건은 호출하는 화면이 판단
+export function SessionBanner() {
+  return (
+    <div className="session-banner" role="alert">
+      <span>로그인이 만료되었습니다. 입력한 내용은 그대로 남아 있습니다.</span>
+      <a href="#/settings" className="btn">다시 로그인</a>
+    </div>
   )
 }

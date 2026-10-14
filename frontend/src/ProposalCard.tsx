@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { describe, updateProposal, type DecisionStatus, type Evidence, type FunnelStep, type Proposal } from './api.ts'
+import Markdown from './Markdown.tsx'
 
 // 계약이 정한 카드 네 영역 순서, 렌더는 이 배열 순서를 따름
 export const CARD_SECTIONS = [
@@ -79,8 +80,8 @@ export default function ProposalCard({ p, onUpdated }: { p: Proposal; onUpdated:
 
   const body = {
     evidence: <ul>{p.evidence.map((e, i) => <EvidenceItem key={i} e={e} />)}</ul>,
-    proposal: <p>{p.proposal}</p>,
-    steps: <ol>{p.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>,
+    proposal: <Markdown>{p.proposal}</Markdown>,
+    steps: <ol>{p.steps.map((s, i) => <li key={i}><Markdown>{s}</Markdown></li>)}</ol>,
     measurement: <Measurement m={p.measurement} />,
   }
   const d = p.decision
