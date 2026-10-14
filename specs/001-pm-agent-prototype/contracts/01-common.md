@@ -23,7 +23,7 @@
   - 상태 5xx가 아닌 `text/html` 응답
   - 프론트는 이를 세션 만료로 다루고 백엔드 에러 코드와 섞지 않는다. 백엔드의 401 `UNAUTHORIZED`(`ACCESS_TOKEN`)는 JSON 에러 형식이라 구분된다.
   - 상태 5xx이면서 계약 JSON이 아닌 응답(백엔드가 내려가 있을 때의 터널·Cloudflare 오류 페이지)은 세션 만료가 아니다. 프론트는 연결 실패(`NETWORK_ERROR`, 프론트 내부 코드)로 다룬다. Access는 5xx로 거부하지 않는다.
-- **인증:** 백엔드에 `ACCESS_TOKEN`이 설정되어 있으면 `GET /api/health`와 `GET /api/integrations/amplitude/callback`을 제외한 모든 `/api/` 요청에 `Authorization: Bearer <토큰>` 헤더가 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
+- **인증:** 백엔드에 `ACCESS_TOKEN`이 설정되어 있으면 `GET /api/health`와 `GET /api/integrations/amplitude/callback`을 제외한 모든 `/api/` 요청에 `Authorization: Bearer <토큰>` 헤더가 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`. 정적 화면·자산(`/api` 밖 경로)은 토큰 검사 대상이 아니다. 브라우저가 화면 로드에 토큰을 붙일 수 없고, 번들에는 비밀값이 없다.
 - **형식:** 요청·응답 본문은 `application/json; charset=utf-8`. 메시지 전송 응답만 `text/event-stream`.
 - **필드 이름:** camelCase 고정. DB의 snake_case를 그대로 노출하지 않는다.
 - **ID:** 양의 정수(JSON number).
