@@ -1,4 +1,4 @@
-"""B4 검사: file:// 시험 저장소 등록·동기화, 택사노미 업로드·검증 실패 시 유지, fake 저장소 응답 = 계약 예시.
+"""저장소·택사노미 검사: file:// 시험 저장소 등록·동기화, 택사노미 업로드·검증 실패 시 유지, fake 저장소 응답 = 계약 예시.
 컨테이너에서 실행(git·rg 필요)."""
 import copy
 import os
@@ -32,7 +32,7 @@ def git(*a):
   return <Button onPress={() => track(EVENTS.a)} />;
 }
 """)
-(src / "docs.md").write_text("문서 예시: track(EVENTS.a)\n")  # CODE_GLOB 밖 → 세지 않는다 (QA-2, ADR-19)
+(src / "docs.md").write_text("문서 예시: track(EVENTS.a)\n")  # CODE_GLOB 밖이라 미집계, 문서 속 이벤트 문자열 오탐 방지
 git("init", "-b", "main")
 git("add", ".")
 git("commit", "-m", "init")
@@ -70,7 +70,7 @@ try:
     good = c.get("/api/settings").json()["repository"]
     r = c.put("/api/settings/repository", json={"url": f"file://{tmp}/nope"})
     assert r.status_code == 502 and r.json()["error"]["code"] == "UPSTREAM_ERROR", r.text
-    assert c.get("/api/settings").json()["repository"] == good  # 실패한 교체는 기존 등록을 건드리지 않는다
+    assert c.get("/api/settings").json()["repository"] == good  # 실패한 교체는 기존 등록 유지
     subprocess.run(["mv", str(src), str(tmp / "moved")], check=True)
     r = c.post("/api/settings/repository/sync")
     assert r.status_code == 502 and r.json()["error"]["code"] == "UPSTREAM_ERROR", r.text

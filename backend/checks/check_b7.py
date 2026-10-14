@@ -1,5 +1,5 @@
-"""B7 검사: fake connect = 계약 예시 URL + 즉시 connected, 콜백 text/html, Amplitude 도구 예외·연결 실패에도 실행이 final로 끝난다.
-실제 OAuth 승인은 브라우저가 필요해 여기서 다루지 않는다."""
+"""Amplitude 검사: fake connect = 계약 예시 URL + 즉시 connected, 콜백 text/html, Amplitude 도구 예외·연결 실패에도 실행은 final로 종료.
+실제 OAuth 승인은 브라우저가 필요해 제외."""
 import json
 import os
 
@@ -27,7 +27,7 @@ os.environ["ACCESS_TOKEN"] = ""
 ok("콜백 text/html, 인증 없이 접근, 실패 문구")
 
 
-# --- B9: 실제 MCP 프로토콜로 도는 로컬 가짜 Amplitude 서버 (FastMCP, 인증 없음 → OAuth provider는 통과만 한다)
+# --- 실제 MCP 프로토콜로 도는 로컬 가짜 Amplitude 서버(FastMCP, 인증 없음이라 OAuth provider는 통과만)
 import threading  # noqa: E402
 import time  # noqa: E402
 
@@ -83,7 +83,7 @@ try:
         Message.model_validate(evs[-1][1])
         ok(f"{provider}: MCP 도구 성공(source amplitude), MCP isError → tool_result failed 후 final")
 
-        # 클라이언트 예외 경로(Amplitude 다운·연결 끊김, FR-010): call_tool 자체가 ConnectionError를 던진다
+        # 클라이언트 예외 경로(Amplitude 다운·연결 끊김): call_tool 자체가 ConnectionError 발생
         from mcp import ClientSession  # noqa: E402
         orig_call = ClientSession.call_tool
 
@@ -97,7 +97,7 @@ try:
             ClientSession.call_tool = orig_call
         assert [e for e, _ in evs] == ["message_created", "tool_call", "tool_result", "final"], evs
         assert evs[1][1]["source"] == "amplitude" and evs[2][1]["status"] == "failed", evs[2]
-        assert "Amplitude 연결 끊김" in evs[2][1]["resultSummary"], evs[2]  # openai는 AgentsException으로 감싼다
+        assert "Amplitude 연결 끊김" in evs[2][1]["resultSummary"], evs[2]  # openai는 AgentsException으로 감쌈
         assert Message.model_validate(evs[-1][1]).status == "completed"
         ok(f"{provider}: MCP call_tool ConnectionError → tool_result failed 후 final")
 

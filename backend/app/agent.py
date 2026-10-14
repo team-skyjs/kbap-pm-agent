@@ -4,7 +4,7 @@
   {"type": "tool_result", "key", "status": "succeeded"|"failed", "summary", "text"}
   {"type": "final", "content", "proposals": [ProposalDraft 별칭 dict]}
   {"type": "error", "code", "message"}
-DB 저장과 SSE 변환은 conversations.py가 한다."""
+DB 저장과 SSE 변환은 conversations.py 담당."""
 import asyncio
 import datetime
 import logging
@@ -19,7 +19,7 @@ from app.config import env, is_fake, num
 
 log = logging.getLogger("app.agent")
 
-# 계약서 v1.1 예시 값 (시연 모드 표: 도구 2개 taxonomy·code, 제안 improvement 1 + funnel_design 1)
+# 계약서 예시 값: 도구 2개(taxonomy·code), 제안 improvement 1 + funnel_design 1
 FAKE_TOOLS = [
     ("taxonomy", "search_taxonomy", {"query": "cart"}, "일치 이벤트 2개: cart_add, cart_view"),
     ("code", "find_event_calls", {"eventName": "scan_complete"}, "2곳: src/app/scan.tsx:405 (실패), src/app/scan.tsx:427 (성공)"),
@@ -91,7 +91,7 @@ SYSTEM_PROMPT = """너는 K-Bap 앱 팀의 PM 에이전트다. PM 질문에 답�
 """
 
 
-# --- 런타임 선택 (ADR-20): 모델 문자열 접두사 → 공급자 SDK 파일. 공통 인터페이스 클래스 없이 dict 하나
+# --- 런타임 선택: 모델 문자열 접두사 → 공급자 SDK 파일. 구현 두 개라 인터페이스 클래스 없이 dict 하나
 def _runtimes() -> dict:
     from app import agent_anthropic, agent_openai
     return {"anthropic": agent_anthropic, "openai": agent_openai}
@@ -107,29 +107,29 @@ def runtime(model: str):
 
 
 def check_models() -> None:
-    """기동 시 호출. real 모드에서 AGENT_MODEL·CODE_SUMMARY_MODEL 접두사가 틀리면 서버를 띄우지 않는다."""
+    """기동 시 호출. real 모드에서 AGENT_MODEL·CODE_SUMMARY_MODEL 접두사가 틀리면 기동 실패."""
     if not is_fake():
         runtime(agent_model())
         runtime(env("CODE_SUMMARY_MODEL"))
 
 
 class Refused(Exception):
-    """모델이 stop_reason refusal로 답을 거절했다."""
+    """모델의 stop_reason refusal 거절."""
 
 
 class TurnLimit(Exception):
-    """모델 호출 턴 상한(AGENT_MAX_TURNS)에 닿았다. 각 런타임이 SDK 상한에 닿으면 던진다."""
+    """모델 호출 턴 상한(AGENT_MAX_TURNS) 도달. 각 런타임이 SDK 상한에 닿으면 발생."""
 
 
 def max_turns() -> int:
-    """실행 1회의 모델 호출(요청) 수 상한. 도구 호출은 세지 않는다(비용 0). 병렬 도구 호출 응답도 1턴."""
+    """실행 1회의 모델 호출(요청) 수 상한. 도구 호출은 비용 0이라 미포함. 병렬 도구 호출 응답도 1턴."""
     return int(num("AGENT_MAX_TURNS", 10))
 
 
 def wrap(fn, emit, source: str, name: str | None = None):
-    """공통 도구 래퍼: tool_call 이벤트 → 실행 → tool_result 이벤트. 예외는 failed로 알리고 다시 던져
-    각 SDK가 오류 결과로 모델에 돌려주게 한다(실행은 계속, ADR-16). functools.wraps로 원래 시그니처·docstring이
-    도구 스키마의 원천으로 남는다(MCP 도구는 런타임이 스키마를 따로 넘긴다)."""
+    """공통 도구 래퍼: tool_call 이벤트 → 실행 → tool_result 이벤트. 예외는 failed로 알린 뒤 다시 던져
+    각 SDK가 오류 결과로 모델에 반환(도구 하나가 실패해도 실행 계속). functools.wraps로 원래 시그니처·docstring을
+    도구 스키마의 원천으로 유지(MCP 도구는 런타임이 스키마를 따로 전달)."""
     tool_name = name or fn.__name__
     sig = inspect.signature(fn)
     is_async = inspect.iscoroutinefunction(fn)
@@ -137,12 +137,12 @@ def wrap(fn, emit, source: str, name: str | None = None):
     @functools.wraps(fn)
     async def tool(*args, **kwargs):
         args_in = {}
-        for k, v in sig.bind(*args, **kwargs).arguments.items():  # **kwargs 매개변수(MCP 도구)는 펼친다
+        for k, v in sig.bind(*args, **kwargs).arguments.items():  # **kwargs 매개변수(MCP 도구)는 펼침
             args_in.update(v) if sig.parameters[k].kind is inspect.Parameter.VAR_KEYWORD else args_in.__setitem__(k, v)
         key = uuid.uuid4().hex
         await emit({"type": "tool_call", "key": key, "source": source, "name": tool_name, "input": args_in})
         try:
-            # 동기 코드 도구(rg·파일)는 스레드에서 돌려 이벤트 루프를 막지 않는다
+            # 동기 코드 도구(rg·파일)는 스레드에서 실행, 이벤트 루프 차단 방지
             out = await fn(*args, **kwargs) if is_async else await asyncio.to_thread(fn, *args, **kwargs)
             text = out if isinstance(out, str) else str(out)
         except Exception as e:
@@ -167,7 +167,7 @@ def _code_tools() -> tuple[list[tuple], str]:
 
 
 def _history(conversation_id: int) -> list[dict]:
-    # ponytail: 최근 완료 메시지 20개를 본문만 넣는다(도구 결과 원문 제외). 긴 대화는 요약 압축으로
+    # ponytail: 최근 완료 메시지 20개의 본문만 전달(도구 결과 원문 제외). 긴 대화는 요약 압축으로
     rows = db.q("""SELECT role, content FROM messages WHERE conversation_id = %s AND status = 'completed'
                    ORDER BY created_at DESC, id DESC LIMIT 20""", (conversation_id,))
     return [{"role": r["role"], "content": r["content"]} for r in reversed(rows) if r["content"]]
@@ -198,7 +198,7 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
         budget.record("agent", agent_model(), input_tokens, output_tokens, message_id)
 
     task = asyncio.create_task(mod.run(model, system, _history(conversation_id), tools, queue.put, usage))
-    results: list[tuple[str, str]] = []  # (도구 이름, 결과 요약) — 상한 도달 시 부분 답에 쓴다
+    results: list[tuple[str, str]] = []  # (도구 이름, 결과 요약), 상한 도달 시 부분 답에 사용
     names: dict[str, str] = {}
     reason = None
     try:
@@ -209,7 +209,7 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
                 if not getter.done():
                     getter.cancel()
                     if queue.empty():
-                        break  # 런타임이 끝났고 남은 이벤트가 없다
+                        break  # 런타임 종료, 남은 이벤트 없음
                     ev = queue.get_nowait()
                 else:
                     ev = getter.result()
@@ -225,14 +225,14 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
     if reason is None and task.done() and not task.cancelled() and isinstance(task.exception(), TurnLimit):
-        # 턴 상한은 SDK가 센다(anthropic max_iterations, openai max_turns: 둘 다 모델 요청 1회 = 1턴이고 마지막 턴의 도구까지 실행 후 멈춘다)
+        # 턴은 SDK가 셈(anthropic max_iterations, openai max_turns: 둘 다 모델 요청 1회 = 1턴, 마지막 턴의 도구까지 실행 후 정지)
         reason = f"모델 호출 상한({max_turns()}턴)에 도달해 여기까지의 조회 결과로 답합니다."
     if reason:
         yield {"type": "final", "content": partial_content(reason, results), "proposals": []}
         return
     try:
-        # ponytail: 재시도 없음. AgentAnswer 교차 규칙(new 단계 location, order 연속 등) 위반도 여기로 와 실행 전체가
-        # UPSTREAM_ERROR/failed가 된다. T042에서 위반이 반복되면 검증 오류를 붙여 1회 재요청으로
+        # ponytail: 재시도 없음. AgentAnswer 교차 규칙(new 단계 location, order 연속 등) 위반도 실행 전체가
+        # UPSTREAM_ERROR/failed. 실제 실행에서 위반이 반복되면 검증 오류를 붙여 1회 재요청으로
         answer = AgentAnswer.model_validate_json(task.result())
     except Refused:
         yield {"type": "error", "code": "UPSTREAM_ERROR", "message": "모델이 요청을 거절해 실행을 중단했습니다."}
@@ -259,7 +259,7 @@ SUMMARY_PROMPT = ("다음은 React Native 화면 파일이다. 150단어 이내 
 
 
 def summarize(text: str) -> str:
-    """코드 요약 seam (CODE_SUMMARY_MODEL). 호출 전 budget.check()는 호출자가 한다. 백그라운드 스레드에서 불린다."""
+    """코드 요약 seam (CODE_SUMMARY_MODEL). 호출 전 budget.check()는 호출자 몫. 백그라운드 스레드에서 호출."""
     model_str = env("CODE_SUMMARY_MODEL") or "fake"
     if is_fake():
         budget.record("code_summary", model_str, 0, 0, None)

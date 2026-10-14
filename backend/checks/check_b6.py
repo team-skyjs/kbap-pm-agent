@@ -1,5 +1,5 @@
-"""B9 검사(ADR-20): AgentAnswer 규칙, 그리고 두 런타임(anthropic tool runner, openai-agents)에 가짜 HTTP 전송을 넣어
-실제 SDK 경로로 SSE 순서·사용량·도구 실패·사후 검증·거절·시간/호출 상한·접두사 검사를 확인한다. 실제 LLM 호출 없음."""
+"""에이전트 런타임 검사: AgentAnswer 규칙, 그리고 두 런타임(anthropic tool runner, openai-agents)에 가짜 HTTP 전송을 넣어
+실제 SDK 경로로 SSE 순서·사용량·도구 실패·사후 검증·거절·시간/턴 상한·접두사 검사 확인. 실제 LLM 호출 없음."""
 import copy
 import itertools
 import json
@@ -82,7 +82,7 @@ try:
         ok(f"{provider}: 도구 호출 → 구조화 final, SSE 순서, llm_usage 기록, GET 상세 일치, 요청 파라미터")
 
         def boom(eventName: str) -> str:
-            """이벤트 호출 위치를 찾는다.
+            """이벤트 호출 위치 조회.
 
             Args:
                 eventName: 이벤트 이름
@@ -105,7 +105,7 @@ try:
         assert m["status"] == "failed" and m["errorCode"] == "UPSTREAM_ERROR"
         ok(f"{provider}: 신규 단계 location null → error UPSTREAM_ERROR, 메시지 failed")
 
-        # 턴 상한: 모델 요청 1회 = 1턴, 병렬 도구 호출 응답도 1턴. AGENT_MAX_TURNS=2면 두 번째 모델 응답의 도구까지 실행 후 멈춘다
+        # 턴 상한: 모델 요청 1회 = 1턴, 병렬 도구 호출 응답도 1턴. AGENT_MAX_TURNS=2면 두 번째 모델 응답의 도구까지 실행 후 정지
         os.environ["AGENT_MAX_TURNS"] = "2"
         script(provider, itertools.chain(
             [("tools", [("search_taxonomy", {"query": "scan"}), ("get_event_definition", {"name": "scan_start"})])],

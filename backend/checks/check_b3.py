@@ -1,4 +1,4 @@
-"""B3 검사: fake 실행 SSE 순서, final이 Message 모델 통과, GET 상세와 동일, 실행 중 409, 스트림 전 에러, 끊김 마감."""
+"""메시지 SSE 검사: fake 실행 SSE 순서, final이 Message 모델 통과, GET 상세와 동일, 실행 중 409, 스트림 전 에러, 끊김 마감."""
 import json
 import os
 import time
@@ -86,7 +86,7 @@ conv_mod.PING_SECONDS, os.environ["FAKE_DELAY_SECONDS"] = 15, "0"
 assert ": ping" in raw and raw[-2].startswith("data: ") and raw[-3] == "event: final", raw[-4:]
 ok("대기 중 : ping 주석, 마지막 이벤트 final")
 
-# 끊김: TestClient는 연결 끊김을 앱에 전달하지 않으므로 실제 uvicorn을 띄워 첫 이벤트만 읽고 닫는다
+# 끊김: TestClient는 연결 끊김을 앱에 전달하지 않아 실제 uvicorn으로 첫 이벤트만 읽고 닫기
 import threading  # noqa: E402
 
 import httpx  # noqa: E402

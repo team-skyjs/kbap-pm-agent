@@ -1,4 +1,4 @@
-"""두 LLM SDK에 가짜 HTTP 전송을 넣는 검사 도우미. 실제 SDK 요청 생성·응답 파싱 경로를 그대로 탄다. 비용 0.
+"""두 LLM SDK에 가짜 HTTP 전송을 넣는 검사 도우미. 실제 SDK 요청 생성·응답 파싱 경로를 그대로 사용. 비용 0.
 스크립트 단계: ("tool", 도구이름, 입력) | ("tools", [(도구이름, 입력), ...]) 병렬 호출 | ("final", AgentAnswer dict) | ("refusal",)"""
 import asyncio
 import json
@@ -60,7 +60,7 @@ def script(provider: str, steps, delay: float = 0.0):
             return httpx2.Response(200, json=_anthropic_reply(step, n))
         return httpx.Response(200, text=_openai_reply(step, n), headers={"content-type": "text/event-stream"})
 
-    if provider == "anthropic":  # anthropic 1.x SDK는 httpx2를 쓴다
+    if provider == "anthropic":  # anthropic 1.x SDK는 httpx2 사용
         agent_anthropic._client = lambda: AsyncAnthropic(api_key="test", max_retries=0, http_client=httpx2.AsyncClient(
             transport=httpx2.MockTransport(handler)))
     else:

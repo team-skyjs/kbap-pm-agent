@@ -1,4 +1,4 @@
-"""외부 seam: GitHub 저장소 클론·pull·HEAD, 그리고 무료 인덱스(rg). fake면 클론하지 않고 계약서 Settings 예시 값.
+"""외부 seam: GitHub 저장소 클론·pull·HEAD, 그리고 무료 인덱스(rg). fake면 클론 없이 계약서 Settings 예시 값.
 저장 상태는 app_settings 'repository'(계약 repository 객체 그대로)."""
 import base64
 import json
@@ -15,7 +15,7 @@ from app.errors import ApiError
 
 FAKE_REPO = {"headCommit": "9f3c2a1", "codeMapCommit": "9f3c2a1", "codeMapStatus": "ready", "trackedEventCount": 87,
              "screenCount": 41, "syncedAt": "2026-10-15T08:55:02.117Z", "lastError": None}
-_lock = threading.Lock()  # ponytail: 프로세스 단일 락. 단일 워커라 충분 (요청 스레드와 요약 스레드가 함께 갱신)
+_lock = threading.Lock()  # ponytail: 프로세스 단일 락, 단일 워커라 충분(요청 스레드와 요약 스레드가 함께 갱신)
 FUNC_RE = re.compile(
     r"(?:function\s+(\w+)"
     r"|(?:const|let|var)\s+(\w+)\s*(?::[^=]+)?=\s*(?:async\s*)?(?:function\b|\([^)]*\)\s*(?::[^=]+)?=>|\w+\s*=>|(?:React\.)?use(?:Callback|Memo)\()"
@@ -52,7 +52,7 @@ def _secret_free(text: str) -> str:
 def _git(*args: str, cwd: pathlib.Path | None = None) -> str:
     e = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
     tok = env("GITHUB_TOKEN")
-    if tok:  # 토큰은 URL·.git/config에 남기지 않고 요청 헤더로만 쓴다
+    if tok:  # 토큰은 URL·.git/config에 남기지 않고 요청 헤더로만 사용
         basic = base64.b64encode(f"x-access-token:{tok}".encode()).decode()
         e.update(GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="http.https://github.com/.extraheader",
                  GIT_CONFIG_VALUE_0=f"AUTHORIZATION: basic {basic}")
@@ -79,8 +79,8 @@ def _head(d: pathlib.Path) -> str:
 
 
 def code_files(d: pathlib.Path, glob: str | None = None) -> list[str]:
-    """CODE_GLOB(기본 *.{ts,tsx,js,jsx}) 범위의 파일 목록 (ADR-19). glob을 주면 그 교집합.
-    rg의 -g 여러 개는 OR라서 목록을 따로 구해 교집합한다."""
+    """CODE_GLOB(기본 *.{ts,tsx,js,jsx}) 범위의 파일 목록, 문서 속 이벤트 문자열 오탐 방지. glob을 주면 그 교집합.
+    rg의 -g 여러 개는 OR라서 목록을 따로 구해 교집합."""
     def ls(g: str) -> set[str]:
         out = subprocess.run(["rg", "--files", "-g", g], cwd=d, capture_output=True, text=True, timeout=60).stdout
         return {l.removeprefix("./") for l in out.splitlines()}
@@ -89,7 +89,7 @@ def code_files(d: pathlib.Path, glob: str | None = None) -> list[str]:
 
 
 def build_index(d: pathlib.Path) -> tuple[dict, int]:
-    """이벤트명 → [{file, line, function}] (rg, LLM 0원) 과 화면 수. 인덱스는 REPOS_DIR/index.json에 둔다."""
+    """이벤트명 → [{file, line, function}] (rg, LLM 0원) 과 화면 수. 인덱스는 REPOS_DIR/index.json에 저장."""
     p = subprocess.run(["rg", "--no-heading", "--with-filename", "-n", "-o", "-r", "$1", "--color", "never",
                         "-g", env("CODE_GLOB", "*.{ts,tsx,js,jsx}"), "-e",
                         env("TRACK_CALL_PATTERN", r"track\(EVENTS\.(\w+)"), "."],
@@ -109,7 +109,7 @@ def build_index(d: pathlib.Path) -> tuple[dict, int]:
 
 
 def enclosing_function(lines: list[str], line: int) -> str | None:
-    """ponytail: 정규식 + 줄 단위 중괄호 균형으로 감싸는 함수 추정. 문자열 속 중괄호·괄호 없는 화살표 함수는 틀릴 수 있다. 정확도가 문제면 tree-sitter로"""
+    """ponytail: 정규식 + 줄 단위 중괄호 균형으로 감싸는 함수 추정. 문자열 속 중괄호·괄호 없는 화살표 함수는 오판 가능. 정확도가 문제면 tree-sitter로"""
     bal = 0
     for j in range(line - 1, -1, -1):
         text = lines[j]
@@ -136,7 +136,7 @@ def register(url: str, branch: str | None) -> dict:
     root().mkdir(parents=True, exist_ok=True)
     tmp = root() / "repo.new"
     shutil.rmtree(tmp, ignore_errors=True)
-    try:  # 새 클론이 성공해야 기존 클론을 바꾼다
+    try:  # 새 클론이 성공해야 기존 클론 교체
         _git("clone", "--depth", "1", *(["--branch", branch] if branch else []), url, str(tmp))
     except RuntimeError as e:
         shutil.rmtree(tmp, ignore_errors=True)

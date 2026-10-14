@@ -1,5 +1,5 @@
-"""계약서 v1.1 공통 객체(contracts/02-objects.md). camelCase 별칭, extra 금지.
-라우트는 dict를 직접 만들고, 이 모델은 계약 검증(검사 스크립트)과 에이전트 최종 응답 강제(AgentAnswer)에 쓴다."""
+"""계약서 공통 객체. camelCase 별칭, extra 금지.
+라우트는 dict를 직접 생성, 이 모델은 계약 검증(검사 스크립트)과 에이전트 최종 응답 강제(AgentAnswer)용."""
 from typing import Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -10,7 +10,7 @@ class M(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
 
 
-# --- Evidence: kind 판별 유니온. 다른 kind 필드는 모델에 없으므로 직렬화되지 않는다
+# --- Evidence: kind별 모델. 다른 kind 필드는 모델에 없어 직렬화되지 않음
 class MetricEvidence(M):
     kind: Literal["metric"]
     summary: str
@@ -40,8 +40,8 @@ class TaxonomyEvidence(M):
     event_name: str
 
 
-# 판별자(discriminator) 대신 일반 Union: JSON 스키마가 oneOf가 아닌 anyOf가 되어 공급자 구조화 출력과 호환된다.
-# kind가 Literal이고 extra 금지라 검증 결과는 판별 유니온과 같다
+# 판별자(discriminator) 대신 일반 Union: JSON 스키마가 oneOf가 아닌 anyOf가 되어 공급자 구조화 출력과 호환.
+# kind가 Literal이고 extra 금지라 검증 결과는 판별 유니온과 동일
 Evidence = Union[MetricEvidence, CodeEvidence, TaxonomyEvidence]
 
 
@@ -103,7 +103,7 @@ class ProposalDraft(M):
 
 
 class AgentAnswer(M):
-    """에이전트 최종 응답. content는 마크다운이고 제안 내용을 섞지 않는다."""
+    """에이전트 최종 응답. content는 마크다운, 제안 내용은 섞지 않음."""
     content: str
     proposals: list[ProposalDraft]
 
