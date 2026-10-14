@@ -7,6 +7,7 @@ COMPOSE=deploy/docker-compose.kbap-pm-agent.yml
 fails=0
 pass() { echo "PASS $*"; }
 fail() { echo "FAIL $*"; fails=$((fails + 1)); }
+tracked() { git ls-files deploy .github backend frontend | grep -vx "deploy/checks/check_g4.sh"; }   # 검사 패턴을 담은 이 파일 자신은 제외
 
 services=$(IMAGE=x/a IMAGE_WEB=x/b ENV_FILE=/dev/null docker compose -f "$COMPOSE" config --services 2>/dev/null | sort | tr '\n' ' ')
 [ "$services" = "kbap-pm-agent kbap-pm-agent-web " ] && pass "compose config: 서비스 kbap-pm-agent·kbap-pm-agent-web" || fail "compose 서비스 = '$services'"
@@ -23,10 +24,10 @@ PATH="$fake:$PATH" deploy/push-and-deploy.sh >/dev/null 2>&1; code=$?
 [ "$code" -eq 1 ] && [ ! -e "$fake/called" ] && pass "push-and-deploy.sh 인자 없으면 접속 전 종료 코드 1" || fail "push-and-deploy.sh 인자 없음 → 종료 $code, 원격 호출 $( [ -e "$fake/called" ] && echo 있음 || echo 없음)"
 rm -rf "$fake"
 
-alias_lines=$(git ls-files deploy .github backend frontend | grep '\.sh$' | xargs grep -n '\${1:-' 2>/dev/null)
+alias_lines=$(tracked | grep '\.sh$' | xargs grep -n '\${1:-' 2>/dev/null)
 [ -z "$alias_lines" ] && pass "셸 스크립트에 \${1:- 형태 호스트·별칭 기본값 없음" || fail "\${1:- 기본값: $alias_lines"
 
-scan() { git ls-files deploy .github backend frontend | xargs grep -lF -- "$1" 2>/dev/null; }
+scan() { tracked | xargs grep -lF -- "$1" 2>/dev/null; }
 hits=$(scan "/home/")
 [ -z "$hits" ] && pass "서버 사용자 경로(/home/) 없음" || fail "/home/ 포함 파일: $hits"
 
