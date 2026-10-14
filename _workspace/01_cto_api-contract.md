@@ -7,10 +7,11 @@
 | 2026-10-15 | v1 | 최초 작성 |
 | 2026-10-15 | v1.1 | 명세(spec.md)·헌법 정합: 코드 근거에 `function` 추가(FR-003), 저장소 `lastError` 추가(엣지 케이스 비공개 저장소), 실행 시간 상한·소스 실패 시 동작 명시(FR-010, 엣지 케이스), 택사노미 검증 실패 메시지 규칙(US4-4), `AGENT_MODE=fake`가 저장소·Amplitude까지 대체(헌법 원칙 III, FR-011), 실행 중 메시지 필드 규칙 |
 | 2026-10-15 | v1.1 (문구) | 메시지 전송 상한 비고: 도구 호출 수 → 모델 호출 턴 수 `AGENT_MAX_TURNS`(기본 10). shape 변경 없음 |
+| 2026-10-15 | v1.1 (예시) | 예시 운영 호스트를 `pm-agent.example.com`으로 바꿨다(Base URL 예시, connect 예시 redirect_uri). 운영 정보 비노출. 값·shape 의미 변경 없음 |
 
 ## 공통
 
-- **Base URL:** 프론트 빌드 환경변수 `VITE_API_BASE_URL` (예: 로컬 `http://localhost:8000`, 운영 `https://pm-agent-api.simhani1.dev`). 모든 경로는 `/api`로 시작한다.
+- **Base URL:** 프론트 빌드 환경변수 `VITE_API_BASE_URL` (예: 로컬 `http://localhost:8000`, 운영 `https://pm-agent.example.com`). 모든 경로는 `/api`로 시작한다.
 - **인증:** 백엔드에 `ACCESS_TOKEN`이 설정되어 있으면 `GET /api/health`와 `GET /api/integrations/amplitude/callback`을 제외한 모든 요청에 `Authorization: Bearer <토큰>` 헤더가 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
 - **형식:** 요청·응답 본문은 `application/json; charset=utf-8`. 메시지 전송 응답만 `text/event-stream`.
 - **필드 이름:** camelCase 고정. DB의 snake_case를 그대로 노출하지 않는다.
@@ -422,7 +423,7 @@ data: {"error":{"code":"UPSTREAM_ERROR","message":"LLM 공급자 응답 오류�
 - 요청: 본문 없음.
 - 응답 200:
 ```json
-{"authorizationUrl": "https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri=https%3A%2F%2Fpm-agent-api.simhani1.dev%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ&code_challenge=Q9v0aR3&code_challenge_method=S256"}
+{"authorizationUrl": "https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri=https%3A%2F%2Fpm-agent.example.com%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ&code_challenge=Q9v0aR3&code_challenge_method=S256"}
 ```
   (URL의 호스트·쿼리는 Amplitude가 정한다. 프론트는 문자열을 그대로 연다.)
 - 에러: `UPSTREAM_ERROR`.
