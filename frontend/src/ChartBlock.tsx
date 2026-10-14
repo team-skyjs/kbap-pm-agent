@@ -12,6 +12,7 @@ function tokens() {
   const css = getComputedStyle(document.documentElement)
   const v = (name: string) => css.getPropertyValue(name).trim() || undefined
   return {
+    font: v('--font-sans'),
     text: v('--color-text'),
     grid: v('--chart-grid') ?? v('--color-border'),
     series: [v('--chart-1'), v('--chart-2'), v('--chart-3'), v('--chart-4')],
@@ -43,6 +44,9 @@ export default function ChartBlock({ spec }: { spec: ChartSpec }) {
   useEffect(() => {
     if (!canvas.current) return
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+    // 본문 한글과 같은 글꼴
+    const font = tokens().font
+    if (font) Chart.defaults.font.family = font
     const chart = new Chart(canvas.current, {
       type: spec.type,
       data: {
@@ -51,6 +55,8 @@ export default function ChartBlock({ spec }: { spec: ChartSpec }) {
       },
       options: {
         responsive: true,
+        // 높이는 컨테이너가 예약(로딩 전환 시 점프 방지), 폭은 본문을 채우도록 비율 고정 해제
+        maintainAspectRatio: false,
         animation: reduce ? false : undefined,
         interaction: { mode: 'index', intersect: false },
         plugins: { title: { display: true, text: spec.title }, legend: { display: true, labels: {} }, tooltip: { enabled: true } },

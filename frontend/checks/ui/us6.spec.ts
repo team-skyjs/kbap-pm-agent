@@ -18,6 +18,15 @@ test('차트 블록 렌더링', async ({ page }, info) => {
   await expect(charts.nth(0).locator('table tbody tr')).toHaveCount(7)
   await expect(charts.nth(1).locator('table tbody tr')).toHaveCount(3)
 
+  // 등장 애니메이션이 끝날 때까지 대기: 연속 두 프레임 사이 캔버스 이미지가 같아지면 완료
+  for (const c of await charts.locator('canvas').all()) {
+    await expect.poll(() => c.evaluate((el) => new Promise<boolean>((done) => {
+      if (!(el instanceof HTMLCanvasElement)) return done(false)
+      const before = el.toDataURL()
+      requestAnimationFrame(() => requestAnimationFrame(() => done(el.toDataURL() === before)))
+    }))).toBe(true)
+  }
+
   // 캔버스에 실제로 그려졌는지 픽셀 샘플 (라이트·다크 모두)
   await expect.poll(() => charts.nth(0).locator('canvas').evaluate((c) => {
     if (!(c instanceof HTMLCanvasElement)) return 0
