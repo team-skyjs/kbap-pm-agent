@@ -28,7 +28,8 @@ REFINE_PROMPT = """너는 PM이 분석 에이전트에게 보낼 질문을 보�
 6. 개선안은 한국어 두 문장 이내, 요약은 한 줄이다.
 7. 질문의 대상 이벤트가 택사노미에 없으면 대상을 바꾸지 말고 원문 표현을 유지하며, 요약에 '택사노미에 없는 이벤트'라고 적는다.
 8. 기간·이벤트·지표·산출물이 이미 분명하면 문장을 거의 바꾸지 않고 요약에 '거의 그대로'라고 적는다. 없는 조건을 추가하지 않는다.
-9. 개선된 질문은 4,000자 이내로 쓴다."""
+9. 개선된 질문은 4,000자 이내로 쓴다.
+10. 처리 메모·설명은 summary에만 쓰고 refined에는 질문 문장만 쓴다."""
 
 
 def _history(conversation_id: int) -> list[dict]:
@@ -76,7 +77,8 @@ def render_prompt(question: str, names: list[str], rows: list[dict]) -> str:
                         for r in rows) or "이력 없음"
     return (f"{REFINE_PROMPT}\n\n## 택사노미 이벤트 이름\n{', '.join(names) or '택사노미 없음'}"
             f"\n\n## 직전 대화(오래된 순)\n{history}"
-            f"\n\n## 다듬을 질문\n{question}\n\n## 출력\nrefined: 다듬은 질문. summary: 무엇이 달라졌는지 한 줄.")
+            f"\n\n## 다듬을 질문\n{question}\n\n## 출력\nrefined: 에이전트에게 보낼 질문 문장만(처리 메모·설명 없이)."
+            f" summary: 무엇이 달라졌는지와 처리 메모 한 줄.")
 
 
 def build_prompt(question: str, conversation_id: int | None) -> tuple[str, bool]:

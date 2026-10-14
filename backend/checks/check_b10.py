@@ -76,13 +76,18 @@ for rule in ["사용자의 의도를 바꾸지 않는다.",
              "개선안은 한국어 두 문장 이내, 요약은 한 줄이다.",
              "질문의 대상 이벤트가 택사노미에 없으면 대상을 바꾸지 말고 원문 표현을 유지하며, 요약에 '택사노미에 없는 이벤트'라고 적는다.",
              "기간·이벤트·지표·산출물이 이미 분명하면 문장을 거의 바꾸지 않고 요약에 '거의 그대로'라고 적는다. 없는 조건을 추가하지 않는다.",
-             "개선된 질문은 4,000자 이내로 쓴다."]:
+             "개선된 질문은 4,000자 이내로 쓴다.",
+             "처리 메모·설명은 summary에만 쓰고 refined에는 질문 문장만 쓴다."]:
     assert rule in REFINE_PROMPT, rule
-ok("REFINE_PROMPT: 규칙 문장 아홉 개")
+assert "refined: 에이전트에게 보낼 질문 문장만(처리 메모·설명 없이)." in build_prompt("x", None)[0]
+from app.schemas import RefineResult  # noqa: E402
+props = RefineResult.model_json_schema(by_alias=True)["properties"]
+assert "처리 메모" in props["refined"]["description"] and "처리 메모" in props["summary"]["description"]
+ok("REFINE_PROMPT: 규칙 문장 열 개, 출력 형식과 구조화 출력 설명에 '처리 메모는 summary에만'")
 
 # --- 입력 조립
 p, truncated = build_prompt("질문입니다", None)
-assert not truncated and "택사노미 없음" in p and "이력 없음" in p and p.rstrip().endswith("summary: 무엇이 달라졌는지 한 줄.")
+assert not truncated and "택사노미 없음" in p and "이력 없음" in p and p.rstrip().endswith("summary: 무엇이 달라졌는지와 처리 메모 한 줄.")
 c.put("/api/settings/taxonomy", json=TAXONOMY_BODY)
 cid = c.post("/api/conversations", json={}).json()["id"]
 for i, (role, status, text) in enumerate([("user", "completed", "옛질문"), ("assistant", "completed", "옛답"),

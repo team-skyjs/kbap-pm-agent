@@ -28,7 +28,7 @@ main에 병합되면 자동 배포된다.
    | `CORS_ORIGINS` | `https://team-skyjs.github.io` |
    | `AMPLITUDE_MCP_URL` | `https://mcp.amplitude.com/mcp` |
    | `AGENT_MODEL`, `CODE_SUMMARY_MODEL`, `LLM_BUDGET_USD` | 생략 시 기본값(anthropic:claude-sonnet-5-5 / claude-haiku-5-5 / 200) |
-   | `REFINE_MODEL` | 질문 다듬기 모델. 운영 Variables에 `anthropic:claude-haiku-5-5`(비교로 확정) 설정 필요. 비우면 `CODE_SUMMARY_MODEL` |
+   | `REFINE_MODEL` | 질문 다듬기 모델. 생략 시 배포 워크플로우 기본값 `anthropic:claude-haiku-5-5`(샘플 비교로 확정). 앱은 비어 있으면 `CODE_SUMMARY_MODEL`로 폴백 |
    | `VITE_API_BASE_URL` | 프론트 빌드용. `PUBLIC_BASE_URL`과 같은 값 |
 4. **cloudflared ingress**: `<운영 API 호스트명>` → `http://kbap-pm-agent:8000` (같은 `monitor-net`)
 5. **GitHub Pages**: 레포 Settings → Pages → Source "GitHub Actions". Settings → Variables → `VITE_API_BASE_URL=https://<운영 API 주소>`

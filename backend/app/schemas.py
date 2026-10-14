@@ -232,8 +232,9 @@ class PatchProposalIn(M):
 # --- 질문 다듬기
 class RefineResult(M):
     """다듬기 모델의 구조화 출력. 두 문장 이내 규칙은 한국어 문장 분리가 불안정해 프롬프트로만 강제"""
-    refined: str = Field(min_length=1, max_length=4000)
-    summary: str = Field(min_length=1, max_length=300)
+    refined: str = Field(min_length=1, max_length=4000,
+                         description="에이전트에게 그대로 보낼 질문 문장만. 처리 메모·설명은 넣지 않음")
+    summary: str = Field(min_length=1, max_length=300, description="무엇이 달라졌는지와 처리 메모 한 줄")
 
 
 class RefineIn(M):

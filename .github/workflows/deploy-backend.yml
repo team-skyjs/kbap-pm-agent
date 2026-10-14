@@ -94,7 +94,7 @@ jobs:
           PUBLIC_BASE_URL=$PUBLIC_BASE_URL
           AGENT_MODEL=${AGENT_MODEL:-anthropic:claude-sonnet-5-5}
           CODE_SUMMARY_MODEL=${CODE_SUMMARY_MODEL:-anthropic:claude-haiku-5-5}
-          REFINE_MODEL=${REFINE_MODEL:-}
+          REFINE_MODEL=${REFINE_MODEL:-anthropic:claude-haiku-5-5}
           ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
           OPENAI_API_KEY=$OPENAI_API_KEY
           AGENT_MAX_TURNS=10
