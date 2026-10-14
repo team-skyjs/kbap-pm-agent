@@ -21,6 +21,7 @@ OPEN_PATHS = {"/api/health", "/api/integrations/amplitude/callback"}
 async def lifespan(_: FastAPI):
     try:
         db.init()
+        conversations.fail_stale_runs()
     except Exception as e:  # DB가 없어도 서버는 뜬다. health가 degraded로 알린다
         log.error("schema init failed: %s", e)
     yield
