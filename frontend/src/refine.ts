@@ -14,19 +14,36 @@ type Deps = {
   setInput: (value: string) => void
   // 기존 메시지 전송 흐름으로 넘김
   send: (content: string) => void
+  // 현재 입력창 값. 입력창에 넣은 개선안을 보내지 않고 비우면 취소로 기록하기 위함
+  input?: string
 }
 
 // 질문 다듬기 상태와 네 가지 선택. 원문은 입력창에 그대로 두고, 전송·교체만 호출자에게 맡김
-export function useRefine({ conversationId, setInput, send }: Deps) {
+export function useRefine({ conversationId, setInput, send, input }: Deps) {
   const [state, setState] = useState<RefineState>({ phase: 'idle' })
   // 다듬는 사이 대화가 바뀌거나 화면이 닫히면 늦게 온 결과를 버리기 위한 순번
   const run = useRef(0)
-  useEffect(() => () => { run.current++ }, [conversationId])
+  // 입력창에 넣은 개선안의 기록 ID: 실제 전송 때 refined, 비우거나 떠나면 cancelled로 확정
+  const pending = useRef<number | null>(null)
+
+  // 선택 기록은 집계용이라 기다리지 않고 실패도 무시(전송을 막지 않음)
+  const record = (id: number, choice: RefineChoice) => { void recordRefineChoice(id, choice).catch(() => {}) }
+  const settle = (choice: RefineChoice) => {
+    if (pending.current === null) return
+    record(pending.current, choice)
+    pending.current = null
+  }
+
+  // 대화를 떠나거나 화면이 닫히면 보내지 않은 개선안은 취소
+  useEffect(() => () => { run.current++; settle('cancelled') }, [conversationId])
+  useEffect(() => { if (input !== undefined && !input.trim()) settle('cancelled') }, [input])
 
   const start = useCallback(async (question: string) => {
     const q = question.trim()
     if (!q) return
     const mine = ++run.current
+    // 넣어 둔 개선안을 보내지 않고 다시 다듬으면 이전 것은 취소
+    settle('cancelled')
     setState({ phase: 'refining' })
     try {
       const result = await refineQuestion(conversationId, q)
@@ -36,10 +53,11 @@ export function useRefine({ conversationId, setInput, send }: Deps) {
     }
   }, [conversationId])
 
-  // 선택 기록은 집계용이라 기다리지 않고 실패도 무시(전송을 막지 않음)
-  const finish = (choice: RefineChoice) => {
+  // 카드 닫기. choice가 null이면 기록을 미룸(입력창에 넣기)
+  const finish = (choice: RefineChoice | null) => {
     if (state.phase !== 'card') return null
-    void recordRefineChoice(state.result.refinementId, choice).catch(() => {})
+    if (choice) record(state.result.refinementId, choice)
+    else pending.current = state.result.refinementId
     setState({ phase: 'idle' })
     return state
   }
@@ -49,9 +67,11 @@ export function useRefine({ conversationId, setInput, send }: Deps) {
     start,
     sendRefined: () => { const s = finish('refined'); if (s) send(s.result.refined) },
     sendOriginal: () => { const s = finish('original'); if (s) send(s.original) },
-    // 편집 후 전송도 개선안 채택으로 셈
-    insertRefined: () => { const s = finish('refined'); if (s) setInput(s.result.refined) },
+    // 기록은 전송 때(sent)로 미룸, 편집 후 전송도 개선안 채택으로 셈
+    insertRefined: () => { const s = finish(null); if (s) setInput(s.result.refined) },
     close: () => { finish('cancelled') },
     dismissError: () => setState({ phase: 'idle' }),
+    // 호출자가 메시지를 보내는 순간 호출(입력창을 비우기 전), 넣어 둔 개선안이 있으면 refined
+    sent: () => settle('refined'),
   }
 }

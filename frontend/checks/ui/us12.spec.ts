@@ -78,13 +78,40 @@ test('원문으로 보내기: 원문 전송, 선택 original', async ({ page }) 
   expect(rec.sent).toEqual([ORIGINAL])
 })
 
-test('입력창에 넣기: 입력창만 바뀌고 전송 없음, 선택 refined', async ({ page }) => {
+test('입력창에 넣기 후 편집해 전송: 넣을 때는 기록 없음, 전송 때 refined', async ({ page }) => {
   const rec = capture(page)
   await openCard(page)
   await card(page).getByRole('button', { name: '입력창에 넣기' }).click()
   await expect(card(page)).toHaveCount(0)
   await expect(box(page)).toHaveValue(REFINED)
+  await box(page).press('End')
+  await box(page).pressSequentially(' 주 단위로')
+  expect(rec.choices).toEqual([])
+  expect(rec.sent).toEqual([])
+  await box(page).press('Enter')
+  await expect(page.locator('.msg.user').last()).toContainText('주 단위로')
   await expect.poll(() => rec.choices).toEqual(['refined'])
+  expect(rec.sent).toEqual([`${REFINED} 주 단위로`])
+})
+
+test('입력창에 넣기 후 비우면 cancelled', async ({ page }) => {
+  const rec = capture(page)
+  await openCard(page)
+  await card(page).getByRole('button', { name: '입력창에 넣기' }).click()
+  await expect(box(page)).toHaveValue(REFINED)
+  await box(page).fill('')
+  await expect.poll(() => rec.choices).toEqual(['cancelled'])
+  expect(rec.sent).toEqual([])
+})
+
+test('입력창에 넣기 후 다른 대화로 옮기면 cancelled', async ({ page }) => {
+  const rec = capture(page)
+  await openCard(page)
+  await card(page).getByRole('button', { name: '입력창에 넣기' }).click()
+  await expect(box(page)).toHaveValue(REFINED)
+  await page.goto('./#/conversations/7')
+  await expect(page.locator('article.card').first()).toBeVisible()
+  await expect.poll(() => rec.choices).toEqual(['cancelled'])
   expect(rec.sent).toEqual([])
 })
 

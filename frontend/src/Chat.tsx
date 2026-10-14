@@ -114,7 +114,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   const inputRef = useRef<HTMLTextAreaElement>(null)
   // 사용자가 맨 아래를 보고 있을 때만 자동 스크롤
   const atBottom = useRef(true)
-  const refine = useRefine({ conversationId: id, setInput, send: (c) => { void submit(c) } })
+  const refine = useRefine({ conversationId: id, input, setInput, send: (c) => { void submit(c) } })
 
   const applied = useRef(0)
   const load = useCallback(() => {
@@ -180,6 +180,8 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   async function submit(text?: string) {
     const content = (text ?? input).trim()
     if (!content || streaming) return
+    // 입력창에 넣어 둔 개선안의 채택 기록은 실제 전송 시점(입력창을 비우기 전)
+    refine.sent()
     setNotice('')
     setTokenError(false)
     setBusyFrom(null)
