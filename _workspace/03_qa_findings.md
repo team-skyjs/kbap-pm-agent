@@ -57,6 +57,8 @@
 | 2026-10-15 | 004 T013 US2 수락 시나리오(실제 키, Haiku 5.5 기본값) | 실행 완료, 규칙 위반 리포트 | 별도 실제 모드 컨테이너·별도 DB, kbap-fe EVENTS 45개 택사노미. 4건 모두 200, 지연 2.4~3.4초, 건당 $0.0002~0.0003. (1) 일상어 "스캔 이탈 왜 많아?" 이벤트·기간·기본값 표시 통과(error_state_view 범위 추가는 경계선) (2) 택사노미에 없는 "결제 화면" → 없는 이름은 안 지었으나 order_card_open·order_done으로 대상을 바꿈(사용자 말 유지 규칙 부분 위반, 요약에는 대체 사실 표시) (3) 후속 "그걸 주 단위로" 직전 대상 반영 통과, 원문에 없는 목적 문장 추가 (4) 이미 구체적 질문: 의미 유지, 요약에 '거의 그대로' 표시 없음 + 원문에 없는 산출물 조건 추가(위반). 출력 원문은 QA 산출물 t013_out.json으로 보관, 05_refine_comparison에 반영 예정 |
 | 2026-10-15 | 004 T025 모델 비교 (실제 키, 프롬프트 01050f7·c51a5ea) | 통과, 결론 Haiku | 샘플 10건 × Haiku·Sonnet 순차 2회 실행. 최종 프롬프트 Sonnet 76·Haiku 72(4점 차, 기준 8 미만), Haiku 의도 0점 0건. Haiku 지연 중앙값 3.22초(SC-001 통과), 평균 $0.0004(SC-004 통과). 새 문제: 규칙 7 이후 처리 메모가 다듬은 질문 본문에 들어감(backend-dev에 전달). 상세 `05_refine_comparison.md` |
 | 2026-10-15 | QA-11 재검증·T008 (01050f7) | 확인됨 | 커밋본 이미지·별도 DB: qa_refine.py 실패 0, check_b1~b7·b9·b10 OK(b4·b5는 rg가 PATH에 있어야 함), 계약 diff 0 |
+| 2026-10-15 | 004 US1·US3 실제 fake 왕복 (0b5c430) T020·T023 | 통과, 결함 2(중간 1, 낮음 1) | 커밋본 이미지·별도 DB(fake) + 커밋본 프론트 dev 서버. check f1~f5·f7~f9 OK, check:ui 364 통과·50 건너뜀·실패 0. 시연 1~8 Playwright: 빈 입력 비활성, 다듬는 동안 입력창 잠금·aria-busy, 카드 원문·개선안·요약, 첫 포커스 개선안으로 보내기, 개선안·원문 전송과 기록, 입력창에 넣기 직후 POST 없음·NULL, 편집 전송 refined, 비우면 cancelled, ESC cancelled·입력창 포커스, 채택 비율 SQL 40.0·shown 5, refine 사용량 5행 0원, 선택 POST 순서 refined,original,refined,cancelled,cancelled. ui-review 라이트·다크 × 1280·375: 1280 좌우·375 위아래, 가로 스크롤 없음, 카드 최소 대비 5.17, 버튼 비활성·호버·포커스 링 2px, 동작 줄이기 0s. 예산: real 컨테이너 settings spentUsd = llm_usage 합계(refine 0.1048). 결함 QA-12, UI-4 |
+| 2026-10-15 | 프롬프트 재확인 Haiku (0b5c430, 347a825) | 통과 | 347a825에서 처리 메모 유입·세 문장·한자 0건, 지연 중앙값 4.12초(SC-001 안, 여유 감소). `05_refine_comparison.md` 재확인 절 |
 
 ## 결함
 
@@ -161,3 +163,21 @@
 - 수정 방향: 백엔드. 요청 모델 `conversationId: int | None`을 strict(`StrictInt` 또는 `model_config strict`)로. check_b10 타입 400 케이스에 문자열 ID 추가
 - 수신: backend-dev
 - 상태: 확인됨 (4918a52: RefineIn.conversation_id를 StrictInt로, check_b10에 문자열·불리언 케이스 추가. 01050f7 커밋본 재검증: "7"·7.0·true 모두 400 VALIDATION_ERROR, null 200)
+
+### QA-12: 카드가 열린 채 원문을 보낸 뒤 실행 중에 "개선안으로 보내기"를 누르면 전송 없이 refined로 기록된다
+- 모듈: frontend / 004 Q2·Q3 (Chat.tsx submit, refine.ts finish, RefineCard)
+- 경계면: 선택 기록 ↔ 실제 전송
+- 기대: data-model "개선안을 보낸 경우 refined", FR-007 채택 = 실제 전송. 기록은 화면에서 일어난 일과 같아야 한다
+- 실제: 재현 순서는 다음과 같다. (1) 입력 → 질문 다듬기 → 카드가 열린다. (2) 입력창에서 Enter → 원문이 전송되고 에이전트가 실행된다. 카드는 남고 기록은 NULL이다. (3) 실행 중 카드의 "개선안으로 보내기" → `finish('refined')`가 기록 POST를 보낸다. 그러나 `submit`은 `streaming`이라 바로 return한다. 사용자 메시지는 4개에서 4개로 그대로, 카드는 닫히고, 기록 = refined다. 개선안 문장은 어디에도 남지 않는다. "원문으로 보내기"도 같은 경로로 original이 잘못 남는다. 채택 비율(SC-002)이 부풀고 사용자는 눌렀는데 아무 일도 없다
+- 수정 방향: 프론트. 카드가 열린 상태에서 메시지가 전송되면 카드를 닫고 `original`로 기록한다(사용자가 원문을 보낸 것). `submit`의 `refine.sent()` 옆에서 처리하면 된다. 실행 중에는 카드의 두 전송 버튼도 비활성으로 둔다. us12에 "카드 연 채 Enter" 케이스를 추가한다
+- 수신: frontend-dev, frontend-designer
+- 상태: 열림
+
+### UI-4: 375px에서 카드가 열리면 메시지 영역이 키보드로 스크롤되지 않는다 (axe scrollable-region-focusable, serious)
+- 모듈: frontend / 004 Q3 (Chat.tsx `.scroll`, RefineCard)
+- 경계면: 화면 접근성
+- 기대: check:ui 공통 기준 axe critical·serious 0
+- 실제: 375×800 빈 대화에서 카드(높이 472px)를 열면 `.scroll`이 152px로 줄어 내용이 넘친다. 안에 포커스 가능한 요소가 없어 axe serious `scrollable-region-focusable`이 난다(라이트·다크 둘 다, 카드 닫힌 상태는 0). 375×667에서는 메시지 영역이 19px, 375×560에서는 0px이 되고 문서 전체가 스크롤되며 입력창 아래쪽이 화면 밖으로 나간다. us12는 대화에 제안 카드(포커스 가능)가 있는 고정 응답이라 잡지 못한다
+- 수정 방향: 디자이너. `.scroll`에 `tabIndex={0}`과 접근 이름("대화 내용")을 준다. 또는 좁은 화면에서 카드 높이에 상한을 두고 카드 안을 스크롤한다. us12에 빈 대화 375 axe 케이스를 추가한다
+- 수신: frontend-designer
+- 상태: 열림
