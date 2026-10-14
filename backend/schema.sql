@@ -1,4 +1,4 @@
--- 기동 시 app/db.py가 실행한다 (ADR-8). 변경은 이 파일 끝에 ALTER를 추가하고 수동 적용.
+-- 기동 시 app/db.py가 실행. 변경은 이 파일 끝에 ALTER 추가 후 수동 적용.
 -- 시각은 UTC (연결마다 time_zone='+00:00').
 
 CREATE TABLE IF NOT EXISTS conversations (

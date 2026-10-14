@@ -26,6 +26,15 @@
 | 2026-10-15 | T061 최종 (fake) | 통과, real 미검증 | 계약 diff 없음, check_b1~b7·check-f1~f6 OK, check_b8 별도 컨테이너 OK, quickstart 시나리오 1~10 실서버 + headless Chrome 통과, 열린 결함 0. real 시나리오는 T042·T050·T057·T060에 막혀 T061 미체크. 리포트 `_workspace/03_qa_report.md` |
 | 2026-10-15 | 출처 구조 대응 (67c6f3a + check_b8 작업 트리) · F1·F6 mock 삭제 (0b98411) | 통과 | check_b8이 git remote로 기대 출처 계산: 서버 출처 simhani1이면 preflight 400으로 실패, team-skyjs면 통과, git 없는 컨테이너는 EXPECTED_ORIGIN 요구로 실패. check_b8 변경은 미커밋. 프론트 mock 참조 0, check-f1~f6 OK, 운영 빌드 자산 경로, 헬스 ok, F3 SSE 화면 흐름 통과 |
 | 2026-10-15 | check_b8 커밋 확인 (680ba9e·4a512df) | 확인됨 | 680ba9e = QA가 검증한 작업 트리와 동일. 4a512df: PASS 줄에 기대 출처 근거 표시("기대 출처: git remote"), EXPECTED_ORIGIN 폴백에 한계 주석. 레포 안 실행으로 team-skyjs 서버 preflight 통과 재확인 |
+| 2026-10-15 | T072 헌법 정합 (d3302ae) | 결함 1(문서) | 헌법 v1.1.0 기술 제약 백엔드 줄 = ADR-20(공식 SDK, Claude tool runner, openai-agents, LangChain 미사용, 접두사 선택). 원칙 I~V 문구 무변경. plan.md Constitution Check·data-model.md에 개정 전 문구 잔존 → QA-5 |
+| 2026-10-15 | QA-5 재검증 (155daef) | 확인됨 | T072 체크 |
+| 2026-10-15 | B9 (9e1c2c6) T071 | 통과, 결함 1(문서) | 계약 diff 없음. backend/app·pyproject·uv.lock·설치 패키지에 langchain 0. check_b1~b7 OK(check_b6: 두 런타임 가짜 전송으로 SSE 순서·final=Message·llm_usage·도구 예외 failed 후 계속·location null·refusal UPSTREAM_ERROR·호출/시간 상한 부분 final·foo:bar 기동 실패, check_b7: 가짜 MCP 서버로 두 런타임 amplitude 성공/실패). fake SSE 원문의 이벤트 이름·data 키 구조가 전환 전 기준선과 diff 0. 정적: 내부 이벤트 형식·`conversations.py` 무변경, 공통 래퍼가 tool_call→tool_result 순서. real 무키 실서버: anthropic·openai 둘 다 message_created→error UPSTREAM_ERROR + DB failed, `foo:bar`면 기동 실패, 비용 0. 프론트 무변경으로 check-f1~f6 OK, 채팅·제안(첫 진행 0.76s)·목록·채택·Amplitude 화면 흐름 통과. 결함 QA-6 |
+| 2026-10-15 | B9 cto 추가 확인 (b3c572d) + QA-6 재검증 (da85244) | 통과 | (1) anthropic 1.13.0이 httpx2 사용·설치 확인(T069 정정 문구와 일치). (2) openai-agents 트레이스: DefaultTraceProvider `_manual_disabled=True`, 가짜 전송 실행 + force_flush 뒤 트레이스 URL 송신 0. (3) MCP 오류 두 경로 × 두 런타임(QA 스크립트, 가짜 FastMCP + 클라이언트 `call_tool` 예외 주입): isError 결과·클라이언트 예외 모두 `tool_result failed` → `final`. 참고: check_b7의 "MCP 예외"는 FastMCP가 isError로 바꿔 보내는 경로라 클라이언트 예외 경로는 검사 스크립트에 없다. QA-6: 운영 env 예시에 OpenAI 예시·키 조건 주석 확인, T068 체크 |
+| 2026-10-15 | check_b7 클라이언트 예외 경로 (a75addd) | 통과 | 재빌드 컨테이너(= 커밋본)에서 check_b7 OK: 두 런타임 × MCP 성공·isError·ConnectionError·연결 실패. 첫 실행은 backend-dev 수정 중 같은 검사용 DB를 동시에 써 저장 단계 IndexError로 실패했고, 단독 재실행은 통과(결함 아님). 리포트 남은 위험 항목 닫음 |
+| 2026-10-15 | T075 턴 상한 (7dbeab6) | 통과 | 계약 diff 0(f11d5b9 비고 문구 반영 확인). `AGENT_MAX_TOOL_CALLS` 잔존: backend·deploy·.env.example·docker-compose.yml·.github·루트 .env 0건(범위 밖 `docs/architecture/agent-loop-langchain.*` 2건, LangChain 시절 구조도). 재빌드 컨테이너(= 커밋본) check_b1~b7 OK, check_b6 AGENT_MAX_TURNS=2 병렬 2개 = 1턴·모델 요청 2회·도구 3회 후 부분 final. QA 추가: 기본 10턴에서 도구만 돌려주는 가짜 모델 → 두 런타임 모두 모델 요청 10회·tool 쌍 10·부분 final 첫 줄 = 계약 문구 "모델 호출 상한(10턴)에 도달해 여기까지의 조회 결과로 답합니다."·status completed·proposals []. fake SSE 이벤트·키 구조 기준선과 diff 0. 참고: 모델이 없는 도구 이름을 부르면 openai는 ModelBehaviorError로 실행 전체 UPSTREAM_ERROR, anthropic은 오류 결과로 계속(남은 위험) |
+| 2026-10-15 | 주석 정리 frontend (1430a07) | 통과 | 코드 변화 0: 바뀐 TS 15개 모두 esbuild 변환 결과 동일, style.css는 주석 1줄만. check-f1~f6 OK, 계약 diff 0. frontend 주석의 내부 식별자 8줄→0, 종결형 어미 32줄→0 |
+| 2026-10-15 | 주석 정리 backend (d24edde) | 통과, 결함 1(기존) | 코드 변화 0: 바뀐 .py 24개 docstring 제외 AST 동일, schema.sql·Dockerfile은 주석 줄만. 재빌드 컨테이너(= 커밋본) check_b1~b7 OK, 계약 diff 0. backend 주석 내부 식별자 24줄→0, 종결형 82줄→1(`backend/checks/check_b6.py:41` "돈다"; 정규식이 잡은 나머지 3줄은 명사 "필요" 오탐). 저장소 전체(주석 감사 대상 41개 파일): 식별자 32→0, 종결형 114→1. 도구 docstring 문구는 모델에 가는 도구 설명이라 문체만 바뀐 것 확인(의미 동일). 정리와 별개로 QA-7 발견 |
+| 2026-10-15 | QA-7 재검증 (dbf5428) | 확인됨 | 재빌드 컨테이너(= 커밋본)에서 두 런타임 도구 스키마의 매개변수 9개 모두 description, check_b1~b7 OK, backend/app docstring 외 코드 변화 0, 계약 diff 0. 저장소 주석 잔존: 식별자 0, 종결형 0(정규식 4줄은 명사 "필요" 오탐). T063 재체크. ADR-21은 c636aab로 되돌려져 T078 대상 아님 |
 
 ## 결함
 
@@ -64,3 +73,30 @@
 - 수정 방향: 백엔드. 두 곳을 `https://team-skyjs.github.io`로. check_b8은 출처를 환경변수로 받지 말고 ADR 값 고정(검사가 운영 설정을 따라가면 검사가 아니다)
 - 수신: backend-dev
 - 상태: 확인됨 (5c5a6ad. 같은 출처 결함 2회째(QA-3→QA-4)라 재발 시 cto에 구조 원인 보고)
+
+### QA-5: 헌법 v1.1.0 개정 뒤 plan.md·data-model.md에 개정 전 문구가 남았다
+- 모듈: 문서 / Phase 8 (T072)
+- 경계면: 헌법 ↔ plan.md Constitution Check, data-model.md
+- 기대: 헌법 v1.1.0 Sync Report "Follow-up: plan.md Constitution Check의 \"불일치(개정 대기)\" 표시를 T072에서 해소". 기술 제약 "LLM 호출은 공급자 공식 SDK로 한다 … LangChain 계열은 쓰지 않는다"
+- 실제: `specs/001-pm-agent-prototype/plan.md:63` "**불일치(개정 대기)**: 헌법 기술 제약의 \"백엔드: Python 3.12, FastAPI, LangChain 1.x\"가 ADR-20과 어긋난다" 그대로. `specs/001-pm-agent-prototype/data-model.md:85` llm_usage.model 설명 "`init_chat_model` 문자열 그대로"(ADR-4 대체됨, ADR-20은 `provider:model` 접두사 문자열)
+- 수정 방향: CTO. plan.md:63을 "일치(헌법 v1.1.0, d3302ae)"로, data-model.md:85를 "`AGENT_MODEL`·`CODE_SUMMARY_MODEL` 문자열 그대로(`provider:model`, ADR-20)"로. 백엔드 코드·`.env.example:13`의 LangChain 잔존은 B9(T062~T068) 범위라 B9 완료 시 QA가 확인
+- 수신: cto
+- 상태: 확인됨 (155daef: plan.md:63 "일치(헌법 v1.1.0, d3302ae)", data-model.md:85 provider:model. specs·.specify의 남은 LangChain 언급은 미사용을 밝히는 문장뿐)
+
+### QA-6: 운영 env 예시에 OpenAI 전환 주석과 OPENAI_API_KEY 조건 안내가 없다
+- 모듈: backend / B9 (T068)
+- 경계면: 운영 설정(배포 env) — 런타임 선택 접두사
+- 기대: T068 "`.env.example`, `deploy/kbap-pm-agent.env.example`: … OpenAI로 바꾸는 예시(`openai:gpt-6-luna`)는 주석으로, `OPENAI_API_KEY`는 openai 접두사일 때만 필요하다고 적는다"
+- 실제: `.env.example:14·18`에는 있다. `deploy/kbap-pm-agent.env.example:9~12`는 `AGENT_MODEL`·`CODE_SUMMARY_MODEL`·`ANTHROPIC_API_KEY=`·`OPENAI_API_KEY=` 값만 있고 두 안내가 없다. 운영자가 openai로 바꿀 때 두 변수를 같은 접두사로 맞춰야 한다는 사실(다르거나 틀리면 기동 실패)을 알 길이 없다
+- 수정 방향: 백엔드. `.env.example`의 두 주석을 운영 예시에도 옮긴다
+- 수신: backend-dev
+- 상태: 확인됨 (20355dd·da85244: 접두사 규칙, openai 예시, ANTHROPIC/OPENAI 키 조건 주석)
+
+### QA-7: 에이전트 도구 6개의 docstring에 매개변수 설명(Args 절)이 없다
+- 모듈: backend / B9 (T063, 주석 정리 전부터 있던 공백)
+- 경계면: 백엔드 → LLM 공급자 도구 스키마(두 런타임 모두 docstring을 도구 설명 원천으로 쓴다)
+- 기대: T063 "타입 힌트와 docstring(Args 절)이 도구 스키마의 원천이다"
+- 실제: `backend/app/code_tools.py`의 `find_event_calls(eventName)`, `search_code(regex, glob)`, `get_screen_summary(path)`, `read_code(path, startLine, endLine)`, `search_taxonomy(query)`, `get_event_definition(name)` 모두 한 줄 요약만 있고 Args 절이 없다(d24edde~1과 d24edde 동일). 모델은 매개변수 이름과 타입만 보고 `glob` 형식, `startLine`이 1부터인지, `path`가 저장소 루트 기준인지 등을 docstring 첫 줄에서 추측해야 한다. QA가 B9(T071)에서 T063을 통과시킬 때 놓쳤다
+- 수정 방향: 백엔드. 각 함수에 `Args:` 절로 매개변수마다 한 줄(형식·범위). 두 런타임이 Args를 매개변수 description으로 옮기는지 check_b6의 요청 파라미터 assert에 하나 추가
+- 수신: backend-dev
+- 상태: 확인됨 (dbf5428: 도구 6개 Args 절. anthropic beta_async_tool·openai function_tool 스키마 모두 매개변수 9개 description 확인, check_b6 요청 파라미터 assert 추가)

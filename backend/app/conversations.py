@@ -1,4 +1,4 @@
-"""대화·메시지·제안 라우트 (contracts/04, 05, 06)."""
+"""대화·메시지·제안 라우트."""
 import asyncio
 import json
 import logging
@@ -41,7 +41,7 @@ def tool_call_dict(r: dict) -> dict:
 def proposal_dict(r: dict) -> dict:
     return {"id": r["id"], "conversationId": r["conversation_id"], "messageId": r["message_id"], "seq": r["seq"],
             "type": r["type"], "title": r["title"],
-            # MySQL JSON 컬럼은 키 순서를 바꾼다. 모델을 거쳐 계약서 키 순서로 되돌린다
+            # MySQL JSON 컬럼이 키 순서를 바꿈. 모델을 거쳐 계약서 키 순서로 복원
             "evidence": _EVIDENCE.dump_python(_EVIDENCE.validate_python(json.loads(r["evidence_json"])), by_alias=True),
             "proposal": r["proposal_text"], "steps": json.loads(r["steps_json"]),
             "measurement": Measurement.model_validate(json.loads(r["measurement_json"])).model_dump(by_alias=True),
@@ -94,7 +94,7 @@ def _conv_or_404(conversation_id: int) -> dict:
 
 @router.get("/conversations")
 def list_conversations():
-    # ponytail: 페이지네이션 없음(사용자 2명, 계약서 공통 규칙)
+    # ponytail: 페이지네이션 없음, 사용자 2명이라 충분
     return {"items": [_summary(r) for r in db.q(SUMMARY_SQL + " ORDER BY c.updated_at DESC, c.id DESC")]}
 
 
@@ -122,7 +122,7 @@ def patch_proposal(proposal_id: int, body: PatchProposalIn):
     elif body.status != p["decision_status"]:
         decided = "NOW(3)"
     else:
-        decided = "decided_at"  # 같은 status 재요청은 결정 시각을 바꾸지 않는다
+        decided = "decided_at"  # 같은 status 재요청이면 결정 시각 유지
     db.x(f"UPDATE proposals SET decision_status = %s, decision_note = %s, decided_at = {decided} WHERE id = %s",
          (body.status, note, proposal_id))
     db.x("UPDATE conversations SET updated_at = NOW(3) WHERE id = %s", (p["conversation_id"],))
@@ -139,7 +139,7 @@ def _fail(mid: int, code: str) -> None:
 
 
 def fail_stale_runs() -> None:
-    """기동 시: 이전 프로세스에서 끊긴 실행을 마감한다(단일 워커라 지금 running인 것은 모두 고아다)."""
+    """기동 시 이전 프로세스에서 끊긴 실행 마감. 단일 워커라 running 상태는 모두 고아."""
     for r in db.q("SELECT id FROM messages WHERE status = 'running'"):
         _fail(r["id"], "INTERNAL_ERROR")
 
@@ -150,7 +150,7 @@ def send_message(conversation_id: int, body: SendMessageIn):
     if db.one("SELECT id FROM messages WHERE conversation_id = %s AND status = 'running'", (conversation_id,)):
         raise ApiError(409, "RUN_IN_PROGRESS", "이 대화에서 이미 에이전트가 실행 중입니다. 끝난 뒤 다시 보내 주세요.")
     budget.check()
-    # ponytail: 확인→삽입 사이 경쟁은 막지 않는다(사용자 2명). 필요하면 conversations 행 SELECT ... FOR UPDATE
+    # ponytail: 확인과 삽입 사이 경쟁 미방지(사용자 2명). 필요하면 conversations 행 SELECT ... FOR UPDATE
     uid = db.x("INSERT INTO messages (conversation_id, role, status, content) VALUES (%s, 'user', 'completed', %s)",
                (conversation_id, body.content))
     if c["title"] is None:
@@ -219,7 +219,7 @@ async def _stream(aid: int, conversation_id: int, content: str, created: dict):
                     finished = True
                     yield _sse("error", {"error": {"code": ev["code"], "message": ev["message"]}, "assistantMessageId": aid})
                     return
-            except Exception:  # 저장 실패도 계약대로 error 이벤트 하나로 끝낸다
+            except Exception:  # 저장 실패도 error 이벤트 하나로 종료
                 log.exception("stream handling failed")
                 _fail(aid, "INTERNAL_ERROR")
                 finished = True
@@ -228,5 +228,5 @@ async def _stream(aid: int, conversation_id: int, content: str, created: dict):
                 return
     finally:
         task.cancel()
-        if not finished:  # 클라이언트가 끊었다
+        if not finished:  # 클라이언트 연결 끊김
             _fail(aid, "INTERNAL_ERROR")

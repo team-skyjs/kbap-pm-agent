@@ -19,10 +19,12 @@ OPEN_PATHS = {"/api/health", "/api/integrations/amplitude/callback"}
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    from app import agent
+    agent.check_models()  # 모르는 모델 접두사면 기동 실패
     try:
         db.init()
         conversations.fail_stale_runs()
-    except Exception as e:  # DB가 없어도 서버는 뜬다. health가 degraded로 알린다
+    except Exception as e:  # DB가 없어도 서버는 기동, health가 degraded로 알림
         log.error("schema init failed: %s", e)
     yield
 
@@ -32,7 +34,7 @@ app = FastAPI(title="kbap-pm-agent", version=VERSION, docs_url=None, redoc_url=N
 
 @app.middleware("http")
 async def auth_and_errors(request: Request, call_next):
-    # 인증이 라우팅보다 먼저다(research R3): 없는 경로도 토큰이 없으면 401
+    # 인증이 라우팅보다 먼저: 없는 경로도 토큰 없으면 401
     token = env("ACCESS_TOKEN")
     if token and request.method != "OPTIONS" and request.url.path not in OPEN_PATHS:
         given = request.headers.get("authorization", "")
@@ -40,12 +42,12 @@ async def auth_and_errors(request: Request, call_next):
             return err(401, "UNAUTHORIZED", "접근 토큰이 없거나 일치하지 않습니다.")
     try:
         return await call_next(request)
-    except Exception:  # CORS 미들웨어 안쪽에서 잡아야 500에도 CORS 헤더가 붙는다
+    except Exception:  # CORS 미들웨어 안쪽에서 잡아야 500에도 CORS 헤더 부착
         log.exception("unhandled")
         return err(500, "INTERNAL_ERROR", "서버 내부 오류가 발생했습니다.")
 
 
-# 마지막에 추가한 미들웨어가 가장 바깥이다. CORS가 401·500 응답도 감싼다
+# 마지막에 추가한 미들웨어가 가장 바깥. CORS가 401·500 응답도 감쌈
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in env("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()],

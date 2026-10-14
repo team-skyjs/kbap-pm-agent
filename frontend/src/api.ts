@@ -1,6 +1,6 @@
-// 계약 경계 (계약서 v1.1, _workspace/01_cto_api-contract.md). 타입·파서·fetch는 이 파일 하나에만 둔다.
-// 응답은 unknown으로 받아 필드 단위로 검증하며 새 객체를 만든다. any·as 캐스팅·단독 제네릭 없음 (헌법 원칙 I).
-// null 규칙: 계약상 값이 없으면 키는 있고 값이 null이다. 그래서 키 누락은 파싱 실패로 본다.
+// 계약 경계: 계약 타입·파서·fetch를 이 파일 하나에 모음
+// 응답은 unknown으로 받아 필드 단위 검증 후 새 객체 생성, 캐스팅으로 계약 불일치를 숨기지 않기 위함
+// 값 없는 필드도 키는 null로 오는 계약이라 키 누락은 파싱 실패로 처리
 
 // ---------- 공통: 에러 ----------
 
@@ -21,8 +21,8 @@ const ERROR_CODES = [
   'NOT_FOUND', 'REPOSITORY_NOT_CONFIGURED', 'RUN_IN_PROGRESS', 'UPSTREAM_ERROR', 'INTERNAL_ERROR',
 ] as const
 
-// 화면에서 쓰는 코드는 위 열 개 + 프론트 자체 사유 두 개.
-// NETWORK_ERROR: fetch 자체 실패(백엔드 꺼짐·CORS). BAD_RESPONSE: 응답이 계약 shape와 다름.
+// 서버 코드에 프론트 자체 사유 두 개 추가
+// NETWORK_ERROR: fetch 자체 실패(백엔드 꺼짐·CORS), BAD_RESPONSE: 응답이 계약 형태와 불일치
 export type ClientErrorCode = ErrorCode | 'NETWORK_ERROR' | 'BAD_RESPONSE'
 
 export class ApiError extends Error {
@@ -86,7 +86,7 @@ export function parseErrorBody(v: unknown): ErrorBody {
 
 // ---------- 공통: 요청 ----------
 
-// Node 검사(tsx)에는 import.meta.env가 없어서 ?.로 막는다.
+// Node 검사(tsx)에는 import.meta.env가 없어 ?.로 방어
 export const API_BASE_URL: string = import.meta.env?.VITE_API_BASE_URL ?? ''
 
 const TOKEN_KEY = 'kbap-pm-agent.accessToken'
@@ -110,7 +110,7 @@ async function rawFetch(path: string, method: string, body?: string): Promise<Re
   }
 }
 
-// 비 2xx는 계약 에러 형식으로 파싱해 ApiError로 던진다.
+// 비 2xx 응답을 계약 에러 형식으로 파싱해 ApiError로 변환
 async function throwIfError(res: Response): Promise<void> {
   if (res.ok) return
   let parsed: ErrorBody
@@ -376,7 +376,7 @@ export type StreamEvent =
   | { event: 'final'; data: Message }
   | { event: 'error'; data: StreamError }
 
-// SSE 원문 블록 하나(빈 줄로 구분) → 이벤트. `: ping` 같은 주석만 있는 블록은 null.
+// SSE 블록 하나(빈 줄 구분)를 이벤트로 변환, `: ping` 같은 주석만 있는 블록은 null
 export function parseSseBlock(block: string): StreamEvent | null {
   let event = ''
   const data: string[] = []
@@ -409,7 +409,7 @@ export function parseSseBlock(block: string): StreamEvent | null {
   }
 }
 
-// 청크를 받아 완성된 블록만 이벤트로 돌려준다. 남은 조각은 다음 청크와 합친다.
+// 완성된 블록만 이벤트로 반환, 남은 조각은 다음 청크와 결합
 export function createSseParser(): (chunk: string) => StreamEvent[] {
   let buf = ''
   return (chunk) => {
@@ -420,8 +420,8 @@ export function createSseParser(): (chunk: string) => StreamEvent[] {
   }
 }
 
-// 스트림 시작 전 에러(400/404/409/403)는 ApiError로 던진다.
-// 반환값: 'final' | 'error'면 정상 종료, 'disconnected'면 끝 이벤트 없이 끊김 → 호출자가 상세를 다시 읽는다.
+// 스트림 시작 전 에러는 ApiError로 throw
+// 'disconnected': 끝 이벤트 없이 끊김, 호출자가 상세 재조회
 export async function sendMessage(
   conversationId: number,
   content: string,
@@ -450,7 +450,7 @@ export async function sendMessage(
   }
 }
 
-// ---------- 화면 문구 (code로만 분기, 계약서 공통 규칙) ----------
+// ---------- 화면 문구 (code로만 분기) ----------
 
 const ERROR_TEXT: Record<ClientErrorCode, string> = {
   VALIDATION_ERROR: '입력값이 올바르지 않습니다.',
@@ -467,7 +467,7 @@ const ERROR_TEXT: Record<ClientErrorCode, string> = {
   BAD_RESPONSE: '서버 응답 형식이 계약과 다릅니다.',
 }
 
-// 서버 message가 있으면 함께 보여준다(사유·위치가 담긴다. 예: 택사노미 검증 실패).
+// 서버 message가 있으면 함께 표시 (사유·위치 포함, 예: 택사노미 검증 실패)
 export function errorText(code: string, message?: string): string {
   const base = ERROR_TEXT[ERROR_CODES.find((c) => c === code) ?? (code === 'NETWORK_ERROR' || code === 'BAD_RESPONSE' ? code : 'INTERNAL_ERROR')]
   return message && message !== base ? `${base} (${code}: ${message})` : `${base} (${code})`
@@ -478,7 +478,7 @@ export function describe(e: unknown): string {
 
 // ---------- PATCH /api/proposals/{proposalId} ----------
 
-// note: 문자열이면 저장, null이면 지움. 키를 생략하면 기존 메모 유지(계약서). 화면은 항상 메모칸 값을 보낸다.
+// note: 문자열은 저장, null은 삭제, 키 생략은 기존 메모 유지. 화면은 항상 메모칸 값 전송
 export type ProposalUpdate = { status: DecisionStatus; note?: string | null }
 
 export const updateProposal = (id: number, body: ProposalUpdate) =>
@@ -556,13 +556,13 @@ export function parseAuthorizationUrl(v: unknown): { authorizationUrl: string } 
 // ---------- 설정 엔드포인트 ----------
 
 export const getSettings = () => request('GET', '/api/settings', parseSettings)
-// branch 생략 시 저장소 기본 브랜치 (계약서). 빈 문자열이면 키를 뺀다.
+// branch가 빈 문자열이면 키 제외, 서버가 저장소 기본 브랜치 사용
 export const putRepository = (url: string, branch: string) =>
   request('PUT', '/api/settings/repository', (v) => parseRepository(v), branch ? { url, branch } : { url })
 export const syncRepository = () => request('POST', '/api/settings/repository/sync', (v) => parseRepository(v))
 export const connectAmplitude = () => request('POST', '/api/integrations/amplitude/connect', parseAuthorizationUrl)
 
-// 사용자가 고른 .json 파일 내용을 손대지 않고 본문으로 보낸다 (계약서). 검증은 서버가 한다.
+// 고른 .json 파일 내용을 그대로 본문으로 전송, 검증은 서버 몫
 export async function putTaxonomy(fileText: string): Promise<TaxonomyStatus> {
   const res = await rawFetch('/api/settings/taxonomy', 'PUT', fileText)
   await throwIfError(res)

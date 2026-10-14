@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { describe, updateProposal, type DecisionStatus, type Evidence, type FunnelStep, type Proposal } from './api.ts'
 
-// 카드 네 영역은 정확히 이 순서다 (계약서 Proposal 필드 규칙). 렌더는 이 배열을 그대로 따른다.
+// 계약이 정한 카드 네 영역 순서, 렌더는 이 배열 순서를 따름
 export const CARD_SECTIONS = [
   { key: 'evidence', label: '근거' },
   { key: 'proposal', label: '제안' },

@@ -1,5 +1,5 @@
-// F5 검사: 02 Settings 예시, 07 저장소·동기화·택사노미 응답 예시, 08 connect 예시가 파서를 통과한다.
-// repository null, taxonomy null 변형도 통과한다. 택사노미 검증 실패 에러 본문의 위치 message가 그대로 읽힌다.
+// 검사: Settings·저장소·동기화·택사노미·connect 응답 예시 파싱
+// repository·taxonomy null 변형, 택사노미 검증 실패 message의 위치 정보 확인
 import assert from 'node:assert/strict'
 import { errorText, parseAuthorizationUrl, parseErrorBody, parseRepository, parseSettings, parseTaxonomyStatus, type Settings } from '../src/api.ts'
 import { jsonBlock } from './contract.ts'
@@ -19,7 +19,7 @@ assert.equal(empty.repository, null)
 assert.equal(empty.taxonomy, null)
 assert.equal(empty.amplitude.connectedAt, null)
 
-// 07: [1] PUT repository 응답, [2] sync 응답, [4] 택사노미 응답, [5] 택사노미 검증 실패
+// 07-settings.md 블록 순서: [1] PUT repository, [2] sync, [4] 택사노미 응답, [5] 택사노미 검증 실패
 const put = parseRepository(jsonBlock('07-settings.md', 1))
 assert.equal(put.codeMapCommit, null)
 assert.equal(put.codeMapStatus, 'building')
@@ -29,9 +29,9 @@ const v = parseErrorBody(jsonBlock('07-settings.md', 5))
 assert.equal(v.error.code, 'VALIDATION_ERROR')
 assert(errorText(v.error.code, v.error.message).includes('events[3].properties[0].type'))
 
-// 08: connect
+// connect 응답
 assert(parseAuthorizationUrl(jsonBlock('08-amplitude.md', 0)).authorizationUrl.startsWith('https://app.amplitude.com/oauth/authorize?'))
 
-// lastError 키 누락(v1 shape)은 거부
+// lastError 키 누락(이전 계약 형태) 거부
 const { lastError: _drop, ...noLastError } = put
 assert.throws(() => parseRepository(noLastError))

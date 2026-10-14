@@ -1,4 +1,4 @@
-"""B2 검사: 계약 예시가 schemas 모델을 통과하고 재직렬화가 원문과 같다. 대화 엔드포인트 shape, PATCH decidedAt 전이."""
+"""대화·제안 검사: 계약 예시의 schemas 모델 통과와 재직렬화 동일성, 대화 엔드포인트 shape, PATCH decidedAt 전이."""
 import json
 
 from common import client, ok
@@ -34,7 +34,7 @@ r = c.post("/api/conversations", content="{broken", headers={"content-type": "ap
 assert r.status_code == 400 and r.json()["error"]["code"] == "VALIDATION_ERROR" and "detail" not in r.json()
 ok("잘못된 title·깨진 JSON → 400 VALIDATION_ERROR")
 
-# 시험 메시지·제안을 DB에 직접 넣는다
+# 시험 메시지·제안을 DB에 직접 삽입
 cid = conv["id"]
 mid = db.x("INSERT INTO messages (conversation_id, role, status, content) VALUES (%s,'assistant','completed','본문')", (cid,))
 p = PROPOSAL_15

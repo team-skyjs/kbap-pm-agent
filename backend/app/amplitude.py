@@ -1,7 +1,8 @@
-"""외부 seam: Amplitude 원격 MCP (조회 전용). OAuth 2.1 + 동적 클라이언트 등록은 MCP SDK OAuthClientProvider가 하고,
-토큰·클라이언트 정보는 app_settings 'amplitude_oauth'에 둔다(API로 노출하지 않음). 연결 상태는 'amplitude' {connectedAt}.
-fake면 계약서 예시 승인 URL을 돌려주고 즉시 connected."""
+"""외부 seam: Amplitude 원격 MCP (조회 전용). OAuth 2.1 + 동적 클라이언트 등록은 MCP SDK OAuthClientProvider 담당.
+토큰·클라이언트 정보는 app_settings 'amplitude_oauth'에 보관(API로 노출하지 않음). 연결 상태는 'amplitude' {connectedAt}.
+fake면 계약서 예시 승인 URL 반환 후 즉시 connected."""
 import asyncio
+import contextlib
 import html
 import logging
 
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/api/integrations/amplitude")
 FAKE_AUTH_URL = ("https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri="
                  "https%3A%2F%2Fpm-agent-api.simhani1.dev%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ"
                  "&code_challenge=Q9v0aR3&code_challenge_method=S256")
-# ponytail: 진행 중 OAuth 하나를 프로세스 메모리에 둔다(단일 워커, 사용자 2명). 다중 워커면 state를 DB에
+# ponytail: 진행 중 OAuth 하나를 프로세스 메모리에 보관(단일 워커, 사용자 2명). 다중 워커면 state를 DB에
 _pending: dict = {}
 
 
@@ -33,7 +34,8 @@ def _oauth() -> dict:
     return db.get_setting("amplitude_oauth") or {}
 
 
-def _provider(redirect_handler=None, callback_handler=None):
+def oauth_provider(redirect_handler=None, callback_handler=None):
+    """두 LLM 런타임과 연결 흐름이 함께 쓰는 OAuth provider(httpx.Auth). 토큰 갱신은 provider가 자체 처리."""
     from mcp.client.auth import OAuthClientProvider, TokenStorage
     from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata, OAuthToken
 
@@ -69,17 +71,33 @@ async def _list_tools(auth) -> list:
             return (await s.list_tools()).tools
 
 
-async def tools() -> list:
-    """에이전트에 붙일 Amplitude MCP 도구(langchain BaseTool). 연결 안 됐으면 []. 실패는 호출자가 잡는다."""
-    if is_fake() or not connected():
-        return []
-    from langchain_mcp_adapters.client import MultiServerMCPClient
+async def _no_browser(_url):  # 실행 중에는 재승인 불가
+    raise RuntimeError("Amplitude 재승인이 필요합니다. 설정 화면에서 다시 연결해 주세요.")
 
-    async def no_browser(_url):  # 실행 중에는 재승인을 할 수 없다
-        raise RuntimeError("Amplitude 재승인이 필요합니다. 설정 화면에서 다시 연결해 주세요.")
-    client = MultiServerMCPClient({"amplitude": {"transport": "streamable_http", "url": server_url(),
-                                                 "auth": _provider(redirect_handler=no_browser)}})
-    return await client.get_tools()
+
+@contextlib.asynccontextmanager
+async def anthropic_tools():
+    """Anthropic 런타임용: 실행 1회 동안 MCP 세션을 열고 (mcp Tool, ClientSession) 목록 제공. 미연결이면 [].
+    연결 실패 처리는 호출자 몫. 세션은 이 컨텍스트를 연 태스크 안에서 닫아야 함(anyio 취소 범위)."""
+    if is_fake() or not connected():
+        yield []
+        return
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
+    async with streamablehttp_client(server_url(), auth=oauth_provider(redirect_handler=_no_browser)) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            yield [(t, session) for t in (await session.list_tools()).tools]
+
+
+def openai_server(**kwargs):
+    """OpenAI Agents 런타임용 MCP 서버 객체. 미연결이면 None. 같은 OAuth provider를 params["auth"]로 전달."""
+    if is_fake() or not connected():
+        return None
+    from agents.mcp import MCPServerStreamableHttp
+    return MCPServerStreamableHttp(name="amplitude", cache_tools_list=True,
+                                   params={"url": server_url(), "auth": oauth_provider(redirect_handler=_no_browser)},
+                                   **kwargs)
 
 
 @router.post("/connect")
@@ -104,7 +122,7 @@ async def connect():
     db.del_setting("amplitude")
 
     async def handshake():
-        await _list_tools(_provider(redirect, callback))
+        await _list_tools(oauth_provider(redirect, callback))
         db.set_setting("amplitude", {"connectedAt": db.now_iso()})
 
     task = asyncio.create_task(handshake())

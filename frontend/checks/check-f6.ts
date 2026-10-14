@@ -1,4 +1,4 @@
-// F6 검사: npm run build 산출물의 자산 경로가 /kbap-pm-agent/로 시작하고, 번들에 VITE_API_BASE_URL 값이 들어 있다.
+// 검사: 빌드 산출물 자산 경로가 /kbap-pm-agent/로 시작, 번들에 VITE_API_BASE_URL 값 포함
 // 실행: VITE_API_BASE_URL=https://... npm run build && VITE_API_BASE_URL=https://... npm run check -- f6
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'

@@ -27,7 +27,7 @@ def connect(with_db: bool = True):
 
 def init() -> None:
     name = _params()["database"]
-    try:  # 전용 계정은 CREATE DATABASE 권한이 없을 수 있다. 이미 있으면 그대로 진행
+    try:  # 전용 계정은 CREATE DATABASE 권한이 없을 수 있음. 이미 있으면 그대로 진행
         with connect(False) as c, c.cursor() as cur:
             cur.execute(f"CREATE DATABASE IF NOT EXISTS `{name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
     except pymysql.MySQLError:

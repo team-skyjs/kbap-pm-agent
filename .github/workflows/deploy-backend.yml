@@ -1,0 +1,138 @@
+# backend/ → ghcr.io 이미지 → 홈서버(self-hosted 러너)에서 compose pull·up·헬스체크
+# techmoa app/deploy.yml 패턴. 운영 env 파일은 deploy job이 GitHub Secrets/Variables에서 생성한다 (ADR-11)
+# Secrets: DATABASE_URL, ANTHROPIC_API_KEY, OPENAI_API_KEY, GH_PAT(→GITHUB_TOKEN), ACCESS_TOKEN
+# Variables: PUBLIC_BASE_URL, CORS_ORIGINS, AGENT_MODEL, CODE_SUMMARY_MODEL, AMPLITUDE_MCP_URL, LLM_BUDGET_USD
+name: deploy-backend
+
+on:
+  push:
+    branches: [main]
+    paths: ['backend/**', 'deploy/**', '.github/workflows/deploy-backend.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-backend   # 동시성 1: 실행 중 1개 + 대기 1개(더 쌓이면 오래된 대기분이 취소되고 최신만 남는다)
+  cancel-in-progress: false   # 진행 중인 배포는 끊지 않는다
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}   # ghcr.io/team-skyjs/kbap-pm-agent
+
+jobs:
+  build:
+    name: build and push image
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: version
+        run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.version.outputs.tag }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: deploy on home server
+    needs: build
+    runs-on: [self-hosted, kbap]   # 홈서버 러너 simhani1-server
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: deploy
+
+      - uses: docker/login-action@v3   # 비공개 패키지 pull 용
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: write env file from secrets and variables
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+          CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+          AGENT_MODEL: ${{ vars.AGENT_MODEL }}
+          CODE_SUMMARY_MODEL: ${{ vars.CODE_SUMMARY_MODEL }}
+          AMPLITUDE_MCP_URL: ${{ vars.AMPLITUDE_MCP_URL }}
+          LLM_BUDGET_USD: ${{ vars.LLM_BUDGET_USD }}
+        run: |
+          : "${DATABASE_URL:?secret DATABASE_URL 없음}"
+          : "${PUBLIC_BASE_URL:?variable PUBLIC_BASE_URL 없음}"
+          umask 077
+          cat > deploy/.env.prod <<ENV
+          AGENT_MODE=real
+          DATABASE_URL=$DATABASE_URL
+          CORS_ORIGINS=${CORS_ORIGINS:-https://team-skyjs.github.io}
+          ACCESS_TOKEN=$ACCESS_TOKEN
+          PUBLIC_BASE_URL=$PUBLIC_BASE_URL
+          AGENT_MODEL=${AGENT_MODEL:-anthropic:claude-sonnet-5-5}
+          CODE_SUMMARY_MODEL=${CODE_SUMMARY_MODEL:-anthropic:claude-haiku-5-5}
+          ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
+          OPENAI_API_KEY=$OPENAI_API_KEY
+          AGENT_MAX_TURNS=10
+          AGENT_TIMEOUT_SECONDS=170
+          LLM_BUDGET_USD=${LLM_BUDGET_USD:-200}
+          AMPLITUDE_MCP_URL=${AMPLITUDE_MCP_URL:-https://mcp.amplitude.com/mcp}
+          GITHUB_TOKEN=$GH_PAT
+          REPOS_DIR=/data/repos
+          CODE_GLOB=*.{ts,tsx,js,jsx}
+          TRACK_CALL_PATTERN=track\(EVENTS\.(\w+)
+          SCREEN_GLOB=src/app/**/*.tsx
+          ENV
+          echo "env 파일 생성: $(grep -c = deploy/.env.prod)개 키"
+
+      - name: compose pull · up · health
+        env:
+          IMAGE: ${{ env.IMAGE }}
+          IMAGE_TAG: ${{ needs.build.outputs.tag }}   # 커밋 해시 태그로 고정 배포 (latest 아님)
+          COMPOSE_FILE: ${{ github.workspace }}/deploy/docker-compose.kbap-pm-agent.yml
+          ENV_FILE: ${{ github.workspace }}/deploy/.env.prod
+        run: bash deploy/deploy.kbap-pm-agent.sh
+
+      - name: remove env file
+        if: always()
+        run: rm -f deploy/.env.prod
+
+  release:
+    name: create GitHub release
+    needs: [build, deploy]   # 배포가 성공했을 때만
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: v0.1.${{ github.run_number }}
+    steps:
+      - name: create release with auto-generated notes
+        run: |
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "$TAG" \
+            --generate-notes \
+            --notes "배포 이미지: \`${{ env.IMAGE }}:${{ needs.build.outputs.tag }}\` · 커밋 ${{ github.sha }}"

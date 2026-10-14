@@ -1,4 +1,4 @@
-// 계약서 분할본(specs/.../contracts/*.md)의 코드 블록을 원문 그대로 꺼낸다. 예시를 손으로 베끼지 않기 위함.
+// 계약서 분할본(specs/.../contracts/*.md)의 코드 블록 원문 추출, 예시를 손으로 베끼지 않기 위함
 import { readFileSync } from 'node:fs'
 
 const DIR = new URL('../../specs/001-pm-agent-prototype/contracts/', import.meta.url)

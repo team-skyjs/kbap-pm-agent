@@ -1,5 +1,5 @@
-"""에이전트 도구(코드·택사노미)와 화면 요약 캐시 (ADR-9). 모델 호출은 agent.summarize()만 거친다(원칙 III).
-도구는 문자열을 돌려주고 첫 줄이 요약(resultSummary)이다. 파일 통째 전송 도구는 없다(원칙 IV)."""
+"""에이전트 도구(코드·택사노미)와 화면 요약 캐시. 모델 호출은 agent.summarize()로만(외부 호출 지점 하나).
+도구 반환값은 문자열, 첫 줄이 요약(resultSummary). 비용 통제를 위해 파일 통째 전송 도구는 두지 않음."""
 import json
 import logging
 import pathlib
@@ -13,7 +13,7 @@ from app.errors import ApiError
 log = logging.getLogger("app.code_tools")
 MAX_READ_LINES = 200
 MAX_SEARCH_HITS = 30
-SUMMARY_INPUT_CHARS = 12000  # ponytail: 화면 파일 앞부분만 요약에 보낸다. 큰 화면이 잘리면 함수 단위 분할로
+SUMMARY_INPUT_CHARS = 12000  # ponytail: 화면 파일 앞부분만 요약에 전송. 큰 화면이 잘리면 함수 단위 분할로
 
 
 def _cache_file() -> pathlib.Path:
@@ -35,7 +35,11 @@ def _safe_path(path: str) -> pathlib.Path:
 
 # --- 코드 도구 (source: code)
 def find_event_calls(eventName: str) -> str:
-    """이벤트를 보내는 코드 위치(파일·줄·함수)를 인덱스에서 찾는다. LLM 비용 0."""
+    """이벤트를 보내는 코드 위치(파일·줄·함수) 인덱스 조회. LLM 비용 0.
+
+    Args:
+        eventName: 분석 이벤트 이름, 예: scan_complete (EVENTS 상수의 키)
+    """
     hits = repo.index().get(eventName, [])
     if not hits:
         return f"0곳: 코드에서 {eventName} 호출을 찾지 못했습니다."
@@ -44,8 +48,13 @@ def find_event_calls(eventName: str) -> str:
 
 
 def search_code(regex: str, glob: str | None = None) -> str:
-    """저장소에서 정규식으로 코드 줄을 찾는다(최대 30건). glob 예: 'src/app/**/*.tsx'."""
-    files = repo.code_files(repo.clone_dir(), glob)  # CODE_GLOB 범위만 (ADR-19)
+    """저장소에서 정규식으로 코드 줄 검색(최대 30건). 소스 파일(ts·tsx·js·jsx)만 대상.
+
+    Args:
+        regex: ripgrep 정규식, 예: handleRetry
+        glob: 저장소 루트 기준 경로 글롭으로 범위 축소, 예: src/app/**/*.tsx. 없으면 전체 소스
+    """
+    files = repo.code_files(repo.clone_dir(), glob)  # 소스 파일만 대상, 문서 속 이벤트 문자열 오탐 방지
     if not files:
         return f"0건: /{regex}/ (대상 코드 파일 없음)"
     cmd = ["rg", "--no-heading", "--with-filename", "-n", "--color", "never", "-e", regex, "--", *files]
@@ -59,7 +68,11 @@ def search_code(regex: str, glob: str | None = None) -> str:
 
 
 def get_screen_summary(path: str) -> str:
-    """화면 파일의 캐시된 요약(역할·컴포넌트·핸들러·이벤트)."""
+    """화면 파일의 캐시된 요약(역할·컴포넌트·핸들러·이벤트).
+
+    Args:
+        path: 저장소 루트 기준 파일 경로, 예: src/app/scan.tsx
+    """
     _safe_path(path)
     blob = _blobs().get(path)
     text = _cache().get(f"{path}@{blob}")
@@ -67,7 +80,13 @@ def get_screen_summary(path: str) -> str:
 
 
 def read_code(path: str, startLine: int, endLine: int) -> str:
-    """파일의 줄 범위를 읽는다(1부터, 호출당 최대 200줄)."""
+    """파일의 줄 범위 읽기(호출당 최대 200줄).
+
+    Args:
+        path: 저장소 루트 기준 파일 경로, 예: src/app/scan.tsx
+        startLine: 시작 줄 번호(1부터, 포함)
+        endLine: 끝 줄 번호(포함). startLine부터 200줄 넘으면 잘림
+    """
     lines = _safe_path(path).read_text(errors="replace").splitlines()
     start = max(1, startLine)
     end = min(endLine, start + MAX_READ_LINES - 1, len(lines))
@@ -82,7 +101,11 @@ def _events() -> list[dict]:
 
 
 def search_taxonomy(query: str) -> str:
-    """택사노미 정의에서 이벤트명·설명·카테고리에 query가 들어간 이벤트를 찾는다."""
+    """택사노미 정의에서 이벤트명·설명·카테고리에 query가 들어간 이벤트 검색.
+
+    Args:
+        query: 찾을 문자열(대소문자 무시), 예: cart
+    """
     if not _events():
         return "택사노미가 업로드되지 않았습니다."
     q = query.lower()
@@ -92,7 +115,11 @@ def search_taxonomy(query: str) -> str:
 
 
 def get_event_definition(name: str) -> str:
-    """이벤트 하나의 정의(설명·속성)와 코드 존재 여부."""
+    """이벤트 하나의 정의(설명·속성)와 코드 존재 여부.
+
+    Args:
+        name: 택사노미의 이벤트 이름, 예: scan_complete
+    """
     e = next((e for e in _events() if e["name"] == name), None)
     in_code = bool(repo.index().get(name))
     if e is None:
@@ -137,7 +164,7 @@ _running = threading.Lock()
 
 
 def start_code_map() -> None:
-    """동기화 직후 백그라운드로 요약 갱신. 이미 돌고 있으면 건너뛴다."""
+    """동기화 직후 백그라운드로 요약 갱신. 이미 실행 중이면 건너뜀."""
     def run():
         with _running:
             build_code_map()

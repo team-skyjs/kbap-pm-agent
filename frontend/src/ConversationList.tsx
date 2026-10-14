@@ -3,7 +3,7 @@ import { describe, listConversations, type ConversationSummary } from './api.ts'
 
 export const displayTitle = (c: Pick<ConversationSummary, 'title'>) => c.title ?? '새 대화'
 
-// version이 바뀔 때마다 다시 읽는다 (메시지 final·제안 PATCH 후 App이 올린다).
+// version 변경 시 재조회 (메시지 완료·제안 변경 후 App이 증가)
 export default function ConversationList({ version, currentId }: { version: number; currentId: number | null }) {
   const [items, setItems] = useState<ConversationSummary[]>([])
   const [error, setError] = useState('')

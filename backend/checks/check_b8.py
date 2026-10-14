@@ -1,5 +1,5 @@
-"""B8 검사 (운영): PUBLIC_BASE_URL의 health 200, GitHub Pages 출처 preflight, SSE가 100초 이상 끊기지 않음.
-SSE 장시간 검사는 서버가 AGENT_MODE=fake, FAKE_DELAY_SECONDS=21 이상일 때만 돈다(이벤트 사이 지연 → 약 105초).
+"""운영 검사: PUBLIC_BASE_URL의 health 200, GitHub Pages 출처 preflight, SSE가 100초 이상 끊기지 않음.
+SSE 장시간 검사는 서버가 AGENT_MODE=fake, FAKE_DELAY_SECONDS=21 이상일 때만 실행(이벤트 사이 지연, 약 105초).
 실행: PUBLIC_BASE_URL=https://... [ACCESS_TOKEN=...] uv run python checks/check_b8.py"""
 import os
 import re
@@ -13,16 +13,16 @@ auth = {"Authorization": f"Bearer {os.environ['ACCESS_TOKEN']}"} if os.environ.g
 
 
 def expected_origin() -> tuple[str, str]:
-    """Pages 출처의 단일 기준은 git remote 소유자다(ADR-18). 서버 CORS_ORIGINS를 기대값으로 쓰지 않는다(동어반복)."""
+    """Pages 출처의 단일 기준은 git remote 소유자. 서버 CORS_ORIGINS를 기대값으로 쓰면 틀린 값도 통과(동어반복)라 미사용."""
     try:
         url = subprocess.run(["git", "remote", "get-url", "origin"], capture_output=True, text=True,
                              cwd=os.path.dirname(os.path.abspath(__file__))).stdout.strip()
-    except OSError:  # 컨테이너엔 git 저장소가 없을 수 있다
+    except OSError:  # 컨테이너엔 git 저장소가 없을 수 있음
         url = ""
     m = re.search(r"github\.com[:/]([^/]+)/", url)  # https://github.com/owner/repo(.git), git@github.com:owner/repo.git
     if m:
         return f"https://{m.group(1).lower()}.github.io", "git remote"
-    # ponytail: 레포 밖 실행 시 수동 값이라 사본 오류를 못 잡는다. 개발 PC 레포 안에서 실행할 것
+    # ponytail: 레포 밖 실행 시 수동 값이라 사본 오류 검출 불가. 개발 PC 레포 안에서 실행할 것
     assert os.environ.get("EXPECTED_ORIGIN"), "git remote가 없다. EXPECTED_ORIGIN=https://<owner>.github.io 를 지정"
     return os.environ["EXPECTED_ORIGIN"].rstrip("/"), "EXPECTED_ORIGIN"
 

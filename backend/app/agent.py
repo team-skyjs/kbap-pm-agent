@@ -4,18 +4,22 @@
   {"type": "tool_result", "key", "status": "succeeded"|"failed", "summary", "text"}
   {"type": "final", "content", "proposals": [ProposalDraft 별칭 dict]}
   {"type": "error", "code", "message"}
-DB 저장과 SSE 변환은 conversations.py가 한다."""
+DB 저장과 SSE 변환은 conversations.py 담당."""
 import asyncio
 import datetime
 import logging
 from typing import AsyncIterator
+
+import functools
+import inspect
+import uuid
 
 from app import budget, db
 from app.config import env, is_fake, num
 
 log = logging.getLogger("app.agent")
 
-# 계약서 v1.1 예시 값 (시연 모드 표: 도구 2개 taxonomy·code, 제안 improvement 1 + funnel_design 1)
+# 계약서 예시 값: 도구 2개(taxonomy·code), 제안 improvement 1 + funnel_design 1
 FAKE_TOOLS = [
     ("taxonomy", "search_taxonomy", {"query": "cart"}, "일치 이벤트 2개: cart_add, cart_view"),
     ("code", "find_event_calls", {"eventName": "scan_complete"}, "2곳: src/app/scan.tsx:405 (실패), src/app/scan.tsx:427 (성공)"),
@@ -87,39 +91,83 @@ SYSTEM_PROMPT = """너는 K-Bap 앱 팀의 PM 에이전트다. PM 질문에 답�
 """
 
 
-def _model():
-    from langchain.chat_models import init_chat_model
-    return init_chat_model(agent_model(), max_tokens=16000)
+# --- 런타임 선택: 모델 문자열 접두사 → 공급자 SDK 파일. 구현 두 개라 인터페이스 클래스 없이 dict 하나
+def _runtimes() -> dict:
+    from app import agent_anthropic, agent_openai
+    return {"anthropic": agent_anthropic, "openai": agent_openai}
 
 
-async def _tools():
-    """(도구 목록, 이름 → source, 소스 상태 문장). 쓸 수 있는 소스의 도구만 넣는다."""
-    from app import amplitude, code_tools, repo
-    tools, source = [], {}
+def runtime(model: str):
+    """'provider:model' → (런타임 모듈, 모델 이름). 모르는 접두사는 ValueError."""
+    provider, _, name = model.partition(":")
+    mod = _runtimes().get(provider)
+    if mod is None or not name:
+        raise ValueError(f"지원하지 않는 모델 문자열입니다: {model!r} (anthropic:<모델> 또는 openai:<모델>)")
+    return mod, name
+
+
+def check_models() -> None:
+    """기동 시 호출. real 모드에서 AGENT_MODEL·CODE_SUMMARY_MODEL 접두사가 틀리면 기동 실패."""
+    if not is_fake():
+        runtime(agent_model())
+        runtime(env("CODE_SUMMARY_MODEL"))
+
+
+class Refused(Exception):
+    """모델의 stop_reason refusal 거절."""
+
+
+class TurnLimit(Exception):
+    """모델 호출 턴 상한(AGENT_MAX_TURNS) 도달. 각 런타임이 SDK 상한에 닿으면 발생."""
+
+
+def max_turns() -> int:
+    """실행 1회의 모델 호출(요청) 수 상한. 도구 호출은 비용 0이라 미포함. 병렬 도구 호출 응답도 1턴."""
+    return int(num("AGENT_MAX_TURNS", 10))
+
+
+def wrap(fn, emit, source: str, name: str | None = None):
+    """공통 도구 래퍼: tool_call 이벤트 → 실행 → tool_result 이벤트. 예외는 failed로 알린 뒤 다시 던져
+    각 SDK가 오류 결과로 모델에 반환(도구 하나가 실패해도 실행 계속). functools.wraps로 원래 시그니처·docstring을
+    도구 스키마의 원천으로 유지(MCP 도구는 런타임이 스키마를 따로 전달)."""
+    tool_name = name or fn.__name__
+    sig = inspect.signature(fn)
+    is_async = inspect.iscoroutinefunction(fn)
+
+    @functools.wraps(fn)
+    async def tool(*args, **kwargs):
+        args_in = {}
+        for k, v in sig.bind(*args, **kwargs).arguments.items():  # **kwargs 매개변수(MCP 도구)는 펼침
+            args_in.update(v) if sig.parameters[k].kind is inspect.Parameter.VAR_KEYWORD else args_in.__setitem__(k, v)
+        key = uuid.uuid4().hex
+        await emit({"type": "tool_call", "key": key, "source": source, "name": tool_name, "input": args_in})
+        try:
+            # 동기 코드 도구(rg·파일)는 스레드에서 실행, 이벤트 루프 차단 방지
+            out = await fn(*args, **kwargs) if is_async else await asyncio.to_thread(fn, *args, **kwargs)
+            text = out if isinstance(out, str) else str(out)
+        except Exception as e:
+            msg = f"도구 오류: {type(e).__name__}: {str(e)[:300]}"
+            await emit({"type": "tool_result", "key": key, "status": "failed", "summary": msg, "text": msg})
+            raise
+        await emit({"type": "tool_result", "key": key, "status": "succeeded",
+                    "summary": text.splitlines()[0][:500] if text else "", "text": text})
+        return text
+
+    return tool
+
+
+def _code_tools() -> tuple[list[tuple], str]:
+    """[(함수, source)]와 소스 상태 문장. 쓸 수 있는 소스의 도구만."""
+    from app import code_tools, repo
     has_code = bool(repo.state()) and repo.clone_dir().exists()
     has_tax = bool(db.get_setting("taxonomy"))
-    if has_code:
-        tools += code_tools.CODE_TOOLS
-        source.update({f.__name__: "code" for f in code_tools.CODE_TOOLS})
-    if has_tax:
-        tools += code_tools.TAXONOMY_TOOLS
-        source.update({f.__name__: "taxonomy" for f in code_tools.TAXONOMY_TOOLS})
-    amp = "없음(연결 안 됨)"
-    try:
-        amp_tools = await amplitude.tools()
-        if amp_tools:
-            tools += amp_tools
-            source.update({t.name: "amplitude" for t in amp_tools})
-            amp = "있음"
-    except Exception as e:  # Amplitude가 막혀도 나머지 소스로 답한다(US1-4)
-        log.warning("amplitude tools unavailable: %s", e)
-        amp = "없음(연결 실패)"
-    status = f"소스 상태: 코드 저장소 {'있음' if has_code else '없음'}, 택사노미 {'있음' if has_tax else '없음'}, Amplitude {amp}"
-    return tools, source, status
+    tools = ([(f, "code") for f in code_tools.CODE_TOOLS] if has_code else []) + \
+            ([(f, "taxonomy") for f in code_tools.TAXONOMY_TOOLS] if has_tax else [])
+    return tools, f"소스 상태: 코드 저장소 {'있음' if has_code else '없음'}, 택사노미 {'있음' if has_tax else '없음'}"
 
 
 def _history(conversation_id: int) -> list[dict]:
-    # ponytail: 최근 완료 메시지 20개를 본문만 넣는다(도구 결과 원문 제외). 긴 대화는 요약 압축으로
+    # ponytail: 최근 완료 메시지 20개의 본문만 전달(도구 결과 원문 제외). 긴 대화는 요약 압축으로
     rows = db.q("""SELECT role, content FROM messages WHERE conversation_id = %s AND status = 'completed'
                    ORDER BY created_at DESC, id DESC LIMIT 20""", (conversation_id,))
     return [{"role": r["role"], "content": r["content"]} for r in reversed(rows) if r["content"]]
@@ -131,67 +179,73 @@ def partial_content(reason: str, results: list[tuple[str, str]]) -> str:
 
 
 async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
-    from langchain.agents import create_agent
-    from langchain.agents.middleware import ToolErrorMiddleware
-    from langchain.agents.structured_output import ProviderStrategy
+    from pydantic import ValidationError
 
     from app.schemas import AgentAnswer
 
-    tools, source, status = await _tools()
-    max_calls, timeout = int(num("AGENT_MAX_TOOL_CALLS", 20)), num("AGENT_TIMEOUT_SECONDS", 170)
-    results: list[tuple[str, str]] = []  # (도구 이름, 결과 요약) — 상한 도달 시 부분 답에 쓴다
-    names: dict[str, str] = {}
-    calls, answer, reason = 0, None, None
+    timeout = num("AGENT_TIMEOUT_SECONDS", 170)
     try:
-        # ToolStrategy는 tool_choice "any"를 강제해 최신 Claude 모델에서 400이다. 공급자 네이티브 구조화 출력을 쓴다
-        graph = create_agent(
-            _model(), tools,
-            system_prompt=f"{SYSTEM_PROMPT}\n오늘 날짜(UTC): {datetime.date.today().isoformat()}\n{status}",
-            response_format=ProviderStrategy(AgentAnswer),
-            middleware=[ToolErrorMiddleware(on_error=lambda e, _req: f"도구 오류: {type(e).__name__}: {str(e)[:300]}")])
+        mod, model = runtime(agent_model())
+    except ValueError as e:
+        yield {"type": "error", "code": "UPSTREAM_ERROR", "message": str(e)}
+        return
+    queue: asyncio.Queue = asyncio.Queue()
+    specs, status = _code_tools()
+    tools = [wrap(f, queue.put, src) for f, src in specs]
+    system = f"{SYSTEM_PROMPT}\n오늘 날짜(UTC): {datetime.date.today().isoformat()}\n{status}"
+
+    def usage(input_tokens: int, output_tokens: int) -> None:
+        budget.record("agent", agent_model(), input_tokens, output_tokens, message_id)
+
+    task = asyncio.create_task(mod.run(model, system, _history(conversation_id), tools, queue.put, usage))
+    results: list[tuple[str, str]] = []  # (도구 이름, 결과 요약), 상한 도달 시 부분 답에 사용
+    names: dict[str, str] = {}
+    reason = None
+    try:
         async with asyncio.timeout(timeout):
-            async for chunk in graph.astream({"messages": _history(conversation_id)}, stream_mode="updates"):
-                for node, update in (chunk or {}).items():
-                    update = update or {}
-                    for msg in update.get("messages", []):
-                        if msg.type == "ai":
-                            u = msg.usage_metadata or {}
-                            budget.record("agent", agent_model(), u.get("input_tokens", 0), u.get("output_tokens", 0), message_id)
-                            for tc in msg.tool_calls:
-                                if tc["name"] not in source:
-                                    continue
-                                calls += 1
-                                names[tc["id"]] = tc["name"]
-                                yield {"type": "tool_call", "key": tc["id"], "source": source[tc["name"]],
-                                       "name": tc["name"], "input": tc["args"]}
-                        elif msg.type == "tool" and msg.tool_call_id in names:
-                            text = msg.content if isinstance(msg.content, str) else "\n".join(
-                                b.get("text", "") if isinstance(b, dict) else str(b) for b in msg.content)  # MCP 결과는 블록 목록
-                            failed = getattr(msg, "status", "success") == "error"
-                            summary = text.splitlines()[0][:500] if text else ""
-                            results.append((names[msg.tool_call_id], summary))
-                            yield {"type": "tool_result", "key": msg.tool_call_id,
-                                   "status": "failed" if failed else "succeeded", "summary": summary, "text": text}
-                    if update.get("structured_response") is not None:
-                        answer = update["structured_response"]
-                if calls >= max_calls and len(results) >= calls and answer is None:  # 걸린 호출의 결과까지 받은 뒤 멈춘다
-                    reason = f"도구 호출 상한({max_calls}회)에 도달해 여기까지의 조회 결과로 답합니다."
-                    break
+            while True:
+                getter = asyncio.ensure_future(queue.get())
+                await asyncio.wait({getter, task}, return_when=asyncio.FIRST_COMPLETED)
+                if not getter.done():
+                    getter.cancel()
+                    if queue.empty():
+                        break  # 런타임 종료, 남은 이벤트 없음
+                    ev = queue.get_nowait()
+                else:
+                    ev = getter.result()
+                if ev["type"] == "tool_call":
+                    names[ev["key"]] = ev["name"]
+                elif ev["type"] == "tool_result":
+                    results.append((names.get(ev["key"], "?"), ev["summary"]))
+                yield ev
     except TimeoutError:
         reason = f"실행 시간 상한({timeout:g}초)에 도달해 여기까지의 조회 결과로 답합니다."
+    finally:
+        if not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+    if reason is None and task.done() and not task.cancelled() and isinstance(task.exception(), TurnLimit):
+        # 턴은 SDK가 셈(anthropic max_iterations, openai max_turns: 둘 다 모델 요청 1회 = 1턴, 마지막 턴의 도구까지 실행 후 정지)
+        reason = f"모델 호출 상한({max_turns()}턴)에 도달해 여기까지의 조회 결과로 답합니다."
+    if reason:
+        yield {"type": "final", "content": partial_content(reason, results), "proposals": []}
+        return
+    try:
+        # ponytail: 재시도 없음. AgentAnswer 교차 규칙(new 단계 location, order 연속 등) 위반도 실행 전체가
+        # UPSTREAM_ERROR/failed. 실제 실행에서 위반이 반복되면 검증 오류를 붙여 1회 재요청으로
+        answer = AgentAnswer.model_validate_json(task.result())
+    except Refused:
+        yield {"type": "error", "code": "UPSTREAM_ERROR", "message": "모델이 요청을 거절해 실행을 중단했습니다."}
+        return
+    except ValidationError as e:
+        log.warning("AgentAnswer validation failed: %s", e)
+        yield {"type": "error", "code": "UPSTREAM_ERROR", "message": "모델 응답이 제안 구조 규칙을 어겨 실행을 중단했습니다."}
+        return
     except Exception as e:
-        # ponytail: 재시도 없음. AgentAnswer 교차 규칙(new 단계 location, order 연속 등) 위반도 여기로 와 실행 전체가
-        # UPSTREAM_ERROR/failed가 된다. T042에서 위반이 반복되면 검증 오류를 붙여 1회 재요청으로
         log.exception("model call failed")
         yield {"type": "error", "code": "UPSTREAM_ERROR", "message": f"LLM 공급자 응답 오류로 실행을 중단했습니다. ({type(e).__name__})"}
         return
-    if answer is not None:
-        yield {"type": "final", "content": answer.content,
-               "proposals": [p.model_dump(by_alias=True) for p in answer.proposals]}
-    elif reason:
-        yield {"type": "final", "content": partial_content(reason, results), "proposals": []}
-    else:
-        yield {"type": "error", "code": "UPSTREAM_ERROR", "message": "모델이 구조화된 최종 응답을 내지 않았습니다."}
+    yield {"type": "final", "content": answer.content, "proposals": [p.model_dump(by_alias=True) for p in answer.proposals]}
 
 
 async def run_agent(message_id: int, conversation_id: int, content: str) -> AsyncIterator[dict]:
@@ -205,13 +259,12 @@ SUMMARY_PROMPT = ("다음은 React Native 화면 파일이다. 150단어 이내 
 
 
 def summarize(text: str) -> str:
-    """코드 요약 seam (CODE_SUMMARY_MODEL). 호출 전 budget.check()는 호출자가 한다."""
-    model_name = env("CODE_SUMMARY_MODEL") or "fake"
+    """코드 요약 seam (CODE_SUMMARY_MODEL). 호출 전 budget.check()는 호출자 몫. 백그라운드 스레드에서 호출."""
+    model_str = env("CODE_SUMMARY_MODEL") or "fake"
     if is_fake():
-        budget.record("code_summary", model_name, 0, 0, None)
+        budget.record("code_summary", model_str, 0, 0, None)
         return "시연 모드 요약: 화면 역할·컴포넌트·핸들러·이벤트."
-    from langchain.chat_models import init_chat_model
-    resp = init_chat_model(model_name).invoke(SUMMARY_PROMPT + text)
-    u = resp.usage_metadata or {}
-    budget.record("code_summary", model_name, u.get("input_tokens", 0), u.get("output_tokens", 0), None)
-    return resp.text if isinstance(resp.text, str) else str(resp.content)
+    mod, name = runtime(model_str)
+    out, input_tokens, output_tokens = asyncio.run(mod.summarize(name, SUMMARY_PROMPT + text))
+    budget.record("code_summary", model_str, input_tokens, output_tokens, None)
+    return out

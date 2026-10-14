@@ -1,4 +1,4 @@
-"""계약서 v1.1 예시 JSON 원문 복사본 (contracts/02, 04, 06, 07, 08). 계약이 바뀌면 여기도 바꾼다."""
+"""계약서 예시 JSON 원문 복사본. 계약이 바뀌면 함께 갱신."""
 import json
 
 TOOL_CALL_301 = json.loads('''{"id": 301, "seq": 1, "source": "amplitude", "name": "query_funnel", "input": {"events": ["scan_start", "scan_complete"], "start": "2026-09-15", "end": "2026-10-14"}, "status": "succeeded", "resultSummary": "scan_start 2,418명 → scan_complete(success=true) 999명, 전환율 41.3%", "durationMs": 2310, "startedAt": "2026-10-15T09:12:05.101Z"}''')

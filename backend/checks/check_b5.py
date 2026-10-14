@@ -1,5 +1,5 @@
-"""B5 검사: read_code 200줄 상한, search_code 30건 상한, 요약 캐시(같은 커밋 0회·파일 1개 변경 1회), 예산 403.
-컨테이너에서 실행(git·rg 필요). 요약 LLM은 기록만 하는 가짜로 바꿔 비용을 쓰지 않는다."""
+"""코드 도구·요약 캐시·예산 검사: read_code 200줄 상한, search_code 30건 상한, 요약 캐시(같은 커밋 0회·파일 1개 변경 1회), 예산 403.
+컨테이너에서 실행(git·rg 필요). 요약 LLM은 기록만 하는 가짜로 교체, 비용 0."""
 import os
 import pathlib
 import subprocess

@@ -1,4 +1,4 @@
-"""설정·저장소·택사노미 라우트 (contracts/07)."""
+"""설정·저장소·택사노미 라우트."""
 import json
 
 from fastapi import APIRouter, Request
@@ -96,7 +96,7 @@ async def put_taxonomy(request: Request):
     except ValueError:
         raise ApiError(400, "VALIDATION_ERROR", "본문 JSON 형식이 올바르지 않습니다.")
     problem = _taxonomy_error(body)
-    if problem:  # 하나라도 실패하면 기존 택사노미를 그대로 둔다
+    if problem:  # 하나라도 실패하면 기존 택사노미 유지
         raise ApiError(400, "VALIDATION_ERROR", problem)
     t = {"events": body["events"], "uploadedAt": db.now_iso()}
     db.set_setting("taxonomy", t)

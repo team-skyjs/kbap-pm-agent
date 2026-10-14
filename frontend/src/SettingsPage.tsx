@@ -25,7 +25,7 @@ export default function SettingsPage() {
     if (s?.repository && !url) { setUrl(s.repository.url); setBranch(s.repository.branch) }
   }, [s])
 
-  // 영역별 실행 + 결과 문구. 실패하면 서버 message를 그대로 보여준다.
+  // 영역별 실행과 결과 문구, 실패 시 서버 message 그대로 표시
   async function run(area: string, f: () => Promise<string>) {
     setBusy(area)
     setMsg((m) => ({ ...m, [area]: '' }))
@@ -56,7 +56,7 @@ export default function SettingsPage() {
   })
 
   function connect() {
-    // 팝업 차단을 피하려고 클릭 순간 빈 탭을 먼저 연다
+    // 팝업 차단 회피: 클릭 시점에 빈 탭부터 열기
     const tab = window.open('', '_blank')
     void run('amplitude', async () => {
       try {
@@ -67,7 +67,7 @@ export default function SettingsPage() {
         tab?.close()
         throw e
       }
-      // 승인 완료는 settings를 3초 간격, 최대 2분 다시 읽어 확인 (계약서 08)
+      // 승인 완료는 응답으로 알 수 없어 settings 재조회로 확인 (3초 간격, 최대 2분)
       if (poll.current) clearInterval(poll.current)
       let tries = 0
       poll.current = setInterval(async () => {

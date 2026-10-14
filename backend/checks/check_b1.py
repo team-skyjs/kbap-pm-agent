@@ -1,4 +1,4 @@
-"""B1 검사: health, 404 공통 에러, CORS preflight, ACCESS_TOKEN (contracts/01, 03, research R3)"""
+"""뼈대 검사: health, 404 공통 에러, CORS preflight, ACCESS_TOKEN(인증이 라우팅보다 먼저)"""
 import os
 
 from common import client, ok

@@ -1,4 +1,4 @@
-"""검사 공용 준비: 개발 DB를 건드리지 않도록 `<db>_check` DB를 만들고 비운 뒤 인프로세스 TestClient를 준다.
+"""검사 공용 준비: 개발 DB를 건드리지 않도록 `<db>_check` DB를 만들고 비운 뒤 인프로세스 TestClient 제공.
 실행: docker compose exec backend uv run python checks/check_bN.py"""
 import os
 import sys
