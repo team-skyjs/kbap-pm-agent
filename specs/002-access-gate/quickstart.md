@@ -14,7 +14,7 @@ cd frontend && npm ci && npm run dev  # 개발용: http://localhost:5173 (Vite�
 | 1 | `bash deploy/checks/check_g1.sh` | `/`가 index.html, `/api/health`가 `{"status":"ok","db":"ok","version":"0.1.0"}`, 정적 자산 경로가 `/assets/`로 시작, SSE 첫 이벤트 5초 이내 | G1, FR-001 |
 | 2 | `http://localhost:8080` 열고 질문 전송 | 진행 표시 → 제안 카드. 001 quickstart 시나리오 3~5와 같다 | FR-005 |
 | 3 | `curl -si -X OPTIONS -H 'Origin: https://evil.example.com' -H 'Access-Control-Request-Method: POST' localhost:8080/api/conversations` | `access-control-allow-origin` 헤더 없음 | G3, US3-2 |
-| 4 | `cd frontend && npm run check -- g2` | 세션 만료 판정 3종(401 비 JSON, opaqueredirect, text/html)과 백엔드 401 JSON 구분 | G2, FR-006 |
+| 4 | `cd frontend && npm run check -- g2` | 세션 만료 판정 3종(401 비 JSON, opaqueredirect, 비 5xx text/html), 백엔드 401 JSON, 5xx HTML(연결 실패) 구분 | G2, FR-006 |
 
 ## 운영 확인 (사람 설정 T020·T021·T024 이후)
 

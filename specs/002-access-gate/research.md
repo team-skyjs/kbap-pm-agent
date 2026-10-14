@@ -7,7 +7,7 @@ Technical Context에 NEEDS CLARIFICATION은 없다. 이 문서는 ADR-22·23이 
 - Decision: 프론트는 모든 요청에 `X-Requested-With: XMLHttpRequest`를 보내고 `redirect: "manual"`을 쓴다. 다음 셋 중 하나면 세션 만료로 판정한다(계약 v1.2 공통 절).
   - 이 문서의 JSON 에러 형식이 아닌 401·403
   - `opaqueredirect`
-  - `text/html`
+  - 상태 5xx가 아닌 `text/html`. 5xx HTML(nginx·Cloudflare 오류 페이지)은 연결 실패로 다룬다. Access는 5xx로 거부하지 않는다
 - Rationale: Cloudflare의 세션 관리 문서는 요청에 `X-Requested-With: XMLHttpRequest`가 있으면 만료 세션에 401을 준다고 설명한다. 헤더가 없으면 `<팀>.cloudflareaccess.com` 로그인으로 302 리다이렉트하는데, fetch가 이를 따라가면 교차 출처라 CORS 실패(TypeError)로 보인다. 여러 앱 포럼 사례가 이 증상이었다. `redirect: "manual"`은 헤더가 무시되는 경우의 대비다.
 - 출처 신뢰도: 401 동작은 검색으로 찾은 Cloudflare 문서(비표준 포트 URL로 노출)에서만 확인했고 표준 문서 주소로 재확인하지 못했다. 그래서 가정이다.
 - **검증 방법** (T022, Access 설정 후): 쿠키 없는 상태에서 다음 두 요청을 보낸다.
@@ -16,7 +16,7 @@ Technical Context에 NEEDS CLARIFICATION은 없다. 이 문서는 ADR-22·23이 
   curl -si "$PUBLIC_BASE_URL/api/health" | head -1                                         # 기대: 302 (Location: ...cloudflareaccess.com)
   ```
   브라우저에서 세션 쿠키 `CF_Authorization`을 지운 뒤 질문을 보내 "다시 로그인" 안내가 뜨는지도 본다.
-- **틀리면**: 401이 오지 않아도 `opaqueredirect` 판정이 302를 잡는다. 둘 다 아니면 응답 `content-type`이 JSON·SSE가 아닌 모든 응답을 세션 만료로 넓힌다. `api.ts` 한 곳만 바뀐다.
+- **틀리면**: 401이 오지 않아도 `opaqueredirect` 판정이 302를 잡는다. 둘 다 아니면 응답 `content-type`이 JSON·SSE가 아닌 모든 비 5xx 응답을 세션 만료로 넓힌다(5xx는 계속 연결 실패). `api.ts` 한 곳만 바뀐다.
 
 ## R2. Amplitude OAuth 콜백이 Access 뒤에서 이어지나
 
