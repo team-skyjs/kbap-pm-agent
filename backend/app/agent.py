@@ -180,6 +180,8 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
     except TimeoutError:
         reason = f"실행 시간 상한({timeout:g}초)에 도달해 여기까지의 조회 결과로 답합니다."
     except Exception as e:
+        # ponytail: 재시도 없음. AgentAnswer 교차 규칙(new 단계 location, order 연속 등) 위반도 여기로 와 실행 전체가
+        # UPSTREAM_ERROR/failed가 된다. T042에서 위반이 반복되면 검증 오류를 붙여 1회 재요청으로
         log.exception("model call failed")
         yield {"type": "error", "code": "UPSTREAM_ERROR", "message": f"LLM 공급자 응답 오류로 실행을 중단했습니다. ({type(e).__name__})"}
         return
