@@ -89,6 +89,8 @@ T061(최종)은 fake 부분(계약 diff 없음, check 13개, quickstart 1~10)을
 
 ## 실행 방법 (사용자가 직접 재현)
 
+아래의 `pm-agent-api.simhani1.dev`는 예시 도메인이고 실존하지 않는다.
+
 ```bash
 # 1) 백엔드 + MySQL (fake 기본)
 docker compose up -d --build
