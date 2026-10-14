@@ -18,6 +18,9 @@ echo "==============================="
 echo "[1/4] 이미지 pull"
 docker compose -f "$COMPOSE_FILE" pull
 
+echo "[1b] 운영 env 검증 (ACCESS_TOKEN 필수, 기동 전에 확인)"
+grep -qE '^ACCESS_TOKEN=.+' "$ENV_FILE" || { echo "ACCESS_TOKEN이 비어 있다. 인증 없는 컨테이너를 띄우지 않도록 배포를 중단한다"; exit 1; }
+
 echo "[2/4] 컨테이너 기동"
 docker compose -f "$COMPOSE_FILE" up -d
 
