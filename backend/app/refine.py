@@ -48,18 +48,21 @@ def taxonomy_names() -> list[str]:
 
 def cap_names(names: list[str], question: str = "") -> tuple[list[str], bool]:
     """쉼표로 이은 이름 문자열이 4,000자 안에 드는 이름까지만. (넣은 이름, 잘렸는가).
-    질문의 2자 이상 토큰을 포함한 이름을 먼저 담고 남는 자리는 원래 순서로: 잘려도 관련 이벤트가 빠지지 않게"""
-    tokens = {t for t in re.split(r"[\W_]+", question.lower()) if len(t) >= 2}
-    related = [n for n in names if any(t in n.lower() for t in tokens)]
-    rest = set(related)
-    ordered = related + [n for n in names if n not in rest]
+    넘칠 때만 질문과 겹치는 이름을 원래 순서로 먼저, 남는 자리는 나머지를 원래 순서로: 잘려도 물은 이벤트가 빠지지 않게.
+    겹침 = 이름 전체가 질문에 있거나, 이름을 _로 나눈 조각 하나가 질문의 영숫자 낱말(소문자)과 같음"""
+    if len(", ".join(names)) <= NAMES_MAX_CHARS:
+        return names, False
+    q = question.lower()
+    words = set(re.findall(r"[a-z0-9]+", q))
+    related = [n for n in names if n.lower() in q or any(p in words for p in n.lower().split("_") if p)]
+    picked = set(related)
     kept, length = [], 0
-    for n in ordered:
+    for n in related + [n for n in names if n not in picked]:
         length += len(n) + (2 if kept else 0)
         if length > NAMES_MAX_CHARS:
             return kept, True
         kept.append(n)
-    return kept, False
+    return kept, True
 
 
 def with_truncated_note(summary: str) -> str:

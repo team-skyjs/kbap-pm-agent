@@ -116,6 +116,12 @@ p, truncated = build_prompt("cart 이탈 왜 많아?", None)
 names_line = p.split("## 택사노미 이벤트 이름\n")[1].split("\n")[0]
 assert truncated and names_line.startswith("cart_checkout_special, event_0000_") and len(names_line) <= NAMES_MAX_CHARS, names_line[:60]
 assert not build_prompt("관련 없는 질문", None)[0].split("## 택사노미 이벤트 이름\n")[1].startswith("cart_")
+big["events"].append({"name": "scan_complete", "description": None, "category": None, "properties": []})
+assert c.put("/api/settings/taxonomy", json=big).status_code == 200
+p, truncated = build_prompt("scan_complete 왜 줄었어?", None)
+names_line = p.split("## 택사노미 이벤트 이름\n")[1].split("\n")[0]
+assert truncated and "scan_complete" in names_line.split(", ") and len(names_line) <= NAMES_MAX_CHARS, names_line[:80]
+assert "cart_checkout_special" not in names_line.split(", ")[:1]  # 겹치지 않는 이름은 앞으로 오지 않음
 c.put("/api/settings/taxonomy", json=TAXONOMY_BODY)
 assert build_prompt("질문", None)[1] is False
 ok("상한: 이름 4,000자 이하·truncated, fake 요약 끝에 고정 문구, 긴 요약도 300자 이내, 질문 관련 이름이 맨 뒤여도 먼저, 작은 택사노미는 표시 없음")
