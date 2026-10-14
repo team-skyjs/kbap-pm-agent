@@ -14,11 +14,11 @@
 | F5 설정 | 완료 | 동일 | settings·저장소·sync·택사노미: 실제(B4 fake) 확인, Amplitude connect: 실제(B7 fake) 확인 | check-f5 | f08981f |
 | F6 Pages 배포 | 완료(로컬) | .github/workflows/pages.yml | 운영 URL 왕복은 B8 대기 | check-f6 | 70c56b4. 레포 Variables에 VITE_API_BASE_URL 필요, Pages source = GitHub Actions |
 
-## 002 접근 제한 (feat/access-gate)
+## 002 접근 제한 (feat/access-gate-resume)
 
-실행: `docker compose up -d --build` → http://localhost:8080 (nginx, 같은 출처 /api). 개발: `cd frontend && npm run dev` (5173, /api → localhost:8000 프록시)
+실행: `docker compose up -d --build` → http://localhost:8000 (백엔드 컨테이너가 빌드된 프론트를 `/`에서 정적 서빙, 같은 출처 /api). 개발: `cd frontend && npm run dev` (5173, /api → localhost:8000 프록시)
 
 | 모듈 | 상태 | 실행 | 연동 상태 | 검사 | 비고 |
 |------|------|------|----------|------|------|
-| G1 웹 컨테이너·같은 출처 | 완료 | compose web :8080 | 실제(fake 모드) | deploy/checks/check_g1.sh, npm run check -- f6 | 0b8ff91, pages.yml 삭제 포함 |
+| G1 같은 출처 | 완료 | compose backend :8000 (정적 서빙) | 실제(fake 모드) | deploy/checks/check_g1.sh, npm run check -- f6 | 0b8ff91(pages.yml 삭제 포함), 8a8e311(nginx 웹 컨테이너 제거, 검사 대상 8000) |
 | G2 세션 만료 구분 | 완료 | 동일 | 실제 + 가짜 접근 계층(401 HTML) 브라우저 확인 | npm run check -- g2 | c1b2f4e |
