@@ -45,7 +45,9 @@ main에 병합되면 `.github/workflows/deploy.yml`이 자동 배포한다.
 
 ## 배포 후 확인
 
-개발 PC에서 (`backend/`):
+배포 워크플로우의 `verify` job이 매 배포 뒤 `check_b8.py`를 바깥 경로로 실행한다. Secrets `CF_ACCESS_CLIENT_ID`·`CF_ACCESS_CLIENT_SECRET`가 비어 있으면 경고만 남기고 통과하고, 둘 다 들어가면 그때부터 검사 실패가 배포 실패가 된다.
+
+수동 실행은 개발 PC에서 (`backend/`):
 ```bash
 PUBLIC_BASE_URL=https://<운영 호스트명> CF_ACCESS_CLIENT_ID=... CF_ACCESS_CLIENT_SECRET=... uv run python checks/check_b8.py
 ```
