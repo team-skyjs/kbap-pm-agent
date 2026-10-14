@@ -89,10 +89,32 @@ function sse(c: Conv, content: string): Response {
   return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
 }
 
+// 계약서 02-objects Settings 예시. fake 모드처럼 agentMode "fake", 처음엔 저장소·택사노미 없음.
+const settings: Obj = {
+  repository: null,
+  taxonomy: null,
+  amplitude: { status: 'disconnected', serverUrl: 'https://mcp.amplitude.com/mcp', connectedAt: null },
+  models: { agent: 'anthropic:claude-sonnet-5-5', codeSummary: 'anthropic:claude-haiku-5-5' },
+  agentMode: 'fake',
+  budget: { limitUsd: 200.0, spentUsd: 3.4172 },
+}
+
+function taxonomyError(body: Obj): string | null {
+  if (!Array.isArray(body.events) || body.events.length === 0) return 'events: 1개 이상이어야 합니다.'
+  for (const [i, e] of body.events.entries()) {
+    if (typeof e?.name !== 'string') return `events[${i}].name: 필수입니다.`
+    for (const [j, pr] of (Array.isArray(e.properties) ? e.properties : []).entries()) {
+      if (!['string', 'number', 'boolean'].includes(pr?.type)) return `events[${i}].properties[${j}].type: "${pr?.type}"는 허용되지 않습니다. string, number, boolean 중 하나여야 합니다.`
+    }
+  }
+  return null
+}
+
 export async function mockFetch(path: string, init: RequestInit): Promise<Response> {
   await sleep(100)
   const method = init.method ?? 'GET'
-  const body: Obj = typeof init.body === 'string' && init.body ? JSON.parse(init.body) : {}
+  let body: Obj = {}
+  try { body = typeof init.body === 'string' && init.body ? JSON.parse(init.body) : {} } catch { return err(400, 'VALIDATION_ERROR', '본문 JSON이 깨졌습니다.') }
   let m: RegExpMatchArray | null
   if (method === 'GET' && path === '/api/health') return json(200, { status: 'ok', db: 'ok', version: '0.1.0' })
   if (path === '/api/conversations') {
@@ -128,6 +150,30 @@ export async function mockFetch(path: string, init: RequestInit): Promise<Respon
     const c = convs.find((x) => x.id === p.conversationId)
     if (c) c.updatedAt = now()
     return json(200, p)
+  }
+  if (method === 'GET' && path === '/api/settings') return json(200, settings)
+  if (method === 'PUT' && path === '/api/settings/repository') {
+    if (typeof body.url !== 'string' || !/^(https:\/\/github\.com\/|file:\/\/)/.test(body.url)) return err(400, 'VALIDATION_ERROR', 'url은 https://github.com/으로 시작해야 합니다.')
+    settings.repository = {
+      url: body.url, branch: typeof body.branch === 'string' ? body.branch : 'develop', headCommit: '9f3c2a1', codeMapCommit: '9f3c2a1',
+      codeMapStatus: 'ready', trackedEventCount: 87, screenCount: 41, syncedAt: now(), lastError: null,
+    }
+    return json(200, settings.repository)
+  }
+  if (method === 'POST' && path === '/api/settings/repository/sync') {
+    if (!settings.repository) return err(409, 'REPOSITORY_NOT_CONFIGURED', '저장소를 먼저 등록하세요.')
+    settings.repository = { ...(settings.repository as Obj), syncedAt: now() }
+    return json(200, settings.repository)
+  }
+  if (method === 'PUT' && path === '/api/settings/taxonomy') {
+    const why = taxonomyError(body)
+    if (why) return err(400, 'VALIDATION_ERROR', why)
+    settings.taxonomy = { eventCount: (body.events as unknown[]).length, uploadedAt: now() }
+    return json(200, settings.taxonomy)
+  }
+  if (method === 'POST' && path === '/api/integrations/amplitude/connect') {
+    settings.amplitude = { status: 'connected', serverUrl: 'https://mcp.amplitude.com/mcp', connectedAt: now() }
+    return json(200, { authorizationUrl: 'https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri=https%3A%2F%2Fpm-agent-api.simhani1.dev%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ&code_challenge=Q9v0aR3&code_challenge_method=S256' })
   }
   return err(404, 'NOT_FOUND', `mock: ${method} ${path} 없음`)
 }

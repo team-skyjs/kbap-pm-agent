@@ -487,3 +487,89 @@ export type ProposalUpdate = { status: DecisionStatus; note?: string | null }
 
 export const updateProposal = (id: number, body: ProposalUpdate) =>
   request('PATCH', `/api/proposals/${id}`, (v) => parseProposal(v), body)
+
+// ---------- 공통 객체: Settings ----------
+
+export type Repository = {
+  url: string
+  branch: string
+  headCommit: string
+  codeMapCommit: string | null
+  codeMapStatus: 'none' | 'building' | 'ready' | 'failed'
+  trackedEventCount: number
+  screenCount: number
+  syncedAt: string
+  lastError: string | null
+}
+
+export type TaxonomyStatus = { eventCount: number; uploadedAt: string }
+
+export type Settings = {
+  repository: Repository | null
+  taxonomy: TaxonomyStatus | null
+  amplitude: { status: 'connected' | 'disconnected'; serverUrl: string; connectedAt: string | null }
+  models: { agent: string; codeSummary: string }
+  agentMode: 'real' | 'fake'
+  budget: { limitUsd: number; spentUsd: number }
+}
+
+export function parseRepository(v: unknown, p = 'repository'): Repository {
+  const o = obj(v, p)
+  return {
+    url: str(o, 'url', p),
+    branch: str(o, 'branch', p),
+    headCommit: str(o, 'headCommit', p),
+    codeMapCommit: strOrNull(o, 'codeMapCommit', p),
+    codeMapStatus: oneOf(o, 'codeMapStatus', ['none', 'building', 'ready', 'failed'] as const, p),
+    trackedEventCount: num(o, 'trackedEventCount', p),
+    screenCount: num(o, 'screenCount', p),
+    syncedAt: str(o, 'syncedAt', p),
+    lastError: strOrNull(o, 'lastError', p),
+  }
+}
+
+export function parseTaxonomyStatus(v: unknown, p = 'taxonomy'): TaxonomyStatus {
+  const o = obj(v, p)
+  return { eventCount: num(o, 'eventCount', p), uploadedAt: str(o, 'uploadedAt', p) }
+}
+
+export function parseSettings(v: unknown): Settings {
+  const p = 'settings'
+  const o = obj(v, p)
+  const a = obj(get(o, 'amplitude', p), `${p}.amplitude`)
+  const m = obj(get(o, 'models', p), `${p}.models`)
+  const b = obj(get(o, 'budget', p), `${p}.budget`)
+  return {
+    repository: objOrNull(o, 'repository', p, parseRepository),
+    taxonomy: objOrNull(o, 'taxonomy', p, parseTaxonomyStatus),
+    amplitude: {
+      status: oneOf(a, 'status', ['connected', 'disconnected'] as const, `${p}.amplitude`),
+      serverUrl: str(a, 'serverUrl', `${p}.amplitude`),
+      connectedAt: strOrNull(a, 'connectedAt', `${p}.amplitude`),
+    },
+    models: { agent: str(m, 'agent', `${p}.models`), codeSummary: str(m, 'codeSummary', `${p}.models`) },
+    agentMode: oneOf(o, 'agentMode', ['real', 'fake'] as const, p),
+    budget: { limitUsd: num(b, 'limitUsd', `${p}.budget`), spentUsd: num(b, 'spentUsd', `${p}.budget`) },
+  }
+}
+
+export function parseAuthorizationUrl(v: unknown): { authorizationUrl: string } {
+  return { authorizationUrl: str(obj(v, 'connect'), 'authorizationUrl', 'connect') }
+}
+
+// ---------- 설정 엔드포인트 ----------
+
+export const getSettings = () => request('GET', '/api/settings', parseSettings)
+// branch 생략 시 저장소 기본 브랜치 (계약서). 빈 문자열이면 키를 뺀다.
+export const putRepository = (url: string, branch: string) =>
+  request('PUT', '/api/settings/repository', (v) => parseRepository(v), branch ? { url, branch } : { url })
+export const syncRepository = () => request('POST', '/api/settings/repository/sync', (v) => parseRepository(v))
+export const connectAmplitude = () => request('POST', '/api/integrations/amplitude/connect', parseAuthorizationUrl)
+
+// 사용자가 고른 .json 파일 내용을 손대지 않고 본문으로 보낸다 (계약서). 검증은 서버가 한다.
+export async function putTaxonomy(fileText: string): Promise<TaxonomyStatus> {
+  const res = await rawFetch('/api/settings/taxonomy', 'PUT', fileText)
+  await throwIfError(res)
+  const json: unknown = await res.json()
+  return parseTaxonomyStatus(json)
+}

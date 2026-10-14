@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createConversation, describe, getHealth, MOCK } from './api.ts'
 import Chat from './Chat.tsx'
 import ConversationList from './ConversationList.tsx'
+import SettingsPage from './SettingsPage.tsx'
 
 // ponytail: 경로가 두세 개라 라우터 라이브러리 대신 location.hash를 직접 읽는다. 경로가 늘면 react-router HashRouter로.
 function useHash(): string {
@@ -55,7 +56,7 @@ export default function App() {
       <div className="layout">
       <ConversationList version={listVersion} currentId={conv ? Number(conv[1]) : null} />
       <main>
-        {hash === '#/settings' ? <p>설정 화면 (F5)</p>
+        {hash === '#/settings' ? <SettingsPage />
           : conv ? <Chat key={conv[1]} id={Number(conv[1])} onChanged={refreshList} />
           : <p>대화를 선택하거나 새로 시작하세요.</p>}
       </main>
