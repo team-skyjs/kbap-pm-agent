@@ -3,6 +3,7 @@
 기준 커밋: `feat/anthropic-sdk-direct` 브랜치의 B9 착수 직전 `backend/app/agent.py`.
 ADR-20(공식 SDK 전환) 이후 노란색 노드가 모두 바뀐다. 전환 전 구조를 남겨 두는 기록이다.
 
+- 상한 변수 `AGENT_MAX_TOOL_CALLS`는 전환 전 당시 이름이다. 현재는 모델 턴 상한 `AGENT_MAX_TURNS`(기본 10)로 바뀌었다(ADR-2).
 - 노란색: LangChain 계열 (제거 대상)
 - 파란색: 프론트로 나가는 SSE 이벤트 (계약 v1.1, 변경 없음)
 - 회색: 외부 시스템
