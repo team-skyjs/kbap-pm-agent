@@ -15,6 +15,9 @@ test('마크다운 표본 답변', async ({ page, context }, info) => {
   await expect(tasks).toHaveCount(2)
   await expect(tasks.first()).toBeDisabled()
 
+  // 문장부호로 끝나는 굵게 뒤에 한글 조사
+  await expect(md.locator('strong', { hasText: '41%' })).toHaveText('41%')
+
   const link = md.locator('a[href="https://example.com/docs"]')
   await expect(link).toHaveAttribute('target', '_blank')
   await expect(link).toHaveAttribute('rel', /noopener/)

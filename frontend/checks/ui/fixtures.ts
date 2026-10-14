@@ -26,6 +26,7 @@ const CHART_EXAMPLES = blocks('chart-block.md', CHART_DIR).flatMap((b) => b.spli
 export const MARKDOWN_SAMPLE = [
   '# 제목 1', '## 제목 2', '### 제목 3', '#### 제목 4', '',
   '본문 **강조**와 `인라인 코드`, [링크](https://example.com/docs), <script>window.__xss = 1</script>', '',
+  '완료 비율이 **41%**로 낮다', '',
   '- 항목 A', '- 항목 B', '', '1. 첫째', '2. 둘째', '', '- [x] 끝난 일', '- [ ] 남은 일', '',
   '| 이벤트 | 7일 사용자 | 30일 사용자 | 전환율 | 비고 |', '|---|---|---|---|---|',
   '| scan_start | 2,418 | 9,870 | 41.3% | 아주 긴 비고 문장이 들어가 표가 화면보다 넓어지는 경우를 만든다 |', '',
