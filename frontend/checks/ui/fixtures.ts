@@ -5,7 +5,8 @@ import { blocks, jsonBlock } from '../contract.ts'
 export const LIVE = process.env.CHECK_UI_LIVE === '1'
 
 // hang: 응답을 보내지 않고 요청을 열어 둠(스트림 진행 중 화면)
-export type Scenario = 'sent' | 'progress' | 'done' | 'partial' | 'error' | 'expired' | 'hang'
+// token: 백엔드 공유 토큰 401(계약 JSON UNAUTHORIZED), expired: 접근 계층 로그인 HTML 401
+export type Scenario = 'sent' | 'progress' | 'done' | 'partial' | 'error' | 'token' | 'expired' | 'hang'
 
 type Json = Record<string, unknown>
 const clone = <T>(v: T): T => structuredClone(v)
@@ -110,10 +111,10 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
       return json(200, target)
     }
     if (method === 'POST' && /^\/api\/conversations\/\d+\/messages$/.test(path)) {
-      // 세션 만료: 접근 제한 병합 전 화면은 백엔드 401 계약 JSON(UNAUTHORIZED)으로 안내, 병합 뒤 HTML 401 사례 추가
       if (scenario === 'hang') return new Promise<void>(() => {})
       readsAfterSend = 0
-      if (scenario === 'expired') return json(401, { error: { code: 'UNAUTHORIZED', message: '접근 토큰이 없거나 틀렸습니다.' } })
+      if (scenario === 'token') return json(401, { error: { code: 'UNAUTHORIZED', message: '접근 토큰이 없거나 틀렸습니다.' } })
+      if (scenario === 'expired') return route.fulfill({ status: 401, contentType: 'text/html', body: '<html><body>로그인</body></html>' })
       const convId = Number(path.split('/')[3])
       const content = String(obj(req.postDataJSON()).content ?? '')
       const user = { ...obj(exampleEvent('message_created').userMessage), id: nextId++, conversationId: convId, content, createdAt: now() }

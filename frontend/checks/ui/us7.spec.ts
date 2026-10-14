@@ -62,7 +62,16 @@ test('오류 뒤 다시 시도로 질문 복원', async ({ page }) => {
   await expect(box).toBeFocused()
 })
 
-test('세션 만료 뒤 입력값 유지', async ({ page }) => {
+test('토큰 오류 뒤 입력값 유지', async ({ page }) => {
+  const box = await open(page, 'token')
+  await box.fill(QUESTION)
+  await box.press('Enter')
+  await expect(page.locator('.main').getByText('접근 토큰이 없거나 틀렸습니다').first()).toBeVisible()
+  await expect(box).toHaveValue(QUESTION)
+})
+
+// 세션 만료 판정(SESSION_EXPIRED)은 접근 제한 PR 병합 뒤에 생김, 그때 켬
+test.fixme('세션 만료 뒤 입력값 유지', async ({ page }) => {
   const box = await open(page, 'expired')
   await box.fill(QUESTION)
   await box.press('Enter')
