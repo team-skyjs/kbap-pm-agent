@@ -100,6 +100,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   const [streamErrors, setStreamErrors] = useState<Record<number, string>>({})
   const [sessionExpired, setSessionExpired] = useState(false)
   const [tokenError, setTokenError] = useState(false)
+  const [busyNotice, setBusyNotice] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   // 사용자가 맨 아래를 보고 있을 때만 자동 스크롤
@@ -180,12 +181,17 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
         const code: string = e.code
         if (code === 'SESSION_EXPIRED') setSessionExpired(true)
       }
-      if (e instanceof ApiError && e.code === 'RUN_IN_PROGRESS') load()
+      if (e instanceof ApiError && e.code === 'RUN_IN_PROGRESS') { setBusyNotice(true); load() }
     } finally {
       setStreaming(false)
       onChanged()
     }
   }
+
+  // 다른 실행 중 안내는 그 실행이 끝나 입력이 풀리면 지움
+  useEffect(() => {
+    if (!running && busyNotice) { setNotice(''); setBusyNotice(false) }
+  }, [running, detail])
 
   // 빈 대화를 열면 바로 입력하도록 입력창에 포커스
   const empty = detail?.messages.length === 0
