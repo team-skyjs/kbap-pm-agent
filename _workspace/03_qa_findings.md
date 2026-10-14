@@ -35,6 +35,7 @@
 | 2026-10-15 | 주석 정리 frontend (1430a07) | 통과 | 코드 변화 0: 바뀐 TS 15개 모두 esbuild 변환 결과 동일, style.css는 주석 1줄만. check-f1~f6 OK, 계약 diff 0. frontend 주석의 내부 식별자 8줄→0, 종결형 어미 32줄→0 |
 | 2026-10-15 | 주석 정리 backend (d24edde) | 통과, 결함 1(기존) | 코드 변화 0: 바뀐 .py 24개 docstring 제외 AST 동일, schema.sql·Dockerfile은 주석 줄만. 재빌드 컨테이너(= 커밋본) check_b1~b7 OK, 계약 diff 0. backend 주석 내부 식별자 24줄→0, 종결형 82줄→1(`backend/checks/check_b6.py:41` "돈다"; 정규식이 잡은 나머지 3줄은 명사 "필요" 오탐). 저장소 전체(주석 감사 대상 41개 파일): 식별자 32→0, 종결형 114→1. 도구 docstring 문구는 모델에 가는 도구 설명이라 문체만 바뀐 것 확인(의미 동일). 정리와 별개로 QA-7 발견 |
 | 2026-10-15 | QA-7 재검증 (dbf5428) | 확인됨 | 재빌드 컨테이너(= 커밋본)에서 두 런타임 도구 스키마의 매개변수 9개 모두 description, check_b1~b7 OK, backend/app docstring 외 코드 변화 0, 계약 diff 0. 저장소 주석 잔존: 식별자 0, 종결형 0(정규식 4줄은 명사 "필요" 오탐). T063 재체크. ADR-21은 c636aab로 되돌려져 T078 대상 아님 |
+| 2026-10-15 | 운영 배포 T057·T060 (fix/prod-hostname 75ddea5) | 조회 범위 통과, 일부 미검증 | T057: 레포 안 check_b8 재현 — health PASS, preflight team-skyjs.github.io(from git remote) PASS, SSE 100초 SKIP(real). 운영 health 200 0.35s, 없는 경로 404 공통 형식, 허용 안 된 출처 preflight 400. **ACCESS_TOKEN 꺼짐**: 토큰 없이 대화 목록·설정 200(설정 응답에 비밀값 없음). T060: headless Chrome으로 운영 Pages 200, 자산 `/kbap-pm-agent/`, 헬스 배지 ok, 대화 목록 1개 = API, 대화 상세 메시지 4 = API, 설정 화면 real·저장소·택사노미 45개 표시, 번들에 운영 API 주소·localhost 없음. 쓰기 요청은 브라우저 단 차단(0건 발생). 미검증: cloudflared 경유 SSE 장시간 ping(T057), Pages에서 SSE·채택 왕복(T060) — 메시지 전송·PATCH 금지 범위. 관찰(사용자 실행 1건, 조회만): Anthropic 실제 구조화 응답 completed, 소스 3종 사용, 첫 tool_call 약 11초(SC-004 5초 초과)·final 약 53초, 질문 1건 $1.601(입력 780,309 토큰) |
 
 ## 결함
 
