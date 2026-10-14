@@ -16,6 +16,8 @@
 | 2026-10-15 | B4 (6aa932d) T034 | 결함 1 | `check_b4.py` OK. fake: Settings·repository·taxonomy 응답 키 = 계약, PUT 값 = 시연 모드 표, sync는 syncedAt만, 잘못된 url·빈 branch 400, 택사노미 date 메시지가 계약 원문과 글자 단위 일치, 실패 시 기존 값 유지. real(별도 DB `kbap_pm_agent_qa`, 키 없음): team-skyjs/kbap-fe 공개 클론 1.3s, headCommit 7자, 잘못된 GITHUB_TOKEN으로 PUT·sync 502 `UPSTREAM_ERROR` + lastError 저장 + 기존 클론 유지, 응답·로그·/data·git config에 토큰 문자열 0건, 요약 실패 lastError 저장(LLM 키 없음, 비용 0). 결함 QA-2 |
 | 2026-10-15 | F5 (f08981f) ↔ B4 | 저장소·택사노미 통과, Amplitude 미검증 | headless Chrome fake·real: 모드·모델·예산 표시, PUT 본문, fake 값 표시, 동기화 시각 갱신, 파일 원문 그대로 PUT, 업로드 2개, date 위치 오류 표시 + 2개 유지(새로고침 후도), 깨진 JSON·잘못된 URL VALIDATION_ERROR, real lastError 표시. Amplitude 연결은 B7 대기 |
 | 2026-10-15 | F6 (70c56b4) | 정적 통과 | 운영 URL로 build + `check -- f6` OK, 자산 `/kbap-pm-agent/`, 번들에 mock 데이터 없음, 레포 이름과 base 일치. 운영 왕복(T060)은 B8 대기. QA-3(운영 CORS 출처) cto |
+| 2026-10-15 | B5 (9a23420) T038 | 통과 (실제 요약 LLM 미검증) | `check_b5.py` OK(가짜 요약기: building→ready, 재동기화 요약 0회, 파일 1개 변경 1회, read_code 200줄, search_code 30건, 단가표). 실서버: `LLM_BUDGET_USD=0` → 메시지 403 `BUDGET_EXCEEDED` JSON, 메시지 저장 안 됨, 목록·상세 200, 프론트 입력창 아래 안내 + 입력 유지. real 키 없음: codeMapStatus building→failed + lastError, spentUsd 0. 실제 요약 비용 증가(SC-006)는 키 필요 |
+| 2026-10-15 | B6 (8cb3321) | BE 통과, T042 미검증 | `check_b6.py` OK(가짜 채팅 모델로 실제 create_agent 루프: 도구→구조화 final, 도구 예외 failed 후 계속, 호출·시간 상한 부분 final, 모델 실패 error). 정적: 제안 직렬화 by_alias로 null 키 유지, 모델명 하드코딩 없음, 소스 상태 문장. 실서버 real 키 없음: SSE message_created→error `UPSTREAM_ERROR` + assistantMessageId, DB failed·content ""·usage null, 프론트가 저장된 실패와 스트림 error 모두 code별 문구로 표시, 비용 0. T042(실제 질문 4부분 제안·openai 교체·성능)는 LLM 키 없어 미검증 |
 
 ## 결함
 

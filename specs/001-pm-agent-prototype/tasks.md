@@ -143,31 +143,31 @@ description: "PM Agent 프로토타입 구현 태스크"
 
 ### B5 — 코드 도구 + 요약 캐시 + 예산
 
-- [ ] T035 [P] [US2] [BE] `backend/app/budget.py`: 모든 LLM 호출의 사용량을 기록하고 예산을 검사한다. (B5)
+- [x] T035 [P] [US2] [BE] `backend/app/budget.py`: 모든 LLM 호출의 사용량을 기록하고 예산을 검사한다. (B5)
   - 기록: `record(purpose, model, input_tokens, output_tokens, message_id)`가 단가표(설정)로 `cost_usd`를 계산해 `llm_usage`에 넣는다. fake 모드도 토큰 0·`cost_usd` 0 행을 기록한다(fake `usage.costUsd` 0이 이 합산에서 나온다).
   - 검사: `check()`는 `SUM(cost_usd) >= LLM_BUDGET_USD`이면 `BUDGET_EXCEEDED`를 낸다. `backend/app/conversations.py`의 메시지 전송 라우트에서 스트림 시작 전에 `check()`를 호출하도록 붙인다(계약 05-messages의 스트림 전 에러).
-- [ ] T036 [US2] [BE] `backend/app/code_tools.py`: 에이전트 도구. (B5)
+- [x] T036 [US2] [BE] `backend/app/code_tools.py`: 에이전트 도구. (B5)
   - 코드 도구: `find_event_calls(eventName)`(인덱스), `search_code(regex, glob)`(rg, 최대 30건), `get_screen_summary(path)`(캐시), `read_code(path, startLine, endLine)`(호출당 최대 200줄, 저장소 밖 경로 거부).
   - 택사노미 도구: `search_taxonomy(query)`, `get_event_definition(name)`. source는 `taxonomy`.
   - 요약 캐시: 동기화 후 백그라운드로 화면 요약을 만든다. 키는 `(path, blob SHA)`이고 재시작 후에도 유지된다. 바뀐 blob만 다시 요약한다. 요약 LLM 호출은 `backend/app/agent.py`의 `summarize(text)`(`CODE_SUMMARY_MODEL`, fake 분기 포함)를 통해서만 하며, 호출 전 `budget.check()`를 부른다. `code_tools.py`는 모델을 직접 만들지 않는다(원칙 III). 상태는 `codeMapStatus` `building`→`ready`|`failed`, `codeMapCommit`으로 반영한다. 파일 통째 전송 도구는 만들지 않는다(원칙 IV).
-- [ ] T037 [US2] [BE] `backend/checks/check_b5.py`: `read_code` 201줄 요청이 200줄로 잘림, `search_code` 31건 이상 매치가 30건, 같은 커밋 재동기화 시 `llm_usage` 행 증가 0, 파일 1개 변경 후 1, `LLM_BUDGET_USD=0.01`에서 메시지 전송이 403 `BUDGET_EXCEEDED` (B5 검사)
-- [ ] T038 [US2] [QA] B5 교차 검증: settings의 `codeMapStatus`·`codeMapCommit`·`budget.spentUsd` 변화가 계약과 일치, 예산 초과 시 대화 조회는 계속 200(엣지 케이스), `check_b5.py` 실행 (B5 QA)
+- [x] T037 [US2] [BE] `backend/checks/check_b5.py`: `read_code` 201줄 요청이 200줄로 잘림, `search_code` 31건 이상 매치가 30건, 같은 커밋 재동기화 시 `llm_usage` 행 증가 0, 파일 1개 변경 후 1, `LLM_BUDGET_USD=0.01`에서 메시지 전송이 403 `BUDGET_EXCEEDED` (B5 검사)
+- [x] T038 [US2] [QA] B5 교차 검증: settings의 `codeMapStatus`·`codeMapCommit`·`budget.spentUsd` 변화가 계약과 일치, 예산 초과 시 대화 조회는 계속 200(엣지 케이스), `check_b5.py` 실행 (B5 QA)
 
 ### B6 — 실제 에이전트 루프
 
-- [ ] T039 [US2] [BE] `backend/app/agent.py` real 분기. (B6)
+- [x] T039 [US2] [BE] `backend/app/agent.py` real 분기. (B6)
   - 구성: `init_chat_model(AGENT_MODEL)`과 `create_agent(model, tools=code_tools+taxonomy_tools, system_prompt, response_format=AgentAnswer)`를 쓴다.
   - 스트리밍: `astream(stream_mode="updates")`를 `tool_call`/`tool_result`/`final`로 변환한다.
   - 상한: `AGENT_MAX_TOOL_CALLS`(20) 또는 `AGENT_TIMEOUT_SECONDS`(170)에 닿으면 그때까지의 결과로 `final`을 보낸다. `status: "completed"`이고 `content` 첫 문장에 중단 사유를 적는다(ADR-16).
   - 실패 처리: 도구가 실패하면 `tool_result` `failed`로 보내고 실행은 계속한다. 모델 호출 자체가 실패하면 `error` `UPSTREAM_ERROR`다.
   - 사용량: 매 호출을 `budget.record`로 기록한다.
-- [ ] T040 [US2] [BE] `backend/app/agent.py` 시스템 프롬프트(코드에 모델명 금지). 담을 지시는 다음과 같다. (B6)
+- [x] T040 [US2] [BE] `backend/app/agent.py` 시스템 프롬프트(코드에 모델명 금지). 담을 지시는 다음과 같다. (B6)
   - 제안은 반드시 근거→제안→실행단계→측정방법이다.
   - 근거는 metric·code·taxonomy로 구분하고, code 근거에는 파일·함수를 쓴다.
   - 신규 이벤트는 파일·함수 위치가 필수다.
   - 택사노미에 있으나 코드에 없으면 근거에 "정의는 있으나 코드에서 발견되지 않음"(US2-3)으로 쓰고, 코드에만 있으면 "코드에만 존재, 정의 없음"(엣지 케이스)으로 쓴다.
   - 쓸 수 없는 소스가 있으면 `content`에 빠진 근거를 명시한다(FR-010).
-- [ ] T041 [US2] [BE] `backend/checks/check_b6.py`: `AgentAnswer`가 계약 예시 제안 2개를 통과하고, 신규 단계 `location: null`·`order` 불연속·`funnel_design` 빈 funnel을 거부한다. 상한 도달 시 만드는 부분 `final`이 Message 모델을 통과하고 `content`가 사유 문장으로 시작한다 (B6 검사)
+- [x] T041 [US2] [BE] `backend/checks/check_b6.py`: `AgentAnswer`가 계약 예시 제안 2개를 통과하고, 신규 단계 `location: null`·`order` 불연속·`funnel_design` 빈 funnel을 거부한다. 상한 도달 시 만드는 부분 `final`이 Message 모델을 통과하고 `content`가 사유 문장으로 시작한다 (B6 검사)
 - [ ] T042 [US2] [QA] B6 실제 모드 교차 검증(`AGENT_MODE=real`): (B6 QA)
   - US2 질문: 측정 설계 질문의 `funnel_design` 신규 단계 파일·함수가 클론에 실제로 있는지 grep으로 확인한다.
   - US1 질문: 개선 질문 하나로 4부분 제안이 나오는지 본다.
