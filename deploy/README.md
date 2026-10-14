@@ -23,7 +23,7 @@ main에 병합되면 `.github/workflows/deploy.yml`이 자동 배포한다.
    | `ANTHROPIC_API_KEY` | Claude 키 |
    | `OPENAI_API_KEY` | GPT 쓸 때만. 없으면 빈 값 |
    | `GH_PAT` | 분석 대상 저장소 클론용 PAT (Contents: Read). env 파일에는 `GITHUB_TOKEN`으로 들어간다 |
-   | `ACCESS_TOKEN` | API 공유 토큰(필수). 비어 있으면 배포가 컨테이너 기동 전에 중단된다 |
+   | `ACCESS_TOKEN` | API 공유 토큰. 전환 기간에는 운영 필수(비어 있으면 워크플로우와 배포 스크립트가 컨테이너 기동 전에 중단). Access 운영 검증이 끝난 뒤 끈다(토큰 끄기 단계: 워크플로우 필수 검사, 배포 스크립트 env 검증·토큰 잠금 확인, verify job의 `ACCESS_TOKEN` env를 함께 제거) |
    | `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | 배포 후 운영 검사(`check_b8.py`)용 Access 서비스 토큰 |
 
    | Variables (비밀 아님) | 값 |

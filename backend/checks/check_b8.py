@@ -97,11 +97,16 @@ def preflight():
 guarded("다른 출처 preflight 불허", preflight)
 
 # --- SSE 장시간: 터널·Access가 스트림을 끊지 않는지(fake 지연 실행일 때만)
+# 설정 조회는 필수 단언: 401 등 계약 JSON 에러가 와도 SKIP으로 새지 않게 상태 200과 설정 모양을 먼저 확인
+mode = None
 try:
     s = get("/api/settings", {**token, **app_auth})
-    mode = s.json().get("agentMode") if s.headers.get("content-type", "").startswith("application/json") else None
-except httpx.HTTPError:
-    mode = None
+    body = s.json() if s.headers.get("content-type", "").startswith("application/json") else {}
+    ok = s.status_code == 200 and isinstance(body, dict) and {"agentMode", "budget", "models"} <= set(body)
+    report(ok, "토큰: /api/settings 200 설정 객체", shape(s))
+    mode = body.get("agentMode") if ok else None
+except (httpx.HTTPError, ValueError) as e:
+    report(False, "토큰: /api/settings 200 설정 객체", f"요청 실패 {type(e).__name__}")
 if mode != "fake":
     print("SKIP SSE 100초 검사: 서버가 fake 모드가 아님(FAKE_DELAY_SECONDS=21로 잠시 띄워 확인)")
 else:

@@ -15,7 +15,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: deploy   # 동시성 1: 실행 중 1개 + 대기 1개(더 쌓이면 오래된 대기분은 취소, 최신만 유지)
+  group: deploy-backend   # 옛 워크플로우 실행과 직렬화 유지를 위해 이름 그대로. 동시성 1: 실행 중 1개 + 대기 1개(더 쌓이면 오래된 대기분은 취소, 최신만 유지)
   cancel-in-progress: false   # 진행 중인 배포는 끊지 않음
 
 env:
@@ -152,7 +152,7 @@ jobs:
 
   release:
     name: create GitHub release
-    needs: [build, deploy]   # 배포 성공 시에만
+    needs: [build, deploy, verify]   # 배포·운영 검사 성공 시에만(검사는 서비스 토큰 미설정이면 경고 후 통과)
     runs-on: ubuntu-latest
     permissions:
       contents: write
