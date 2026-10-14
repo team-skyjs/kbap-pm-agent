@@ -161,7 +161,7 @@ description: "PM Agent 프로토타입 구현 태스크"
 - [x] T039 [US2] [BE] `backend/app/agent.py` real 분기. (B6)
   - 구성: `init_chat_model(AGENT_MODEL)`과 `create_agent(model, tools=code_tools+taxonomy_tools, system_prompt, response_format=AgentAnswer)`를 쓴다.
   - 스트리밍: `astream(stream_mode="updates")`를 `tool_call`/`tool_result`/`final`로 변환한다.
-  - 상한: `AGENT_MAX_TOOL_CALLS`(20) 또는 `AGENT_TIMEOUT_SECONDS`(170)에 닿으면 그때까지의 결과로 `final`을 보낸다. `status: "completed"`이고 `content` 첫 문장에 중단 사유를 적는다(ADR-16).
+  - 상한: `AGENT_MAX_TOOL_CALLS`(5) 또는 `AGENT_TIMEOUT_SECONDS`(170)에 닿으면 그때까지의 결과로 `final`을 보낸다. `status: "completed"`이고 `content` 첫 문장에 중단 사유를 적는다(ADR-16).
   - 실패 처리: 도구가 실패하면 `tool_result` `failed`로 보내고 실행은 계속한다. 모델 호출 자체가 실패하면 `error` `UPSTREAM_ERROR`다.
   - 사용량: 매 호출을 `budget.record`로 기록한다.
 - [x] T040 [US2] [BE] `backend/app/agent.py` 시스템 프롬프트(코드에 모델명 금지). 담을 지시는 다음과 같다. (B6)

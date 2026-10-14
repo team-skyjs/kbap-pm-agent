@@ -174,7 +174,7 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
 
     from app.schemas import AgentAnswer
 
-    max_calls, timeout = int(num("AGENT_MAX_TOOL_CALLS", 20)), num("AGENT_TIMEOUT_SECONDS", 170)
+    max_calls, timeout = int(num("AGENT_MAX_TOOL_CALLS", 5)), num("AGENT_TIMEOUT_SECONDS", 170)
     try:
         mod, model = runtime(agent_model())
     except ValueError as e:

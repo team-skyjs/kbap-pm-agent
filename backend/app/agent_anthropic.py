@@ -53,7 +53,7 @@ async def run(model: str, system: str, history: list[dict], tools: list, emit, u
         runner = _client().beta.messages.tool_runner(
             model=model, max_tokens=16000, system=f"{system}, Amplitude {amp}", messages=history, tools=btools,
             output_format=AgentAnswer, thinking={"type": "adaptive"}, cache_control={"type": "ephemeral"},
-            betas=BETAS, fallbacks="default", max_iterations=int(num("AGENT_MAX_TOOL_CALLS", 20)) + 2)
+            betas=BETAS, fallbacks="default", max_iterations=int(num("AGENT_MAX_TOOL_CALLS", 5)) + 2)
         last = None
         async for message in runner:  # tool_choice는 넘기지 않는다(auto). 현행 모델은 any/tool 강제를 400으로 거부
             usage(*_usage(message.usage))

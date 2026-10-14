@@ -33,7 +33,7 @@
 - 이유: PRD가 요구하는 것은 "도구 여러 번 호출 + 중간 결과 보고 다음 조회 결정"이고, 기본 ReAct 루프가 정확히 그것이다. 제안 4필드를 본문 문자열이 아닌 구조로 받는 것도 `response_format` 한 줄로 끝난다.
 - 버린 대안: kbap-amplitude식 9노드 StateGraph. 품질 튜닝 단계에서는 유효하나 v1에서 "채택할 만한가"를 검증하기 전에 짓기엔 과하다. 필요해지면 같은 LangGraph 위에서 노드를 추가한다.
 - 바꾸면 영향: `backend/app/agent/` 내부만. SSE 이벤트 형식은 계약이므로 유지.
-- 가드: 질문당 도구 호출 상한 `AGENT_MAX_TOOL_CALLS`(기본 20). 초과 시 그때까지의 결과로 최종 응답을 강제한다.
+- 가드: 질문당 도구 호출 상한 `AGENT_MAX_TOOL_CALLS`(기본 5). 초과 시 그때까지의 결과로 최종 응답을 강제한다.
 - 상태: 대체됨(→ADR-20) — LangChain `create_agent` 대신 공급자별 공식 SDK 런타임
 
 ### ADR-3: Amplitude는 `langchain-mcp-adapters` + MCP Python SDK OAuth, 서버가 토큰 보관
@@ -226,7 +226,7 @@
 | `AGENT_MODE` | `real` / `fake` | ADR-15 |
 | `AGENT_MODEL`, `CODE_SUMMARY_MODEL` | `anthropic:claude-sonnet-5-5`, `anthropic:claude-haiku-5-5` (OpenAI로 바꾸면 `openai:gpt-6-luna`) | ADR-20 |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | | 쓰는 쪽만 |
-| `AGENT_MAX_TOOL_CALLS` | `20` | ADR-2 |
+| `AGENT_MAX_TOOL_CALLS` | `5` | ADR-2 (2026-10-15 사용자 결정: 20→5) |
 | `AGENT_TIMEOUT_SECONDS` | `170` | ADR-16 |
 | `LLM_BUDGET_USD` | `200` | ADR-9 |
 | `AMPLITUDE_MCP_URL` | `https://mcp.amplitude.com/mcp` | EU면 `https://mcp.eu.amplitude.com/mcp` |

@@ -59,7 +59,7 @@ async def run(model: str, system: str, history: list[dict], tools: list, emit, u
     try:
         agent = Agent(name="kbap-pm-agent", instructions=f"{system}, Amplitude {amp}", model=_model(model),
                       tools=ftools, mcp_servers=servers, output_type=AgentAnswer)
-        result = Runner.run_streamed(agent, input=history, max_turns=int(num("AGENT_MAX_TOOL_CALLS", 20)) + 2)
+        result = Runner.run_streamed(agent, input=history, max_turns=int(num("AGENT_MAX_TOOL_CALLS", 5)) + 2)
         mcp_calls: set[str] = set()
         try:
             async for ev in result.stream_events():

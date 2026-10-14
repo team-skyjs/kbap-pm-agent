@@ -339,7 +339,7 @@ data: {"error":{"code":"UPSTREAM_ERROR","message":"LLM 공급자 응답 오류�
 ```
   - `error` 이후 해당 assistant 메시지는 DB에 `status: "failed"`, `errorCode`가 채워진 채 남는다. 그때까지의 toolCalls도 남는다.
 - 비고: `AGENT_MODE=fake`이면 LLM·Amplitude 없이 위 순서대로 도구 호출 2개(`taxonomy`, `code`)와 제안 2개(`improvement` 1, `funnel_design` 1)를 내고 저장한다. QA·FE 연동은 이 모드로 한다.
-- 비고(상한): 도구 호출이 `AGENT_MAX_TOOL_CALLS`(기본 20)에 닿거나 실행 시간이 `AGENT_TIMEOUT_SECONDS`(기본 170)를 넘으면, 서버는 그때까지의 조회 결과로 `final`을 보낸다. 이때 `status`는 `"completed"`이고 `content` 첫 문장에 중단 사유를 적는다(예: "실행 시간 상한(170초)에 도달해 여기까지의 조회 결과로 답합니다."). `proposals`는 빈 배열일 수 있다.
+- 비고(상한): 도구 호출이 `AGENT_MAX_TOOL_CALLS`(기본 5)에 닿거나 실행 시간이 `AGENT_TIMEOUT_SECONDS`(기본 170)를 넘으면, 서버는 그때까지의 조회 결과로 `final`을 보낸다. 이때 `status`는 `"completed"`이고 `content` 첫 문장에 중단 사유를 적는다(예: "실행 시간 상한(170초)에 도달해 여기까지의 조회 결과로 답합니다."). `proposals`는 빈 배열일 수 있다.
 - 비고(소스 실패): 개별 도구 호출이 실패하면 해당 `tool_result`가 `status: "failed"`로 오고 실행은 계속된다. `final`의 `content`에 빠진 근거 소스를 명시한다. 스트림 전체를 `error`로 끝내는 것은 추론 모델 호출 자체가 실패했을 때뿐이다.
 
 ### PATCH /api/proposals/{proposalId}

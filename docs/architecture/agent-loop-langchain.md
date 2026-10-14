@@ -49,7 +49,7 @@ flowchart TD
     LOOP -- "ToolMessage" --> TR(["SSE tool_result<br/>succeeded | failed"])
     LOOP -- "structured_response" --> FIN(["SSE final<br/>content + proposals"])
 
-    LOOP -- "calls ≥ AGENT_MAX_TOOL_CALLS(20)" --> PART(["SSE final (부분)<br/>조회 결과 요약"])
+    LOOP -- "calls ≥ AGENT_MAX_TOOL_CALLS(5)" --> PART(["SSE final (부분)<br/>조회 결과 요약"])
     LOOP -- "asyncio.timeout(170s)" --> PART
     LOOP -- "예외 · 규칙 위반" --> ERR(["SSE error<br/>UPSTREAM_ERROR"])
 

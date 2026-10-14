@@ -35,7 +35,7 @@
 
 **Project Type**: 웹 애플리케이션(`frontend/` + `backend/`).
 
-**Performance Goals**: 첫 진행 표시(`tool_call` 이벤트)까지 5초 이내, 완성 제안까지 3분 이내(SC-004). 실행 상한은 `AGENT_TIMEOUT_SECONDS=170`, 도구 호출 상한은 `AGENT_MAX_TOOL_CALLS=20`(ADR-2, ADR-16).
+**Performance Goals**: 첫 진행 표시(`tool_call` 이벤트)까지 5초 이내, 완성 제안까지 3분 이내(SC-004). 실행 상한은 `AGENT_TIMEOUT_SECONDS=170`, 도구 호출 상한은 `AGENT_MAX_TOOL_CALLS=5`(ADR-2, ADR-16).
 
 **Constraints**:
 - LLM 누적 비용 200달러 상한(`LLM_BUDGET_USD`, SC-006).
