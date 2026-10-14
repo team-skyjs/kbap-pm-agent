@@ -161,7 +161,8 @@
 - 결정: GitHub Pages는 `team-skyjs/kbap-pm-agent` 레포에서 배포한다. 운영 `CORS_ORIGINS`에는 `https://team-skyjs.github.io`(경로 없이 출처만)를 넣는다. 프론트 URL은 `https://team-skyjs.github.io/kbap-pm-agent/`다. Docker Hub 이미지(`simhani1/kbap-pm-agent`)와 홈서버 계정은 ADR-11 그대로다.
 - 이유: 실제 git remote가 `team-skyjs`다. ADR-11의 예시 출처 `simhani1.github.io`는 틀린 가정이었고, 그대로 배포하면 운영 요청이 전부 CORS로 거부된다(QA-3, 2026-10-15).
 - 버린 대안: simhani1 개인 포크에서 Pages 배포(레포가 둘이 되고 배포 경로가 갈라진다).
-- 바꾸면 영향: 운영 env의 `CORS_ORIGINS` 값과 `backend/checks/check_b8.py`의 Origin 한 줄.
+- 바꾸면 영향: 운영 env의 `CORS_ORIGINS` 값. `backend/checks/check_b8.py`는 기대 출처를 git remote에서 계산하므로 손댈 필요가 없다.
+- 단일 출처: 출처 값의 기준은 git remote다. ADR·env 예시·운영 env의 값은 사본이고, check_b8이 운영 서버의 preflight 응답을 remote에서 계산한 출처와 대조해 사본 오류를 잡는다(QA-3·QA-4 2회 재발 후 추가).
 - 상태: 확정
 
 ### ADR-19: 코드 인덱스·검색 범위는 소스 파일로 한정 `CODE_GLOB` (ADR-9 보정)
