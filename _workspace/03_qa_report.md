@@ -87,6 +87,25 @@ T061(최종)은 fake 부분(계약 diff 없음, check 13개, quickstart 1~10)을
 - **OpenAI 사용량은 실행 1회 합계 1행.** 요청별 비용 추적은 안 된다.
 - 위 Phase 1~7 남은 위험의 "실제 LLM 경로 실호출 미검증"은 런타임이 바뀌었을 뿐 그대로다(ProviderStrategy 문구는 ADR-20으로 대체됨).
 
+## 운영 배포 검증 — 2026-10-15 (fix/prod-hostname)
+
+운영: 백엔드 `https://<운영 API 주소>`(cloudflared, real), 프론트 `https://team-skyjs.github.io/kbap-pm-agent/`. 메시지 전송·대화 생성·채택 PATCH는 운영 DB와 LLM 비용 때문에 하지 않았다.
+
+| 항목 | 결과 | 비고 |
+|---|---|---|
+| T057 health·preflight | 통과 | check_b8 재현(레포 안): health, team-skyjs.github.io preflight(from git remote). 허용 안 된 출처 400 |
+| T057 cloudflared 경유 SSE 장시간 ping | 미검증 | 운영이 real이라 check_b8 SSE 검사 SKIP. 메시지 전송은 비용 |
+| T057 운영 ACCESS_TOKEN 사용 여부 | **사용자 결정 필요** | 지금 꺼져 있다. 토큰 없이 대화 목록·설정이 읽히고, 누구나 메시지를 보내 LLM 예산을 쓸 수 있다 |
+| T060 Pages ↔ 운영 조회 왕복 | 통과 | 헬스 배지 ok, 대화 목록·상세·설정 화면이 API와 일치, 자산 경로, 번들 API 주소 |
+| T060 Pages에서 SSE·채택 왕복 | 미검증 | 메시지 전송·PATCH 금지 범위 |
+
+T057·T060은 미검증 부분이 남아 체크하지 않았다.
+
+운영 실사용 관찰(사용자 실행 1건, QA는 조회만):
+- Anthropic 실제 호출로 `AgentAnswer` 구조화 응답이 `completed`. 택사노미·코드·Amplitude 세 소스 모두 사용(도구 14회). 위 "실제 공급자 실호출 미검증" 위험의 Anthropic 쪽 일부가 실증됐다. OpenAI 쪽은 그대로 미검증
+- 시간: 첫 tool_call 약 11초(SC-004 "5초 안에 진행 표시" 초과), final 약 53초(3분 이내 충족). 표본 1건
+- 비용: 질문 1건 $1.601, 입력 780,309 토큰·출력 4,031 토큰. 이 단가면 200달러로 약 125질문. 입력 대부분이 캐시 읽기면 실제 청구는 더 낮다(코드는 캐시 토큰을 입력 단가로 보수 계산). 실제 청구액은 Anthropic 콘솔로 대조 필요
+
 ## 실행 방법 (사용자가 직접 재현)
 
 아래의 `pm-agent-api.simhani1.dev`는 예시 도메인이고 실존하지 않는다.

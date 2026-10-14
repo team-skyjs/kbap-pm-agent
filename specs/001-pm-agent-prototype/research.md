@@ -12,7 +12,7 @@ Technical Context에 NEEDS CLARIFICATION은 없다. 이 문서는 ADR 중 상태
 
 ## R2. 공개 도메인 (ADR-6)
 
-- Decision: cloudflared 터널 호스트명은 환경변수 `PUBLIC_BASE_URL`(백엔드)과 `VITE_API_BASE_URL`(프론트)로만 쓴다. 예시는 `https://pm-agent.simhani1.cloud`다.
+- Decision: cloudflared 터널 호스트명은 환경변수 `PUBLIC_BASE_URL`(백엔드)과 `VITE_API_BASE_URL`(프론트)로만 쓴다. 예시는 `https://<운영 API 주소>`다.
 - **검증 방법**: B8에서 실제 호스트명으로 `curl https://<호스트>/api/health`를 실행해 200을 확인한다. 같은 호스트로 OAuth 콜백을 승인해 본다(Amplitude가 redirect_uri로 받아들이는지).
 - **틀리면**: 값만 바꾼다. 코드 변경은 없다.
 

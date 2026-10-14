@@ -22,20 +22,20 @@ main에 병합되면 자동 배포된다.
 
    | Variables (비밀 아님) | 값 |
    |---|---|
-   | `PUBLIC_BASE_URL` | `https://pm-agent.simhani1.cloud` |
+   | `PUBLIC_BASE_URL` | `https://<운영 API 주소>` |
    | `CORS_ORIGINS` | `https://team-skyjs.github.io` |
    | `AMPLITUDE_MCP_URL` | `https://mcp.amplitude.com/mcp` |
    | `AGENT_MODEL`, `CODE_SUMMARY_MODEL`, `LLM_BUDGET_USD` | 생략 시 기본값(anthropic:claude-sonnet-5-5 / claude-haiku-5-5 / 200) |
    | `VITE_API_BASE_URL` | 프론트 빌드용. `PUBLIC_BASE_URL`과 같은 값 |
-4. **cloudflared ingress**: `pm-agent.simhani1.cloud` → `http://kbap-pm-agent:8000` (같은 `monitor-net`)
-5. **GitHub Pages**: 레포 Settings → Pages → Source "GitHub Actions". Settings → Variables → `VITE_API_BASE_URL=https://pm-agent.simhani1.cloud`
+4. **cloudflared ingress**: `<운영 API 호스트명>` → `http://kbap-pm-agent:8000` (같은 `monitor-net`)
+5. **GitHub Pages**: 레포 Settings → Pages → Source "GitHub Actions". Settings → Variables → `VITE_API_BASE_URL=https://<운영 API 주소>`
 6. **ghcr 패키지**: 첫 배포 후 Packages에 `kbap-pm-agent`가 생긴다. 비공개여도 deploy job이 GITHUB_TOKEN으로 로그인해 pull하므로 공개로 바꿀 필요 없다.
 
 ## 배포 후 확인
 
 개발 PC의 레포 안에서 (`backend/`):
 ```bash
-PUBLIC_BASE_URL=https://pm-agent.simhani1.cloud uv run python checks/check_b8.py
+PUBLIC_BASE_URL=https://<운영 API 주소> uv run python checks/check_b8.py
 ```
 기대 출처를 git remote에서 계산하므로 레포 밖(컨테이너)에서는 `EXPECTED_ORIGIN=https://team-skyjs.github.io`를 직접 줘야 하고, 그 값이 틀리면 사본 오류를 못 잡는다.
 
