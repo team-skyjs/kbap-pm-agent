@@ -2,11 +2,10 @@
 import json
 import logging
 
-from agents import Agent, OpenAIResponsesModel, Runner, function_tool, set_tracing_disabled
+from agents import Agent, MaxTurnsExceeded, OpenAIResponsesModel, Runner, function_tool, set_tracing_disabled
 from openai import AsyncOpenAI
 
 from app import amplitude
-from app.config import num
 
 log = logging.getLogger("app.agent_openai")
 # ponytail: SDK 기본 트레이싱은 실행 내용을 OpenAI 트레이스 대시보드로 내보낸다. 요청받지 않은 외부 전송이라 끈다. 필요하면 env로 켜기
@@ -43,6 +42,7 @@ def _call_id(raw) -> str | None:
 
 async def run(model: str, system: str, history: list[dict], tools: list, emit, usage) -> str:
     """도구 루프를 돌려 최종 AgentAnswer JSON 문자열을 돌려준다."""
+    from app.agent import TurnLimit, max_turns
     from app.schemas import AgentAnswer
 
     ftools = [function_tool(t) for t in tools]  # 이벤트는 공통 래퍼가 낸다
@@ -59,7 +59,7 @@ async def run(model: str, system: str, history: list[dict], tools: list, emit, u
     try:
         agent = Agent(name="kbap-pm-agent", instructions=f"{system}, Amplitude {amp}", model=_model(model),
                       tools=ftools, mcp_servers=servers, output_type=AgentAnswer)
-        result = Runner.run_streamed(agent, input=history, max_turns=int(num("AGENT_MAX_TOOL_CALLS", 5)) + 2)
+        result = Runner.run_streamed(agent, input=history, max_turns=max_turns())  # 모델 호출 1회 = 1턴
         mcp_calls: set[str] = set()
         try:
             async for ev in result.stream_events():
@@ -75,6 +75,8 @@ async def run(model: str, system: str, history: list[dict], tools: list, emit, u
                     failed = out.startswith(FAIL) or bool((getattr(ev.item, "custom_data", None) or {}).get("is_error"))
                     await emit({"type": "tool_result", "key": _call_id(raw), "status": "failed" if failed else "succeeded",
                                 "summary": out.splitlines()[0][:500] if out else "", "text": out})
+        except MaxTurnsExceeded:  # max_turns 다음 모델 호출 직전에 멈춘다(마지막 턴의 도구는 실행됨)
+            raise TurnLimit()
         finally:
             # ponytail: 실행 전체 합계를 한 번 기록한다(요청별 행 아님). 요청별 비용이 필요하면 raw_responses 순회로
             u = result.context_wrapper.usage

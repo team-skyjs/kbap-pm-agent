@@ -5,7 +5,6 @@ import logging
 from anthropic import AsyncAnthropic, beta_async_tool
 
 from app import amplitude
-from app.config import num
 
 log = logging.getLogger("app.agent_anthropic")
 BETAS = ["server-side-fallback-2026-07-01"]  # fallbacks="default"와 짝 (배열형은 2026-06-01 헤더라 섞으면 400)
@@ -34,7 +33,7 @@ def _usage(u) -> tuple[int, int]:
 
 async def run(model: str, system: str, history: list[dict], tools: list, emit, usage) -> str:
     """도구 루프를 돌려 최종 AgentAnswer JSON 문자열을 돌려준다. 거절이면 agent.Refused."""
-    from app.agent import Refused, wrap
+    from app.agent import Refused, TurnLimit, max_turns, wrap
     from app.schemas import AgentAnswer
 
     btools = [beta_async_tool(t) for t in tools]
@@ -53,7 +52,7 @@ async def run(model: str, system: str, history: list[dict], tools: list, emit, u
         runner = _client().beta.messages.tool_runner(
             model=model, max_tokens=16000, system=f"{system}, Amplitude {amp}", messages=history, tools=btools,
             output_format=AgentAnswer, thinking={"type": "adaptive"}, cache_control={"type": "ephemeral"},
-            betas=BETAS, fallbacks="default", max_iterations=int(num("AGENT_MAX_TOOL_CALLS", 5)) + 2)
+            betas=BETAS, fallbacks="default", max_iterations=max_turns())  # 반복 1회 = 모델 요청 1회 = 1턴
         last = None
         async for message in runner:  # tool_choice는 넘기지 않는다(auto). 현행 모델은 any/tool 강제를 400으로 거부
             usage(*_usage(message.usage))
@@ -62,6 +61,8 @@ async def run(model: str, system: str, history: list[dict], tools: list, emit, u
             last = message
         if last is None:
             raise RuntimeError("모델 응답이 없습니다.")
+        if last.stop_reason == "tool_use":  # max_iterations에 닿아 도구 결과만 받고 끝났다(마지막 턴의 도구는 실행됨)
+            raise TurnLimit()
         return next(b.text for b in last.content if b.type == "text")
 
 

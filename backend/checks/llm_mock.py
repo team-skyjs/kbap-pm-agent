@@ -1,5 +1,5 @@
 """두 LLM SDK에 가짜 HTTP 전송을 넣는 검사 도우미. 실제 SDK 요청 생성·응답 파싱 경로를 그대로 탄다. 비용 0.
-스크립트 단계: ("tool", 도구이름, 입력) | ("final", AgentAnswer dict) | ("refusal",)"""
+스크립트 단계: ("tool", 도구이름, 입력) | ("tools", [(도구이름, 입력), ...]) 병렬 호출 | ("final", AgentAnswer dict) | ("refusal",)"""
 import asyncio
 import json
 
@@ -13,10 +13,16 @@ from app import agent_anthropic, agent_openai
 sent: list = []  # 보낸 요청 본문 (검사에서 확인용)
 
 
+def _calls(step):
+    return [(step[1], step[2])] if step[0] == "tool" else step[1]
+
+
 def _anthropic_reply(step, n):
     usage = {"input_tokens": 100, "output_tokens": 10}
-    if step[0] == "tool":
-        content, stop = [{"type": "tool_use", "id": f"tu{n}", "name": step[1], "input": step[2]}], "tool_use"
+    if step[0] in ("tool", "tools"):
+        content = [{"type": "tool_use", "id": f"tu{n}_{i}", "name": name, "input": args}
+                   for i, (name, args) in enumerate(_calls(step))]
+        stop = "tool_use"
     elif step[0] == "final":
         content, stop = [{"type": "text", "text": json.dumps(step[1], ensure_ascii=False)}], "end_turn"
     else:
@@ -26,9 +32,9 @@ def _anthropic_reply(step, n):
 
 
 def _openai_reply(step, n):
-    if step[0] == "tool":
-        out = [{"type": "function_call", "id": f"fc{n}", "call_id": f"call{n}", "name": step[1],
-                "arguments": json.dumps(step[2]), "status": "completed"}]
+    if step[0] in ("tool", "tools"):
+        out = [{"type": "function_call", "id": f"fc{n}_{i}", "call_id": f"call{n}_{i}", "name": name,
+                "arguments": json.dumps(args), "status": "completed"} for i, (name, args) in enumerate(_calls(step))]
     else:
         out = [{"type": "message", "id": f"m{n}", "role": "assistant", "status": "completed",
                 "content": [{"type": "output_text", "annotations": [], "text": json.dumps(step[1], ensure_ascii=False)}]}]

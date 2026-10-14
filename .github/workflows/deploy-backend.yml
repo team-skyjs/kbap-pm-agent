@@ -94,7 +94,7 @@ jobs:
           CODE_SUMMARY_MODEL=${CODE_SUMMARY_MODEL:-anthropic:claude-haiku-5-5}
           ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
           OPENAI_API_KEY=$OPENAI_API_KEY
-          AGENT_MAX_TOOL_CALLS=5
+          AGENT_MAX_TURNS=10
           AGENT_TIMEOUT_SECONDS=170
           LLM_BUDGET_USD=${LLM_BUDGET_USD:-200}
           AMPLITUDE_MCP_URL=${AMPLITUDE_MCP_URL:-https://mcp.amplitude.com/mcp}

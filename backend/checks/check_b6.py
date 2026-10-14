@@ -105,14 +105,21 @@ try:
         assert m["status"] == "failed" and m["errorCode"] == "UPSTREAM_ERROR"
         ok(f"{provider}: 신규 단계 location null → error UPSTREAM_ERROR, 메시지 failed")
 
-        os.environ["AGENT_MAX_TOOL_CALLS"] = "2"
-        script(provider, (("tool", "search_taxonomy", {"query": "scan"}) for _ in itertools.count()))
+        # 턴 상한: 모델 요청 1회 = 1턴, 병렬 도구 호출 응답도 1턴. AGENT_MAX_TURNS=2면 두 번째 모델 응답의 도구까지 실행 후 멈춘다
+        os.environ["AGENT_MAX_TURNS"] = "2"
+        script(provider, itertools.chain(
+            [("tools", [("search_taxonomy", {"query": "scan"}), ("get_event_definition", {"name": "scan_start"})])],
+            (("tool", "search_taxonomy", {"query": "scan"}) for _ in itertools.count())))
         evs = sse(c, new_conv())
-        os.environ.pop("AGENT_MAX_TOOL_CALLS")
-        assert [e for e, _ in evs] == ["message_created", "tool_call", "tool_result", "tool_call", "tool_result", "final"], [e for e, _ in evs]
+        os.environ.pop("AGENT_MAX_TURNS")
+        assert len(sent) == 2, f"모델 요청 {len(sent)}회 (2회여야 함)"
+        assert [e for e, _ in evs].count("tool_call") == 3 and [e for e, _ in evs].count("tool_result") == 3, [e for e, _ in evs]
+        assert evs[-1][0] == "final", evs[-1]
         final = Message.model_validate(evs[-1][1])
-        assert final.proposals == [] and final.content.startswith("도구 호출 상한(2회)에 도달해 여기까지의 조회 결과로 답합니다.")
-        ok(f"{provider}: 도구 호출 상한 → 부분 final")
+        assert final.status == "completed" and final.proposals == []
+        assert final.content.startswith("모델 호출 상한(2턴)에 도달해 여기까지의 조회 결과로 답합니다."), final.content
+        assert all(t.status == "succeeded" for t in final.tool_calls)
+        ok(f"{provider}: AGENT_MAX_TURNS=2 → 모델 요청 2회(병렬 2개 = 1턴), 도구 3회 실행 후 부분 final")
 
         os.environ["AGENT_TIMEOUT_SECONDS"] = "1"
         script(provider, (("tool", "search_taxonomy", {"query": "scan"}) for _ in itertools.count()), delay=0.6)

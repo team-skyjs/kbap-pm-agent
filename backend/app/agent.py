@@ -117,6 +117,15 @@ class Refused(Exception):
     """모델이 stop_reason refusal로 답을 거절했다."""
 
 
+class TurnLimit(Exception):
+    """모델 호출 턴 상한(AGENT_MAX_TURNS)에 닿았다. 각 런타임이 SDK 상한에 닿으면 던진다."""
+
+
+def max_turns() -> int:
+    """실행 1회의 모델 호출(요청) 수 상한. 도구 호출은 세지 않는다(비용 0). 병렬 도구 호출 응답도 1턴."""
+    return int(num("AGENT_MAX_TURNS", 10))
+
+
 def wrap(fn, emit, source: str, name: str | None = None):
     """공통 도구 래퍼: tool_call 이벤트 → 실행 → tool_result 이벤트. 예외는 failed로 알리고 다시 던져
     각 SDK가 오류 결과로 모델에 돌려주게 한다(실행은 계속, ADR-16). functools.wraps로 원래 시그니처·docstring이
@@ -174,7 +183,7 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
 
     from app.schemas import AgentAnswer
 
-    max_calls, timeout = int(num("AGENT_MAX_TOOL_CALLS", 5)), num("AGENT_TIMEOUT_SECONDS", 170)
+    timeout = num("AGENT_TIMEOUT_SECONDS", 170)
     try:
         mod, model = runtime(agent_model())
     except ValueError as e:
@@ -191,7 +200,7 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
     task = asyncio.create_task(mod.run(model, system, _history(conversation_id), tools, queue.put, usage))
     results: list[tuple[str, str]] = []  # (도구 이름, 결과 요약) — 상한 도달 시 부분 답에 쓴다
     names: dict[str, str] = {}
-    calls, reason = 0, None
+    reason = None
     try:
         async with asyncio.timeout(timeout):
             while True:
@@ -205,20 +214,19 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
                 else:
                     ev = getter.result()
                 if ev["type"] == "tool_call":
-                    calls += 1
                     names[ev["key"]] = ev["name"]
                 elif ev["type"] == "tool_result":
                     results.append((names.get(ev["key"], "?"), ev["summary"]))
                 yield ev
-                if calls >= max_calls and len(results) >= calls and not task.done():  # 걸린 호출의 결과까지 받은 뒤 멈춘다
-                    reason = f"도구 호출 상한({max_calls}회)에 도달해 여기까지의 조회 결과로 답합니다."
-                    break
     except TimeoutError:
         reason = f"실행 시간 상한({timeout:g}초)에 도달해 여기까지의 조회 결과로 답합니다."
     finally:
         if not task.done():
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
+    if reason is None and task.done() and not task.cancelled() and isinstance(task.exception(), TurnLimit):
+        # 턴 상한은 SDK가 센다(anthropic max_iterations, openai max_turns: 둘 다 모델 요청 1회 = 1턴이고 마지막 턴의 도구까지 실행 후 멈춘다)
+        reason = f"모델 호출 상한({max_turns()}턴)에 도달해 여기까지의 조회 결과로 답합니다."
     if reason:
         yield {"type": "final", "content": partial_content(reason, results), "proposals": []}
         return
