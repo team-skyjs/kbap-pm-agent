@@ -144,7 +144,7 @@ description: "PM Agent 프로토타입 구현 태스크"
 ### B5 — 코드 도구 + 요약 캐시 + 예산
 
 - [ ] T035 [P] [US2] [BE] `backend/app/budget.py`: 모든 LLM 호출의 사용량을 기록하고 예산을 검사한다. (B5)
-  - 기록: `record(purpose, model, input_tokens, output_tokens, message_id)`가 단가표(설정)로 `cost_usd`를 계산해 `llm_usage`에 넣는다. fake 모드는 기록하지 않는다.
+  - 기록: `record(purpose, model, input_tokens, output_tokens, message_id)`가 단가표(설정)로 `cost_usd`를 계산해 `llm_usage`에 넣는다. fake 모드도 토큰 0·`cost_usd` 0 행을 기록한다(fake `usage.costUsd` 0이 이 합산에서 나온다).
   - 검사: `check()`는 `SUM(cost_usd) >= LLM_BUDGET_USD`이면 `BUDGET_EXCEEDED`를 낸다. `backend/app/conversations.py`의 메시지 전송 라우트에서 스트림 시작 전에 `check()`를 호출하도록 붙인다(계약 05-messages의 스트림 전 에러).
 - [ ] T036 [US2] [BE] `backend/app/code_tools.py`: 에이전트 도구. (B5)
   - 코드 도구: `find_event_calls(eventName)`(인덱스), `search_code(regex, glob)`(rg, 최대 30건), `get_screen_summary(path)`(캐시), `read_code(path, startLine, endLine)`(호출당 최대 200줄, 저장소 밖 경로 거부).

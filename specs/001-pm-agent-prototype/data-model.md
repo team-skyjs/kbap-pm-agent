@@ -84,7 +84,7 @@ JSON 컬럼 내부 구조(계약서 Proposal 규칙과 동일):
 | purpose | ENUM('agent','code_summary') | |
 | model | VARCHAR(100) | `init_chat_model` 문자열 그대로 |
 | input_tokens, output_tokens | INT | |
-| cost_usd | DECIMAL(10,4) | 설정 단가표로 계산. fake 모드는 기록하지 않음 |
+| cost_usd | DECIMAL(10,4) | 설정 단가표로 계산. fake 모드도 행을 남기되 토큰 0·`cost_usd` 0(계약: fake `usage.costUsd`는 `0`, usage는 이 테이블 합산) |
 | created_at | DATETIME(3) | |
 
 `SUM(cost_usd)`가 `settings.budget.spentUsd`다. 이 값이 `LLM_BUDGET_USD` 이상이면 새 메시지와 코드 요약을 거절한다.
