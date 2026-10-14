@@ -72,13 +72,13 @@ description: "질문 마법사 구현 태스크"
   - `agent_anthropic.py`: `messages.parse(model, max_tokens=2000, output_format=RefineResult, output_config={"effort": "low"}, messages=[...])`. `tools`·`tool_choice`·`thinking`은 주지 않는다. `stop_reason == "refusal"`이면 예외다. usage를 반환한다.
   - `agent_openai.py`: `Agent(model, output_type=RefineResult, tools=[])` 단발 실행, usage를 반환한다.
   - `agent.refine()` real 분기가 이를 부르고 `budget.record("refine", model_str, ...)`한다.
-- [ ] T010 [US2] [BE] `backend/app/refine.py` `REFINE_PROMPT` 상수: ADR-30의 규칙 여섯 개(의도 유지, 기간·실제 이벤트 이름·지표·산출물 드러내기, 지어내지 않기·목록에 없는 대상은 사용자 말 유지, 기본값은 요약에 "(원문에 없음)", 이미 구체적이면 그대로, 한국어 두 문장 이내·요약 한 줄)를 문장으로 둔다 (Q1)
+- [ ] T010 [US2] [BE] `backend/app/refine.py` `REFINE_PROMPT` 상수: ADR-30의 규칙 여덟 개(7·8은 실제 키 QA 관찰로 추가. 아래는 1~6의 요지:의도 유지, 기간·실제 이벤트 이름·지표·산출물 드러내기, 지어내지 않기·목록에 없는 대상은 사용자 말 유지, 기본값은 요약에 "(원문에 없음)", 이미 구체적이면 그대로, 한국어 두 문장 이내·요약 한 줄)를 문장으로 둔다 (Q1)
 - [ ] T011 [US2] [BE] `refine.py` 입력 조립 함수 `build_prompt(question, conversation_id)`(research R5): (Q1)
   - 택사노미: `app_settings.taxonomy`의 `events[].name`만 쉼표로 잇고, 없으면 "택사노미 없음"이다. 4,000자를 넘으면 앞에서부터 4,000자 안에 드는 이름까지만 넣고 `truncated=True`를 함께 반환한다.
   - 이력: 대화의 `status='completed'`이고 비어 있지 않은 메시지 중 최근 사용자 2개·에이전트 2개, 각 앞 500자, 오래된 순이다. null 대화면 이력 없음이다.
   - 마지막에 질문을 붙인다.
 - [ ] T012 [US2] [BE] `check_b10.py`에 항목을 추가한다. (Q1 검사)
-  - 프롬프트: `REFINE_PROMPT`에 규칙 키 문장 여섯 개가 들어 있다.
+  - 프롬프트: `REFINE_PROMPT`에 규칙 키 문장 여덟 개가 들어 있다.
   - 조립: `build_prompt`에 택사노미 정의·속성 문자열이 없고 이름만 있다. 이력이 4개 이하이고 각 500자 이하이며 순서가 맞다. 택사노미가 없으면 "택사노미 없음"이다. 이름 합계가 4,000자를 넘는 택사노미면 넣은 이름 문자열이 4,000자 이하이고 `truncated`이며, fake 응답 요약 끝에 고정 문구가 붙고 300자 이하다.
   - 가짜 전송: 두 런타임이 `RefineResult`를 돌려주고 사용량 행이 생긴다(기존 `checks/llm_mock.py` 재사용). refusal과 잘못된 JSON은 502이고 행이 없다.
 - [x] T013 [US2] [QA] US2 검증: `check_b10.py`를 실행한다. 실제 키가 있으면 spec US2 수락 시나리오 질문 네 개(일상어, 택사노미에 없는 대상, 후속 질문, 이미 구체적)를 다듬어 규칙 위반을 리포트한다. 키가 없으면 "미검증"으로 둔다 (Q1 QA)
