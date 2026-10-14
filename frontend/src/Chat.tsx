@@ -99,6 +99,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   const [notice, setNotice] = useState('')
   const [streamErrors, setStreamErrors] = useState<Record<number, string>>({})
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [tokenError, setTokenError] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   // 사용자가 맨 아래를 보고 있을 때만 자동 스크롤
@@ -162,6 +163,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     const content = input.trim()
     if (!content || streaming) return
     setNotice('')
+    setTokenError(false)
     setStreaming(true)
     try {
       const end = await sendMessage(id, content, onEvent)
@@ -172,6 +174,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     } catch (e) {
       // 스트림 시작 전 에러(실행 중, 예산 초과, 입력 오류 등)는 입력창 아래에 안내
       setNotice(describe(e))
+      setTokenError(e instanceof ApiError && e.code === 'UNAUTHORIZED')
       // 토큰 문제(UNAUTHORIZED)는 설정 안내로 충분, 배너는 세션 만료 코드에만. 이 코드는 접근 제한 머지 후 생김
       if (e instanceof ApiError && (e.code as string) === 'SESSION_EXPIRED') setSessionExpired(true)
       if (e instanceof ApiError && e.code === 'RUN_IN_PROGRESS') load()
@@ -243,6 +246,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
         </div>
         <p id="chat-hint" className={notice ? 'hint error' : 'hint muted'} aria-live="polite">
           {notice || (disabled ? '에이전트 실행 중에는 보낼 수 없습니다' : 'Enter로 전송, Shift+Enter로 줄바꿈')}
+          {tokenError && <> <a href="#/settings">설정 열기</a></>}
         </p>
       </div>
     </>

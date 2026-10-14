@@ -32,8 +32,8 @@ export function Topbar({ title, children }: { title: string; children?: ReactNod
 export function SessionBanner() {
   return (
     <div className="session-banner" role="alert">
-      <span>로그인이 만료되었습니다. 입력한 내용은 그대로 남아 있습니다.</span>
-      <a href="#/settings" className="btn">다시 로그인</a>
+      <span>로그인이 만료되었습니다. 다시 로그인한 뒤 보내 주세요.</span>
+      <button type="button" className="btn" onClick={() => location.reload()}>다시 로그인</button>
     </div>
   )
 }
