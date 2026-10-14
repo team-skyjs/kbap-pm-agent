@@ -1,15 +1,32 @@
 """B8 검사 (운영): PUBLIC_BASE_URL의 health 200, GitHub Pages 출처 preflight, SSE가 100초 이상 끊기지 않음.
 SSE 장시간 검사는 서버가 AGENT_MODE=fake, FAKE_DELAY_SECONDS=21 이상일 때만 돈다(이벤트 사이 지연 → 약 105초).
 실행: PUBLIC_BASE_URL=https://... [ACCESS_TOKEN=...] uv run python checks/check_b8.py"""
-import json
 import os
+import re
+import subprocess
 import time
 
 import httpx
 
 base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
 auth = {"Authorization": f"Bearer {os.environ['ACCESS_TOKEN']}"} if os.environ.get("ACCESS_TOKEN") else {}
-origin = "https://team-skyjs.github.io"
+
+
+def expected_origin() -> str:
+    """Pages 출처의 단일 기준은 git remote 소유자다(ADR-18). 서버 CORS_ORIGINS를 기대값으로 쓰지 않는다(동어반복)."""
+    try:
+        url = subprocess.run(["git", "remote", "get-url", "origin"], capture_output=True, text=True,
+                             cwd=os.path.dirname(os.path.abspath(__file__))).stdout.strip()
+    except OSError:  # 컨테이너엔 git 저장소가 없을 수 있다
+        url = ""
+    m = re.search(r"github\.com[:/]([^/]+)/", url)  # https://github.com/owner/repo(.git), git@github.com:owner/repo.git
+    if m:
+        return f"https://{m.group(1).lower()}.github.io"
+    assert os.environ.get("EXPECTED_ORIGIN"), "git remote가 없다. EXPECTED_ORIGIN=https://<owner>.github.io 를 지정"
+    return os.environ["EXPECTED_ORIGIN"].rstrip("/")
+
+
+origin = expected_origin()
 
 r = httpx.get(f"{base}/api/health", timeout=10)
 assert r.status_code == 200 and r.json() == {"status": "ok", "db": "ok", "version": "0.1.0"}, r.text

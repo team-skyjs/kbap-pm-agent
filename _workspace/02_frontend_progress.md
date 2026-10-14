@@ -1,7 +1,7 @@
 # 02 Frontend progress
 
 실행: `cd frontend && npm ci && VITE_API_BASE_URL=http://localhost:8000 npm run dev` → http://localhost:5173/kbap-pm-agent/
-백엔드 없이: `VITE_MOCK=1 npm run dev` (계약서 예시 값 mock, 상단 "mock 데이터" 배지). 운영 빌드에는 mock이 들어가지 않는다(check-f6이 확인).
+백엔드 없이 띄우려면 백엔드를 `AGENT_MODE=fake`(기본)로 띄운다. 프론트 mock은 모든 B 모듈 연동 후 삭제했다.
 검사: `npm run check -- f<N>` (tsc --noEmit 후 tsx로 checks/check-f<N>.ts). 인자 없으면 f1~f5 전부. f6은 `VITE_API_BASE_URL=... npm run build && VITE_API_BASE_URL=... npm run check -- f6`.
 검사는 specs/001-pm-agent-prototype/contracts/*.md 코드 블록을 원문 그대로 읽어 파서에 넣는다(checks/contract.ts).
 
