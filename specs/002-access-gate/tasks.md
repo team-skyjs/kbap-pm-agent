@@ -80,6 +80,7 @@ description: "접근 제한 구현 태스크"
   - `deploy/`·`.github/`·`backend/`·`frontend/`에 서버 사용자 경로(`/home/`)와 `deploy/README.md` 이전 버전에 있던 운영 도메인 문자열이 없다. 문자열은 스크립트에 쓰지 않는다. 비교 기준은 CI Variable `PUBLIC_BASE_URL`의 호스트이고, 로컬에서는 같은 이름의 환경변수다.
 - [ ] T015 [QA] G4 교차 검증: 다음을 확인하고 `check_g4.sh`를 실행한다. (G4 QA)
   - 비고: 운영 항목(배포 실행·홈서버 healthy·터널 불변)은 머지 후 첫 자동 배포에서 검증한다. 미머지 브랜치로 운영을 바꾸지 않는다(team-lead 결정).
+  - 비고: verify job 분기(fb881c0) 로컬 확인 — `CF_ACCESS_CLIENT_ID`·`CF_ACCESS_CLIENT_SECRET` 중 하나라도 비면 경고 후 종료 0, 둘 다 있으면 check_b8 엄격 실행(실패 시 종료 1), 둘 다 있고 `PUBLIC_BASE_URL`이 비면 종료 1. 하나만 설정된 반쯤 설정 상태도 경고 후 통과하므로 T024 직후 첫 배포 로그에서 경고가 사라졌는지 확인한다. 실행 확인은 머지 후.
   - `workflow_dispatch`로 배포를 실행해 두 이미지가 같은 태그로 푸시된다.
   - 홈서버에서 두 컨테이너가 healthy이고 배포 스크립트 헬스(웹·nginx 경유 API)가 통과한다.
   - 이 시점에는 터널이 아직 백엔드를 직접 가리키므로 운영 동작이 바뀌지 않아야 한다.
