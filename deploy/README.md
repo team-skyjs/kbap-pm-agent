@@ -14,7 +14,7 @@ main에 병합되면 자동 배포된다.
 
    | Secrets (비밀) | 내용 |
    |---|---|
-   | `DATABASE_URL` | `mysql://pm:<암호>@mysql-prod:3306/kbap_pm_agent` (mysql-init.sql의 계정) |
+   | `DATABASE_URL` | `mysql://kbap_pm:<비밀번호>@mysql-prod:3306/kbap_pm_agent` (mysql-init.sql의 `kbap_pm` 계정, `<암호>` 자리에 넣은 값) |
    | `ANTHROPIC_API_KEY` | Claude 키 |
    | `OPENAI_API_KEY` | GPT 쓸 때만. 없으면 빈 값 |
    | `GH_PAT` | kbap-fe 클론용 PAT (Contents: Read). env 파일에는 `GITHUB_TOKEN`으로 들어간다 |
