@@ -67,7 +67,7 @@ description: "접근 제한 구현 태스크"
   - 빌드: `build` job이 백엔드(`context: backend`, `ghcr.io/<owner>/kbap-pm-agent`)와 웹(`context: frontend`, `ghcr.io/<owner>/kbap-pm-agent-web`) 이미지를 같은 커밋 태그로 빌드·푸시한다(matrix 또는 step 2개).
   - 정리: `CORS_ORIGINS` 관련 env 줄과 주석의 러너 이름·운영 식별자를 지운다.
 - [ ] T010 [BE] `deploy/docker-compose.kbap-pm-agent.yml`: `kbap-pm-agent-web` 서비스를 추가한다(이미지 `${IMAGE_WEB}:${IMAGE_TAG}`, `monitor-net`, `127.0.0.1:8002:80`, `restart: unless-stopped`, healthcheck `wget -qO- http://127.0.0.1/`). `env_file` 기본값의 서버 경로를 지우고 `${ENV_FILE:?}` 필수로 바꾼다 (G4)
-- [ ] T011 [BE] `deploy/deploy.kbap-pm-agent.sh`·`deploy/push-and-deploy.sh`: 서버 경로 기본값을 지우고 `COMPOSE_FILE`·`ENV_FILE`·원격 경로를 환경변수 필수로 바꾼다. 헬스체크에 웹 컨테이너 `127.0.0.1:8002/`(HTML)와 `127.0.0.1:8002/api/health`(nginx 경유 백엔드)를 추가한다 (G4)
+- [ ] T011 [BE] `deploy/deploy.kbap-pm-agent.sh`·`deploy/push-and-deploy.sh`: 서버 경로 기본값을 지우고 `COMPOSE_FILE`·`ENV_FILE`·원격 경로를 환경변수 필수로 바꾼다. `push-and-deploy.sh`의 ssh 별칭 기본값(`HOST="${1:-...}"`)도 지우고 첫 인자를 필수로 한다. 없으면 사용법을 출력하고 종료 코드 1이다(QA 지적). 헬스체크에 웹 컨테이너 `127.0.0.1:8002/`(HTML)와 `127.0.0.1:8002/api/health`(nginx 경유 백엔드)를 추가한다 (G4)
 - [ ] T012 [BE] `deploy/README.md`·`deploy/kbap-pm-agent.env.example`: 운영 도메인을 `pm-agent.example.com`이나 `<운영 호스트명>`으로 바꾼다. `CORS_ORIGINS`·`VITE_API_BASE_URL`·Pages 절차를 지운다. 다음을 적는다. (G4)
   - 터널 규칙: 운영 호스트명 → `http://kbap-pm-agent-web:80`, 백엔드 직접 규칙은 삭제.
   - Access 설정 절차: T020·T021·T024 요약.
@@ -76,11 +76,13 @@ description: "접근 제한 구현 태스크"
 - [ ] T014 [BE] `deploy/checks/check_g4.sh`: assert 항목은 다음과 같다. (G4 검사)
   - 더미 env로 `docker compose -f deploy/docker-compose.kbap-pm-agent.yml config`가 성공하고 서비스 `kbap-pm-agent`·`kbap-pm-agent-web` 둘이 있다.
   - `ENV_FILE` 없이는 compose가 실패한다(필수화 확인).
+  - `deploy/push-and-deploy.sh`를 인자 없이 실행하면 원격 접속 전에 종료 코드 1로 끝난다. 레포의 셸 스크립트에 `${1:-` 형태로 호스트·별칭 기본값을 두는 줄이 없다(ssh 별칭 검출).
   - `deploy/`·`.github/`·`backend/`·`frontend/`에 서버 사용자 경로(`/home/`)와 `deploy/README.md` 이전 버전에 있던 운영 도메인 문자열이 없다. 문자열은 스크립트에 쓰지 않는다. 비교 기준은 CI Variable `PUBLIC_BASE_URL`의 호스트이고, 로컬에서는 같은 이름의 환경변수다.
 - [ ] T015 [QA] G4 교차 검증: 다음을 확인하고 `check_g4.sh`를 실행한다. (G4 QA)
   - `workflow_dispatch`로 배포를 실행해 두 이미지가 같은 태그로 푸시된다.
   - 홈서버에서 두 컨테이너가 healthy이고 배포 스크립트 헬스(웹·nginx 경유 API)가 통과한다.
   - 이 시점에는 터널이 아직 백엔드를 직접 가리키므로 운영 동작이 바뀌지 않아야 한다.
+  - 운영 식별자 세 종류(서버 경로, 운영 도메인, ssh 별칭)가 `deploy/`·`.github/`에 남지 않았다.
 
 **Checkpoint**: 로컬은 같은 출처로 동작하고, 웹 컨테이너가 홈서버에 떠 있다(아직 비공개).
 
