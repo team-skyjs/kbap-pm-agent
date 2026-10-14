@@ -1,11 +1,11 @@
-# 서버용 (빌드 없음). CI(deploy-backend.yml)가 체크아웃한 이 파일을 그대로 쓴다. 수동 배포는 /home/simhani1/files/ 로 복사해 쓴다.
+# 서버용 (빌드 없음). CI(deploy-backend.yml)가 체크아웃한 이 파일을 그대로 쓴다. 수동 배포는 서버의 배포 디렉토리(<서버 경로>)로 복사해 쓴다.
 # cloudflared 와 같은 docker 네트워크(monitor-net)에 붙여 터널 Service URL 을 http://kbap-pm-agent:8000 으로 잡는다.
 # 포트 8000은 kbap-amplitude가 쓰므로 호스트는 8001 (ADR-11).
 services:
   kbap-pm-agent:
     image: ${IMAGE:-ghcr.io/team-skyjs/kbap-pm-agent}:${IMAGE_TAG:-latest}   # CI가 커밋 해시 태그를 넣는다
     container_name: kbap-pm-agent
-    env_file: ${ENV_FILE:-/home/simhani1/files/kbap-pm-agent.env}   # CI는 Secrets로 생성한 파일을 넘긴다
+    env_file: ${ENV_FILE:?ENV_FILE 필요 - 서버의 env 파일 경로}   # CI는 Secrets로 생성한 파일을 넘긴다. 실제 경로는 서버에서만
     networks:
       - monitor-net
     ports:

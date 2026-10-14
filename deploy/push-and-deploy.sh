@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # 수동 폴백. 기본 경로는 CI(.github/workflows/deploy-backend.yml). 개발 PC 에서 실행: 멀티아키 이미지 빌드·푸시 → env/compose/스크립트 서버 전송 → 서버 배포 스크립트 원격 실행
-# 사용: ./deploy/push-and-deploy.sh <ssh-host>. 운영 env는 레포 루트 .env.prod (gitignore됨)
+# 사용: REMOTE_DIR=<서버 경로> ./deploy/push-and-deploy.sh <ssh-host>. 운영 env는 레포 루트 .env.prod (gitignore됨)
 set -e
 cd "$(dirname "$0")/.."
 
 HOST="${1:?ssh 호스트 별칭을 인자로 넘긴다}"
 IMAGE="ghcr.io/team-skyjs/kbap-pm-agent"   # 사전 docker login ghcr.io 필요
 TAG="$(git rev-parse --short HEAD)"
-REMOTE_DIR="/home/simhani1/files"
+REMOTE_DIR="${REMOTE_DIR:?REMOTE_DIR 필요 - 서버 배포 디렉토리. 실제 값은 레포에 두지 않는다}"
 
 [ -f .env.prod ] || { echo ".env.prod 없음 (cp deploy/kbap-pm-agent.env.example .env.prod 후 값 입력)"; exit 1; }
 
@@ -21,5 +21,5 @@ scp -q deploy/deploy.kbap-pm-agent.sh           "$HOST:$REMOTE_DIR/"
 ssh "$HOST" "chmod 600 $REMOTE_DIR/kbap-pm-agent.env && chmod +x $REMOTE_DIR/deploy.kbap-pm-agent.sh"
 
 echo "[3/3] 서버 배포 스크립트 실행"
-ssh "$HOST" "$REMOTE_DIR/deploy.kbap-pm-agent.sh"
+ssh "$HOST" "COMPOSE_FILE=$REMOTE_DIR/docker-compose.kbap-pm-agent.yml ENV_FILE=$REMOTE_DIR/kbap-pm-agent.env $REMOTE_DIR/deploy.kbap-pm-agent.sh"
 echo "배포된 태그: $TAG"
