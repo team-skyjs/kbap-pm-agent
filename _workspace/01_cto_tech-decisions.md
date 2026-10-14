@@ -202,7 +202,8 @@
 - 바꾸면 영향:
   - 바뀌는 것: `backend/app/agent.py`, `agent_anthropic.py`, `agent_openai.py`, `amplitude.py`의 도구 공급 함수, `pyproject.toml`, `backend/checks/check_b6.py`·`check_b7.py`.
   - 그대로인 것: API 계약 v1.1, 프론트, DB 스키마, SSE 이벤트 형식.
-- 미검증: 실제 키 호출 전이다. 다음 이름은 설치본에서 구현자가 확인한다. `openai-agents`의 `max_turns`/`MaxTurnsExceeded`, 실행 사용량 접근 경로(`result.context_wrapper.usage`), `function_tool`/`tool` 데코레이터 이름.
+- 구현 확인(9e1c2c6): `openai-agents` 0.23.1의 `function_tool`, `max_turns`/`MaxTurnsExceeded`, `result.context_wrapper.usage`를 확인했다. 트레이싱은 끈다. 실행 내용(코드 발췌, 지표)이 OpenAI 트레이스로 나가지 않게 하기 위해서다. MCP 도구는 두 런타임 모두 공통 래퍼로 감싼다(Anthropic `async_mcp_tool` 미사용). Anthropic SDK의 전송 계층은 `httpx2`다.
+- 미검증: 실제 키 호출(T073). 구조화 출력이 `AgentAnswer` 스키마 제약을 받는지가 남았다.
 - 상태: 확정 (헌법 "기술 제약"의 "LangChain 1.x" 문구 개정이 선행돼야 한다. 거버넌스 규칙. team-lead에 개정안 전달)
 
 ## 위임 (구현자가 정하되 "설정으로 바꿀 수 있게"만 지킨다)

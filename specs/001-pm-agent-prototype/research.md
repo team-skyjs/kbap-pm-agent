@@ -77,8 +77,15 @@ docker ps --format '{{.Names}} {{.Ports}}' | grep -E 'mysql|8001'
     - `MCPServerStreamableHttp(name, params={"url", "headers", "timeout", "auth", "httpx_client_factory"}, cache_tools_list, max_retry_attempts)`. `params["auth"]`는 설치된 `mcp` 메이저 버전에 맞는 `httpx.Auth`여야 한다(mcp 1.30 → httpx).
     - `failure_error_function`이 모델에 보이는 MCP 실패 메시지를 정하고, `None`이면 예외를 던진다.
     - `Agent(output_type=PydanticModel)`, `Runner.run_streamed`, `RunItemStreamEvent.name`(`tool_called`, `tool_output`), `result.cancel()`.
-- **미확인 (B9 구현 시 설치본으로 확인)**: OpenAI Agents의 `max_turns`·`MaxTurnsExceeded`, 사용량 접근 경로, 함수 도구 데코레이터 이름(`function_tool` 또는 `tool`). 그리고 Anthropic 구조화 출력이 `AgentAnswer` 스키마의 제약(`minItems`, `anyOf`)을 받는지. 거부되면 ADR-17 규칙대로 Pydantic 사후 검증으로 옮긴다.
-- **키 없는 검증 방법**: 두 SDK 모두 HTTP 클라이언트를 주입할 수 있다. 검사 스크립트가 `httpx.MockTransport`로 스크립트된 API 응답(도구 호출 → 도구 결과 → 최종 JSON)을 넣어 실제 SDK 파싱 경로를 태운다(T069).
+- **B9 구현에서 확인됨** (설치본, backend-dev 9e1c2c6)
+  - **openai-agents 0.23.1**:
+    - 이름: 함수 도구 데코레이터는 `function_tool`, 실행은 `Runner.run_streamed(..., max_turns=)`, 상한 초과는 `MaxTurnsExceeded`, 사용량은 `result.context_wrapper.usage`다.
+    - MCP 실패: MCP `isError` 결과는 예외가 아니라 일반 출력으로 온다. 그래서 `MCPServerStreamableHttp`의 `custom_data_extractor`로 `isError`를 실어 `tool_result` `failed`를 판정한다. 예외는 `failure_error_function` 머리말로 판정한다.
+    - 트레이싱: 기본값이 실행 내용(코드 발췌, 지표 수치)을 OpenAI 트레이스로 내보내므로 끈다.
+  - **anthropic 1.13.0**: `async_mcp_tool`이 있다. 하지만 공통 래퍼가 `tool_call`/`tool_result`를 내야 해서, MCP 도구도 `@beta_async_tool` + MCP `inputSchema`로 직접 감싼다.
+  - **설정**: real 모드는 `CODE_SUMMARY_MODEL`에도 접두사가 있어야 기동한다(ADR-20 "그 외는 기동 실패").
+- **미확인 (T073, 실제 키 필요)**: Anthropic 구조화 출력이 `AgentAnswer` 스키마의 제약(`minItems`, `anyOf`, `minimum`, `maxLength`)을 받는지 확인해야 한다. SDK가 스키마를 변환 없이 보낸다. 거부되면 ADR-17 규칙대로 해당 제약을 Pydantic 사후 검증으로 옮긴다.
+- **키 없는 검증 방법**: 두 SDK 모두 HTTP 클라이언트를 주입할 수 있다. 검사 스크립트가 스크립트된 API 응답(도구 호출 → 도구 결과 → 최종 JSON)을 넣어 실제 SDK 파싱 경로를 태운다(T069). 전송 계층은 SDK마다 다르다. **anthropic 1.x는 `httpx2`**를 쓰므로 `httpx2.MockTransport`로 넣는다(`httpx.AsyncClient`는 TypeError). openai·MCP SDK는 `httpx.MockTransport`다.
 
 ## 기술 선택 메모 (확정 ADR, 구현 시 주의)
 
