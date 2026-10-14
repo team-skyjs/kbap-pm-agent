@@ -42,7 +42,21 @@ type Obj = Record<string, unknown>
 type Conv = { id: number; title: string | null; createdAt: string; updatedAt: string; messages: Obj[]; proposals: Obj[] }
 
 let nextId = 1000
+const msg = (o: Obj) => ({ errorCode: null, toolCalls: [], proposals: [], usage: null, status: 'completed', ...o })
+const seeded7 = [improvementProposal(), funnelProposal()]
 const convs: Conv[] = [
+  // 계약서 04 상세 예시 대화 7 (제안은 두 예시를 함께 붙였다)
+  {
+    id: 7, title: '스캔 퍼널 이탈 지점 개선안', createdAt: '2026-10-15T09:12:03.418Z', updatedAt: '2026-10-15T09:14:41.022Z', proposals: seeded7,
+    messages: [
+      msg({ id: 41, conversationId: 7, role: 'user', content: '스캔 퍼널에서 가장 큰 이탈 지점 찾아서 개선안 제안해줘', createdAt: '2026-10-15T09:12:03.990Z' }),
+      msg({
+        id: 42, conversationId: 7, role: 'assistant', content: '지난 30일 스캔 퍼널에서 가장 큰 이탈은 scan_start → scan_complete(성공) 구간입니다.', createdAt: '2026-10-15T09:12:04.002Z',
+        toolCalls: [{ id: 301, seq: 1, source: 'amplitude', name: 'query_funnel', input: { events: ['scan_start', 'scan_complete'], start: '2026-09-15', end: '2026-10-14' }, status: 'succeeded', resultSummary: 'scan_start 2,418명 → scan_complete(success=true) 999명, 전환율 41.3%', durationMs: 2310, startedAt: '2026-10-15T09:12:05.101Z' }],
+        proposals: seeded7, usage: { model: 'anthropic:claude-sonnet-5-5', inputTokens: 18432, outputTokens: 2210, costUsd: 0.0884 },
+      }),
+    ],
+  },
   { id: 6, title: null, createdAt: '2026-10-14T05:40:00.000Z', updatedAt: '2026-10-14T05:40:00.000Z', messages: [], proposals: [] },
 ]
 
@@ -50,7 +64,6 @@ function summary(c: Conv) {
   const adopted = c.proposals.filter((p) => (p.decision as Obj).status === 'adopted').length
   return { id: c.id, title: c.title, createdAt: c.createdAt, updatedAt: c.updatedAt, messageCount: c.messages.length, proposalCount: c.proposals.length, adoptedCount: adopted }
 }
-const msg = (o: Obj) => ({ errorCode: null, toolCalls: [], proposals: [], usage: null, status: 'completed', ...o })
 
 function sse(c: Conv, content: string): Response {
   const userMessage = msg({ id: nextId++, conversationId: c.id, role: 'user', content, createdAt: now() })
