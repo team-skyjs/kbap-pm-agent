@@ -22,7 +22,7 @@ def expected_origin() -> tuple[str, str]:
     m = re.search(r"github\.com[:/]([^/]+)/", url)  # https://github.com/owner/repo(.git), git@github.com:owner/repo.git
     if m:
         return f"https://{m.group(1).lower()}.github.io", "git remote"
-    # ponytail: 레포 밖 실행 시 수동 값. 기대 출처를 사람이 넣으므로 틀린 값이 통과할 수 있다. 레포 안에서 실행할 것
+    # ponytail: 레포 밖 실행 시 수동 값이라 사본 오류를 못 잡는다. 개발 PC 레포 안에서 실행할 것
     assert os.environ.get("EXPECTED_ORIGIN"), "git remote가 없다. EXPECTED_ORIGIN=https://<owner>.github.io 를 지정"
     return os.environ["EXPECTED_ORIGIN"].rstrip("/"), "EXPECTED_ORIGIN"
 
@@ -36,7 +36,7 @@ print(f"PASS health {base}")
 r = httpx.options(f"{base}/api/conversations", headers={"Origin": origin, "Access-Control-Request-Method": "POST",
                                                        "Access-Control-Request-Headers": "authorization,content-type"})
 assert r.status_code == 200 and r.headers.get("access-control-allow-origin") == origin, (r.status_code, r.headers)
-print(f"PASS preflight Origin {origin} (기대 출처: {origin_source})")
+print(f"PASS preflight Origin {origin} (from {origin_source})")
 
 s = httpx.get(f"{base}/api/settings", headers=auth, timeout=10).json()
 if s["agentMode"] != "fake":
