@@ -34,6 +34,21 @@ for (const scenario of ['sent', 'progress', 'done', 'partial', 'error'] as const
   })
 }
 
+test('도구 일부 실패로 완료: 접힌 요약에 실패 건수, 펼치면 실패 항목', async ({ page }, info) => {
+  await send(page, 'toolFail')
+  const tools = page.locator('.msg.assistant').last().locator('.tools')
+  await expect(tools.locator('summary')).toHaveText(/⚠\s*조회 2건 중 1건 실패/)
+  await expect(tools).toHaveClass(/has-failed/)
+  await tools.locator('summary').click()
+  await expect(tools.locator('li')).toHaveCount(2)
+  const failed = tools.locator('li.failed')
+  await expect(failed).toHaveCount(1)
+  await expect(failed.locator('.tool-failed')).toBeVisible()
+  await expect(failed.locator('.tool-failed')).toHaveText('실패')
+  await expect(failed).toContainText('Amplitude 응답 시간 초과')
+  await shot(page, 'us8-toolfail', info)
+})
+
 test('상태 표시: 토큰 오류는 설정 안내만, 다시 로그인 배너 없음', async ({ page }, info) => {
   const box = await send(page, 'token')
   const main = page.locator('.main')

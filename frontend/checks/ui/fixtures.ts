@@ -7,7 +7,8 @@ export const LIVE = process.env.CHECK_UI_LIVE === '1'
 
 // hang: 응답을 보내지 않고 요청을 열어 둠(스트림 진행 중 화면)
 // token: 백엔드 공유 토큰 401(계약 JSON UNAUTHORIZED), expired: 접근 계층 로그인 HTML 401
-export type Scenario = 'sent' | 'progress' | 'done' | 'partial' | 'error' | 'token' | 'expired' | 'hang'
+// toolFail: 도구 호출 하나가 실패하고 나머지로 완료
+export type Scenario = 'sent' | 'progress' | 'done' | 'partial' | 'error' | 'toolFail' | 'token' | 'expired' | 'hang'
 
 type Json = Record<string, unknown>
 const clone = <T>(v: T): T => structuredClone(v)
@@ -137,8 +138,9 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
       const user = { ...obj(exampleEvent('message_created').userMessage), id: nextId++, conversationId: convId, content, createdAt: now() }
       const aid = nextId++
       const base = { id: aid, conversationId: convId, role: 'assistant', errorCode: null, proposals: [], usage: null, createdAt: now() }
-      const call = (seq: number, status: 'running' | 'succeeded') => ({
+      const call = (seq: number, status: 'running' | 'succeeded' | 'failed') => ({
         ...exampleEvent(status === 'running' ? 'tool_call' : 'tool_result'), id: 500 + seq, seq,
+        ...(status === 'failed' ? { status, resultSummary: 'Amplitude 응답 시간 초과', durationMs: 30000 } : {}),
       })
       const events: [string, unknown][] = [['message_created', { userMessage: user, assistantMessageId: aid }]]
       let saved: Json
@@ -151,6 +153,11 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
         events.push(['tool_call', call(1, 'running')], ['tool_result', call(1, 'succeeded')])
         events.push(['error', { error: { code: 'UPSTREAM_ERROR', message: 'LLM 공급자 응답 오류로 실행을 중단했습니다.' }, assistantMessageId: aid }])
         saved = { ...base, status: 'failed', errorCode: 'UPSTREAM_ERROR', content: '', toolCalls: [call(1, 'succeeded')] }
+      } else if (scenario === 'toolFail') {
+        events.push(['tool_call', call(1, 'running')], ['tool_result', call(1, 'failed')], ['tool_call', call(2, 'running')], ['tool_result', call(2, 'succeeded')])
+        const final = exampleEvent('final')
+        saved = { ...final, ...base, status: 'completed', toolCalls: [call(1, 'failed'), call(2, 'succeeded')], usage: final.usage, content: String(final.content) }
+        events.push(['final', saved])
       } else {
         events.push(['tool_call', call(1, 'running')], ['tool_result', call(1, 'succeeded')])
         const final = exampleEvent('final')
