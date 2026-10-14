@@ -81,7 +81,25 @@ try:
         assert evs[1][1]["source"] == "amplitude" and evs[2][1]["status"] == "failed", evs[2]
         assert "Amplitude MCP 차단" in evs[2][1]["resultSummary"] and not evs[2][1]["resultSummary"].startswith("{"), evs[2]
         Message.model_validate(evs[-1][1])
-        ok(f"{provider}: MCP 도구 성공(source amplitude), MCP 예외 → tool_result failed 후 final")
+        ok(f"{provider}: MCP 도구 성공(source amplitude), MCP isError → tool_result failed 후 final")
+
+        # 클라이언트 예외 경로(Amplitude 다운·연결 끊김, FR-010): call_tool 자체가 ConnectionError를 던진다
+        from mcp import ClientSession  # noqa: E402
+        orig_call = ClientSession.call_tool
+
+        async def down(self, *a, **kw):
+            raise ConnectionError("Amplitude 연결 끊김")
+        ClientSession.call_tool = down
+        try:
+            script(provider, [("tool", "query_funnel", {"events": ["scan_start"]}), ("final", done)])
+            evs = sse(c, c.post("/api/conversations", json={}).json()["id"])
+        finally:
+            ClientSession.call_tool = orig_call
+        assert [e for e, _ in evs] == ["message_created", "tool_call", "tool_result", "final"], evs
+        assert evs[1][1]["source"] == "amplitude" and evs[2][1]["status"] == "failed", evs[2]
+        assert "Amplitude 연결 끊김" in evs[2][1]["resultSummary"], evs[2]  # openai는 AgentsException으로 감싼다
+        assert Message.model_validate(evs[-1][1]).status == "completed"
+        ok(f"{provider}: MCP call_tool ConnectionError → tool_result failed 후 final")
 
     os.environ["AMPLITUDE_MCP_URL"] = "http://127.0.0.1:9/mcp"  # 닫힌 포트: 연결 자체 실패
     for provider, model in [("anthropic", "anthropic:claude-sonnet-5-5"), ("openai", "openai:gpt-6-luna")]:
