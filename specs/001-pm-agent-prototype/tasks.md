@@ -278,7 +278,7 @@ description: "PM Agent 프로토타입 구현 태스크"
   - 실패 경로: 도구가 예외를 던져도 `final`로 끝나고 해당 `tool_result`가 `failed`다. 신규 단계 `location: null` 응답은 `error` `UPSTREAM_ERROR`, (Anthropic) `stop_reason: "refusal"` 응답도 `error` `UPSTREAM_ERROR`다.
   - 상한·접두사: `AGENT_TIMEOUT_SECONDS=1` + 지연 전송이면 부분 `final`이다. 알 수 없는 접두사(`foo:bar`)는 기동 실패다.
   - 마지막으로 `rg -n "langchain" backend/app backend/pyproject.toml`이 비어 있다.
-- [x] T070 [BE] `backend/checks/check_b7.py` 갱신: 연결 상태에서 `anthropic_tools()`가 `source: "amplitude"`로 묶이는 도구를 내고, `openai_server()`가 `params["auth"]`에 같은 provider를 넣는지 확인한다(MCP 서버는 가짜 전송). MCP 호출 예외가 두 런타임 모두에서 `tool_result` `failed` 후 `final`로 이어진다. fake 모드 connect·settings 검사는 기존대로 둔다 (B9 검사)
+- [x] T070 [BE] `backend/checks/check_b7.py` 갱신: 연결 상태에서 `anthropic_tools()`가 `source: "amplitude"`로 묶이는 도구를 내고, `openai_server()`가 `params["auth"]`에 같은 provider를 넣는지 확인한다(MCP 서버는 가짜 전송). MCP 실패 두 경로가 두 런타임 모두에서 `tool_result` `failed` 후 `final`로 이어진다. 두 경로는 (1) `isError` 결과(MCP 서버 도구 예외)와 (2) 클라이언트 예외(`ClientSession.call_tool`에 `ConnectionError` 주입, Amplitude 다운 상황)다(FR-010, QA 66d427a 지적). fake 모드 connect·settings 검사는 기존대로 둔다 (B9 검사)
 - [x] T071 [QA] B9 교차 검증(fake + 가짜 전송): (B9 QA)
   - 기존 검사: `check_b5.py`·`check_b6.py`·`check_b7.py`를 실행한다.
   - SSE 비교: fake 모드 메시지 전송 SSE 원문을 전환 전 기록(T022·T042 로그)과 비교해 이벤트 이름·data 키 구조가 같은지 본다.
