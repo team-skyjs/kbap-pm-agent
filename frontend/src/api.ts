@@ -10,6 +10,7 @@ export type ErrorCode =
   | 'BUDGET_EXCEEDED'
   | 'CONVERSATION_NOT_FOUND'
   | 'PROPOSAL_NOT_FOUND'
+  | 'REFINEMENT_NOT_FOUND'
   | 'NOT_FOUND'
   | 'REPOSITORY_NOT_CONFIGURED'
   | 'RUN_IN_PROGRESS'
@@ -17,7 +18,7 @@ export type ErrorCode =
   | 'INTERNAL_ERROR'
 
 const ERROR_CODES = [
-  'VALIDATION_ERROR', 'UNAUTHORIZED', 'BUDGET_EXCEEDED', 'CONVERSATION_NOT_FOUND', 'PROPOSAL_NOT_FOUND',
+  'VALIDATION_ERROR', 'UNAUTHORIZED', 'BUDGET_EXCEEDED', 'CONVERSATION_NOT_FOUND', 'PROPOSAL_NOT_FOUND', 'REFINEMENT_NOT_FOUND',
   'NOT_FOUND', 'REPOSITORY_NOT_CONFIGURED', 'RUN_IN_PROGRESS', 'UPSTREAM_ERROR', 'INTERNAL_ERROR',
 ] as const
 
@@ -458,6 +459,7 @@ const ERROR_TEXT: Record<ClientErrorCode, string> = {
   BUDGET_EXCEEDED: 'LLM 예산 상한에 도달해 실행할 수 없습니다.',
   CONVERSATION_NOT_FOUND: '대화를 찾을 수 없습니다.',
   PROPOSAL_NOT_FOUND: '제안을 찾을 수 없습니다.',
+  REFINEMENT_NOT_FOUND: '질문 다듬기 기록을 찾을 수 없습니다.',
   NOT_FOUND: '요청한 경로가 없습니다.',
   REPOSITORY_NOT_CONFIGURED: '저장소를 먼저 등록하세요.',
   RUN_IN_PROGRESS: '이 대화에서 이미 응답을 만드는 중입니다. 끝난 뒤 다시 보내세요.',
@@ -569,3 +571,31 @@ export async function putTaxonomy(fileText: string): Promise<TaxonomyStatus> {
   const json: unknown = await res.json()
   return parseTaxonomyStatus(json)
 }
+
+// ---------- POST /api/questions/refine, POST /api/questions/refine/{refinementId}/choice ----------
+
+export type RefineResponse = { refinementId: number; refined: string; summary: string }
+export type RefineChoice = 'refined' | 'original' | 'cancelled'
+export type RefineChoiceResponse = { refinementId: number; choice: RefineChoice; chosenAt: string }
+
+export function parseRefineResponse(v: unknown): RefineResponse {
+  const p = 'refine'
+  const o = obj(v, p)
+  return { refinementId: num(o, 'refinementId', p), refined: str(o, 'refined', p), summary: str(o, 'summary', p) }
+}
+
+export function parseRefineChoiceResponse(v: unknown): RefineChoiceResponse {
+  const p = 'refineChoice'
+  const o = obj(v, p)
+  return {
+    refinementId: num(o, 'refinementId', p),
+    choice: oneOf(o, 'choice', ['refined', 'original', 'cancelled'] as const, p),
+    chosenAt: str(o, 'chosenAt', p),
+  }
+}
+
+// conversationId null이면 대화 이력 없이 다듬음
+export const refineQuestion = (conversationId: number | null, question: string) =>
+  request('POST', '/api/questions/refine', parseRefineResponse, { conversationId, question })
+export const recordRefineChoice = (refinementId: number, choice: RefineChoice) =>
+  request('POST', `/api/questions/refine/${refinementId}/choice`, parseRefineChoiceResponse, { choice })
