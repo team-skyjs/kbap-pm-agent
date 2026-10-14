@@ -4,7 +4,7 @@
 
 ## Git 워크플로우
 
-main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`, `docs/...`)에서 하고 PR로 main에 합친다. 하네스 에이전트도 같다: 리더가 빌드 시작 시 브랜치를 만들고, 팀원은 그 브랜치에 커밋하며, 완료 후 리더가 PR을 연다. PR 설명 끝에는 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`를 붙인다. PR 제목은 영어로 쓰고 항상 `접두어(범위)` 형식으로 시작한다. 접두어는 feat·fix·ci·docs·chore, 범위는 backend·frontend·deploy·harness·docs 중 하나이며 여러 영역에 걸치면 가장 큰 변경의 영역을 쓴다. 예: `feat(backend): ...`, `ci(deploy): ...`. 본문은 한국어로 쓴다. 작업 중 만든 내부 식별자(ADR 번호, 태스크 번호, 모듈 코드, QA 번호 등)는 PR 제목·본문에 쓰지 않고, 무엇이 왜 바뀌었는지 말로 적는다.
+main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`, `docs/...`)에서 하고 PR로 main에 합친다. 하네스 에이전트도 같다: 리더가 빌드 시작 시 브랜치를 만들고, 팀원은 그 브랜치에 커밋하며, 완료 후 리더가 PR을 연다. PR 설명 끝에는 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`를 붙인다. PR 제목은 영어로 쓰고 항상 `접두어(범위)` 형식으로 시작한다. 접두어는 feat·fix·ci·docs·chore, 범위는 backend·frontend·deploy·harness·docs 중 하나이며 여러 영역에 걸치면 가장 큰 변경의 영역을 쓴다. 예: `feat(backend): ...`, `ci(deploy): ...`. 쌓인(stacked) PR은 아래 PR을 머지한 뒤 **위 PR의 base가 main으로 바뀐 것을 확인하고** 머지한다. base가 머지된 브랜치를 가리킨 채 머지하면 변경이 main에 닿지 않는다(2026-10-15 PR #2 사례). 본문은 한국어로 쓴다. 작업 중 만든 내부 식별자(ADR 번호, 태스크 번호, 모듈 코드, QA 번호 등)는 PR 제목·본문에 쓰지 않고, 무엇이 왜 바뀌었는지 말로 적는다.
 
 ## 코드 주석 규칙
 
