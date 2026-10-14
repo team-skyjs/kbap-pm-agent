@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type ReactNode } from 'react'
+import { lazy, memo, Suspense, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkCjkFriendly from 'remark-cjk-friendly'
 import remarkGfm from 'remark-gfm'
@@ -66,10 +66,13 @@ const components: Components = {
 
 // 답변·제안 텍스트 공용 렌더러. 모델이 쓴 HTML은 해석하지 않고 문자로 표시(react-markdown 기본 동작)
 // remark-cjk-friendly: 문장부호 뒤 닫는 강조에 한글 조사가 붙어도(**41%**로) 강조로 인식
-export default function Markdown({ children }: { children: string }): ReactNode {
+function Markdown({ children }: { children: string }) {
   return (
     <div className="md">
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkCjkFriendly]} components={components}>{children}</ReactMarkdown>
     </div>
   )
 }
+
+// 입력창 타이핑 같은 부모 리렌더마다 다시 파싱하면 차트 spec 객체가 바뀌어 차트가 파괴·재생성됨, 본문 문자열이 같으면 건너뜀
+export default memo(Markdown)

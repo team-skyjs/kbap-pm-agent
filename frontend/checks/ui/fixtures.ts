@@ -1,4 +1,5 @@
-// 고정 응답: 계약 분할본 예시 JSON과 05-messages SSE 예시로 만든 시나리오. CHECK_UI_LIVE=1이면 가로채지 않음
+// 고정 응답: 계약 분할본 예시 JSON과 05-messages SSE 예시로 만든 시나리오. 항상 가로채고,
+// CHECK_UI_LIVE=1은 mockApi를 부르지 않는 live 전용 테스트만 실제 백엔드로 돌게 함
 import type { Page, Route } from '@playwright/test'
 import { blocks, jsonBlock } from '../contract.ts'
 
@@ -62,7 +63,6 @@ type Options = {
 // 대화 7(계약 상세 예시, 제안 두 개) + 전송 시나리오. 다른 대화는 빈 상태로 시작
 // 전송·제안 결정은 상세에 저장되어 새로고침 뒤에도 유지
 export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
-  if (LIVE) return
   const scenario = opts.scenario ?? 'done'
   const detail = clone(DETAIL)
   const seeded = arr(detail.messages).map(obj)

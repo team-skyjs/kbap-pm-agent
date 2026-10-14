@@ -40,6 +40,18 @@ test('차트 블록 렌더링', async ({ page }, info) => {
   // 채팅은 내부 스크롤 영역이라 전체 페이지 캡처로는 안 보여 차트로 이동 후 촬영
   await charts.first().scrollIntoViewIfNeeded()
   await shot(page, 'us6', info)
+
+  // 입력창 타이핑(부모 리렌더)에 차트가 다시 만들어지지 않음: 재생성 시 Chart.js가 캔버스 속성을 다시 씀
+  const canvas = charts.nth(0).locator('canvas')
+  await canvas.evaluate((c) => {
+    document.body.dataset.chartMutations = '0'
+    new MutationObserver((list) => {
+      document.body.dataset.chartMutations = String(Number(document.body.dataset.chartMutations) + list.length)
+    }).observe(c, { attributes: true })
+  })
+  await page.getByRole('textbox', { name: '질문 입력' }).pressSequentially('차트 유지')
+  await expect(page.getByRole('textbox', { name: '질문 입력' })).toHaveValue('차트 유지')
+  expect(await page.evaluate(() => document.body.dataset.chartMutations)).toBe('0')
 })
 
 test('차트 블록이 없는 대화는 차트 청크를 받지 않는다', async ({ page }) => {

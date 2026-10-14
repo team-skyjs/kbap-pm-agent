@@ -21,7 +21,7 @@ npx playwright test -c playwright.config.ts us6 --project 1280-dark   # 일부�
   - 전송 시나리오(`scenario`): `sent`(전송 직후) · `progress`(진행) · `done`(완료, 제안 2) · `partial`(상한 사유 문장) · `error`(UPSTREAM_ERROR) · `token`(백엔드 토큰 401 계약 JSON) · `expired`(로그인 HTML 401) · `hang`(응답 없이 요청 유지).
   - 고정 응답은 한 번에 끝나는 응답이라 `sent`·`progress`는 스트림 종료 뒤 저장된 실행 중 상세로 상태를 재현한다. 스트림이 열린 동안의 화면은 `hang`으로 본다.
   - 옵션: `assistantContent`(대화 7 답변 본문 교체, 예: `MARKDOWN_SAMPLE`), `list`(대화 목록 교체), `completeAfterPoll`(진행 → 다음 주기 재조회에서 완료).
-- live: `CHECK_UI_LIVE=1 npm run check:ui`면 가로채지 않고 로컬 백엔드(`docker compose up`, fake 모드)를 쓴다. live 전용 시나리오는 us8의 진행 → 완료 한 경로다. 백엔드와 같은 출처(dev 프록시)가 되는 접근 제한 병합 뒤부터 동작한다. 그 전에는 백엔드 CORS가 5173만 허용한다.
+- live: `CHECK_UI_LIVE=1 npm run check:ui`면 고정 응답 스펙은 그대로 돌고, `mockApi`를 부르지 않는 live 전용 테스트(us8의 진행 → 완료 한 경로)가 추가로 로컬 백엔드(`docker compose up`, fake 모드)를 쓴다. 백엔드와 같은 출처(dev 프록시)가 되는 접근 제한 병합 뒤부터 동작한다. 그 전에는 백엔드 CORS가 5173만 허용한다.
 - 토큰 401(`UNAUTHORIZED`)은 오류 상태(토큰·설정 안내)이고 세션 만료가 아니다. 세션 만료(`expired`, 로그인 HTML 401 → `SESSION_EXPIRED`) 스펙은 `test.fixme`이고 접근 제한 PR 병합 때 켠다.
 
 ## 스크린샷

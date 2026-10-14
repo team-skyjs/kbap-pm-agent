@@ -20,7 +20,6 @@ async function send(page: Page, scenario: Scenario, extra: Parameters<typeof moc
 
 for (const scenario of ['sent', 'progress', 'done', 'partial', 'error'] as const) {
   test(`상태 표시: ${scenario}`, async ({ page }, info) => {
-    test.skip(LIVE, '고정 응답 전용')
     await send(page, scenario)
     const last = page.locator('.msg.assistant').last()
     await expect(last.locator(MARKS[scenario]).first()).toBeVisible()
@@ -36,7 +35,6 @@ for (const scenario of ['sent', 'progress', 'done', 'partial', 'error'] as const
 }
 
 test('상태 표시: 토큰 오류는 설정 안내만, 다시 로그인 배너 없음', async ({ page }, info) => {
-  test.skip(LIVE, '고정 응답 전용')
   const box = await send(page, 'token')
   const main = page.locator('.main')
   await expect(main.getByText('접근 토큰이 없거나 맞지 않습니다').first()).toBeVisible()
@@ -49,7 +47,6 @@ test('상태 표시: 토큰 오류는 설정 안내만, 다시 로그인 배너 
 
 test('상태 표시: 세션 만료', async ({ page }, info) => {
   test.fixme(true, '접근 제한 PR 병합 때 SESSION_EXPIRED 연결')
-  test.skip(LIVE, '고정 응답 전용')
   const box = await send(page, 'expired')
   await expect(page.getByRole('alert').filter({ hasText: '로그인이 만료' })).toBeVisible()
   await expect(box).toHaveValue(QUESTION)
@@ -57,7 +54,6 @@ test('상태 표시: 세션 만료', async ({ page }, info) => {
 })
 
 test('진행에서 완료로 바뀌어도 입력창 위치가 그대로', async ({ page }) => {
-  test.skip(LIVE, '고정 응답 전용')
   const box = await send(page, 'progress', { completeAfterPoll: true })
   const last = page.locator('.msg.assistant').last()
   await expect(last.locator('.tools summary')).toContainText('조회 중')
@@ -69,7 +65,6 @@ test('진행에서 완료로 바뀌어도 입력창 위치가 그대로', async 
 })
 
 test('위로 스크롤한 상태에서는 새 메시지가 와도 위치 유지', async ({ page }) => {
-  test.skip(LIVE, '고정 응답 전용')
   await mockApi(page, { scenario: 'done', assistantContent: MARKDOWN_SAMPLE })
   await page.goto('./#/conversations/7')
   await expect(page.locator('figure.md-chart canvas')).toHaveCount(2)
@@ -84,7 +79,7 @@ test('위로 스크롤한 상태에서는 새 메시지가 와도 위치 유지'
 })
 
 test('동작 줄이기에서 대기 애니메이션 없음', async ({ page }, info) => {
-  test.skip(LIVE || !info.project.name.endsWith('reduced'), 'reduced 프로젝트 전용')
+  test.skip(!info.project.name.endsWith('reduced'), 'reduced 프로젝트 전용')
   await send(page, 'sent')
   const dot = page.locator('.msg.assistant').last().locator('.typing span').first()
   await expect(dot).toBeVisible()
