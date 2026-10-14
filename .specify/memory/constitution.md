@@ -1,14 +1,14 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 1.1.0   (개정 2026-10-15)
-Bump rationale (MINOR): "기술 제약"의 백엔드 LLM 계층을 LangChain 1.x에서 공급자 공식 SDK로 실질 변경.
-  사유: ADR-20(사용자 결정 — Claude 네이티브 기능 활용, OpenAI는 openai-agents로 교체 가능).
-Modified principles: 없음. 원칙 I~V 문구 변경 없음.
-Modified sections: 기술 제약 — 백엔드 줄.
-Templates reviewed:
-  ✅ plan-template.md / spec-template.md / tasks-template.md — 변경 불필요.
-Follow-up: plan.md Constitution Check의 "불일치(개정 대기)" 표시를 T072에서 해소.
+Version change: 1.1.0 → 1.3.0   (개정 2026-10-15)
+Bump rationale (MINOR): 기술 제약의 FE↔BE 줄과 비목표 줄에 API 접근 통제(공유 접근 토큰)를 명시.
+  사유: 사용자 결정 — 프론트는 GitHub Pages를 유지하고, API는 환경변수 ACCESS_TOKEN으로 잠근다.
+  v1.2.0(프론트 홈서버 이전·Cloudflare Access)은 feat/access-gate에만 있고 main에 들어온 적 없어 결번 처리.
+Modified principles: 없음.
+Modified sections: 기술 제약 — FE↔BE 줄, 비목표 줄.
+Templates reviewed: ✅ 변경 불필요.
+Follow-up: docs/prd/PRD-access-gate.md 상태를 보류로.
 -->
 
 # K-Bap PM Agent Constitution
@@ -88,10 +88,12 @@ PRD 5·7.3·8절과 CTO ADR(`_workspace/01_cto_tech-decisions.md`)에서 확정�
   로컬은 `docker compose up` 한 번으로 백엔드+MySQL이 떠야 한다.
 - 프론트: TypeScript, React, Vite 정적 SPA. GitHub Pages 프로젝트 페이지(`/kbap-pm-agent/`)에
   배포하므로 해시 라우팅을 쓰고 백엔드 주소는 빌드 시 환경변수로 받는다.
-- FE↔BE: HTTPS 공개 엔드포인트(터널). 에이전트 응답은 POST 응답 자체를 SSE 스트림으로 보낸다.
+- FE↔BE: HTTPS 공개 엔드포인트(터널). 에이전트 응답은 POST 응답 자체를 SSE 스트림으로 보낸다. API 접근 통제는
+  공유 접근 토큰(환경변수 ACCESS_TOKEN, 헬스·Amplitude 콜백 제외 전 경로에 Bearer 요구)으로 한다. 값은 Secret에만
+  두고 프론트는 설정 화면 입력값을 브라우저 저장소에만 보관한다.
 - Amplitude: 공식 원격 MCP(조회 전용). 이벤트 전송·택사노미 자동 수정은 하지 않는다.
-- 비목표(v1): 사용자 인증·권한·멀티테넌시, 백엔드 코드 분석, 코드 자동 수정·PR 생성,
-  능동 모드(먼저 제안). 공유 접근 토큰(ADR-7)은 선택 장치이며 비워 두면 꺼진다.
+- 비목표(v1): 앱 안의 사용자 인증·권한·멀티테넌시, 백엔드 코드 분석, 코드 자동 수정·PR 생성,
+  능동 모드(먼저 제안). 공유 접근 토큰은 운영에서 켜 두며(2026-10-15), 비워 두면 꺼진다.
 
 ## 개발 워크플로우
 
@@ -114,4 +116,4 @@ PRD 5·7.3·8절과 CTO ADR(`_workspace/01_cto_tech-decisions.md`)에서 확정�
 - plan.md의 Constitution Check는 원칙 I~V 각각에 대해 준수 여부와, 위반 시 정당화를 적어야 한다.
 - 복잡도(추상화, 새 의존성, 새 테이블)는 plan.md의 Complexity Tracking에 이유를 적어야 한다.
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-15
+**Version**: 1.3.0 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-15
