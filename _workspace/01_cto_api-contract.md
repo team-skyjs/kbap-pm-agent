@@ -1,4 +1,4 @@
-# 01 CTO — API 계약서 v1.1
+# 01 CTO — API 계약서 v1.3
 
 작성일: 2026-10-15 · 이 문서가 FE·BE·QA의 유일한 경계 기준이다. 변경은 CTO만 하고, 바뀌면 상단 변경 이력에 남긴다.
 
@@ -8,6 +8,7 @@
 | 2026-10-15 | v1.1 | 명세(spec.md)·헌법 정합: 코드 근거에 `function` 추가(FR-003), 저장소 `lastError` 추가(엣지 케이스 비공개 저장소), 실행 시간 상한·소스 실패 시 동작 명시(FR-010, 엣지 케이스), 택사노미 검증 실패 메시지 규칙(US4-4), `AGENT_MODE=fake`가 저장소·Amplitude까지 대체(헌법 원칙 III, FR-011), 실행 중 메시지 필드 규칙 |
 | 2026-10-15 | v1.1 (문구) | 메시지 전송 상한 비고: 도구 호출 수 → 모델 호출 턴 수 `AGENT_MAX_TURNS`(기본 10). shape 변경 없음 |
 | 2026-10-15 | v1.1 (예시) | 예시 운영 호스트를 `pm-agent.example.com`으로 바꿨다(Base URL 예시, connect 예시 redirect_uri). 운영 정보 비노출. 값·shape 의미 변경 없음 |
+| 2026-10-15 | v1.3 | 질문 마법사(specs/004-question-wizard): `POST /api/questions/refine`(질문 다듬기)와 `POST /api/questions/refine/{refinementId}/choice`(선택 기록)를 추가했다. 에러 코드 `REFINEMENT_NOT_FOUND`를 추가하고 시연 모드 동작도 정했다. 기존 엔드포인트 shape는 그대로다. v1.2는 접근 제한 PR(미머지)이 쓰는 번호라 건너뛴다 |
 
 ## 공통
 
@@ -40,6 +41,7 @@
 | `BUDGET_EXCEEDED` | 403 | LLM 누적 비용이 `LLM_BUDGET_USD` 이상 |
 | `CONVERSATION_NOT_FOUND` | 404 | 대화 ID 없음 |
 | `PROPOSAL_NOT_FOUND` | 404 | 제안 ID 없음 |
+| `REFINEMENT_NOT_FOUND` | 404 | 질문 다듬기 기록 ID 없음 |
 | `NOT_FOUND` | 404 | 정의되지 않은 경로 |
 | `REPOSITORY_NOT_CONFIGURED` | 409 | 저장소 등록 전에 동기화 요청 |
 | `RUN_IN_PROGRESS` | 409 | 같은 대화에 `status: "running"`인 assistant 메시지가 있는데 새 메시지 전송 |
@@ -56,6 +58,7 @@
 | `PUT /api/settings/repository` | 클론하지 않는다. 요청의 `url`·`branch`에 이 문서 Settings 예시의 나머지 값(`headCommit: "9f3c2a1"`, `codeMapStatus: "ready"` 등)을 채워 저장·응답 |
 | `POST /api/settings/repository/sync` | 저장된 값을 `syncedAt`만 현재 시각으로 바꿔 응답 |
 | `POST /api/integrations/amplitude/connect` | 이 문서의 예시 `authorizationUrl`을 그대로 응답하고 즉시 `amplitude.status`를 `"connected"`로 저장 |
+| `POST /api/questions/refine` | LLM을 호출하지 않는다. 이 문서의 다듬기 응답 예시 `refined`·`summary`를 그대로 돌려주고 기록 행을 만든다(`refinementId`는 실제 새 ID). 사용량은 0원으로 기록한다 |
 | `GET /api/settings` | `agentMode: "fake"`. 나머지는 저장된 값 |
 
 택사노미 업로드, 대화·제안 저장, 헬스체크는 두 모드가 같다.
@@ -434,6 +437,38 @@ data: {"error":{"code":"UPSTREAM_ERROR","message":"LLM 공급자 응답 오류�
 - 요청: 쿼리 `code`, `state` (Amplitude가 붙인다).
 - 응답 200: `text/html` 한 줄 페이지. 성공 시 "Amplitude 연결 완료. 이 탭을 닫아도 됩니다.", 실패 시 "Amplitude 연결 실패: {사유}". JSON 아님.
 
+### POST /api/questions/refine
+- 용도: 사용자가 보내기 전에 질문을 다듬는다. 서버가 택사노미 이벤트 이름과 그 대화의 최근 메시지를 붙여 모델을 한 번 호출하고(도구 없음), 개선된 질문 하나와 변경 요약을 돌려준다. 호출마다 기록 행을 만든다.
+- 요청:
+```json
+{"conversationId": 7, "question": "스캔 이탈 왜 많아?"}
+```
+  - `question`: 1~4000자(메시지 전송과 같은 규칙). 앞뒤 공백만 있으면 `VALIDATION_ERROR`.
+  - `conversationId`: 대화 ID 또는 `null`. `null`이면 대화 이력 없이 다듬는다. 없는 ID면 404 `CONVERSATION_NOT_FOUND`.
+- 응답 200:
+```json
+{"refinementId": 31, "refined": "최근 7일 scan_start → scan_complete(success=true) 퍼널에서 이탈이 가장 큰 단계를 찾고, 그 원인이 되는 화면 동작과 개선안을 제안해줘.", "summary": "기간을 최근 7일로 정하고(원문에 없음), 이벤트 이름과 원하는 산출물(개선안)을 명시했다."}
+```
+  - `refinementId`: 기록 행 ID. 선택 기록(아래)에 쓴다.
+  - `refined`: 개선된 질문. 한국어 두 문장 이내, 1~4000자.
+  - `summary`: 무엇이 달라졌는지 한 줄, 1~300자. 원문에 없던 기본값(기간 등)을 넣었으면 그 사실을 적는다.
+- 에러: `VALIDATION_ERROR`, `CONVERSATION_NOT_FOUND`, 403 `BUDGET_EXCEEDED`(호출 전 예산 검사), 502 `UPSTREAM_ERROR`(모델 호출 실패나 구조화 출력 검증 실패, 기록 행은 만들지 않는다). 공통 인증 규칙(`ACCESS_TOKEN`)은 다른 `/api` 요청과 같다.
+- 비고: 사용량은 `llm_usage`에 용도 `refine`으로 남고 예산에 합산된다. 대화 메시지가 아니라 `messages`·`usage` 응답에는 나타나지 않는다. 모델은 `REFINE_MODEL`, 비어 있으면 `CODE_SUMMARY_MODEL`이다.
+
+### POST /api/questions/refine/{refinementId}/choice
+- 용도: 다듬기 결과를 사용자가 어떻게 골랐는지 기록한다. 채택 비율 집계용이며 화면에는 보이지 않는다.
+- 요청:
+```json
+{"choice": "refined"}
+```
+  - `choice`: `"refined"`(개선안으로 보내기, 또는 개선안을 입력창에 넣기. 편집 후 전송도 채택으로 센다) | `"original"`(원문으로 보내기) | `"cancelled"`(ESC·닫기).
+- 응답 200:
+```json
+{"refinementId": 31, "choice": "refined", "chosenAt": "2026-10-15T10:02:11.204Z"}
+```
+- 에러: `VALIDATION_ERROR`, `REFINEMENT_NOT_FOUND`.
+- 비고: 다시 부르면 마지막 값으로 덮어쓰고 `chosenAt`을 갱신한다(프론트는 카드가 닫힐 때 한 번만 부른다). 기록 실패는 전송을 막지 않는다. 프론트는 실패를 무시하고 메시지 전송을 이어 간다.
+
 ## 엔드포인트 요약
 
 | 메서드 | 경로 | 인증 | 응답 |
@@ -444,6 +479,8 @@ data: {"error":{"code":"UPSTREAM_ERROR","message":"LLM 공급자 응답 오류�
 | GET | `/api/conversations/{conversationId}` | 필요 | JSON |
 | POST | `/api/conversations/{conversationId}/messages` | 필요 | SSE |
 | PATCH | `/api/proposals/{proposalId}` | 필요 | JSON |
+| POST | `/api/questions/refine` | 필요 | JSON |
+| POST | `/api/questions/refine/{refinementId}/choice` | 필요 | JSON |
 | GET | `/api/settings` | 필요 | JSON |
 | PUT | `/api/settings/repository` | 필요 | JSON |
 | POST | `/api/settings/repository/sync` | 필요 | JSON |

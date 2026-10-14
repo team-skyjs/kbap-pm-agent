@@ -8,6 +8,8 @@
 | GET | `/api/conversations/{conversationId}` | 필요 | JSON |
 | POST | `/api/conversations/{conversationId}/messages` | 필요 | SSE |
 | PATCH | `/api/proposals/{proposalId}` | 필요 | JSON |
+| POST | `/api/questions/refine` | 필요 | JSON |
+| POST | `/api/questions/refine/{refinementId}/choice` | 필요 | JSON |
 | GET | `/api/settings` | 필요 | JSON |
 | PUT | `/api/settings/repository` | 필요 | JSON |
 | POST | `/api/settings/repository/sync` | 필요 | JSON |
