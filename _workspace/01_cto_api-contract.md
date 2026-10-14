@@ -10,6 +10,7 @@
 | 2026-10-15 | v1.1 (예시) | 예시 운영 호스트를 `pm-agent.example.com`으로 바꿨다(Base URL 예시, connect 예시 redirect_uri). 운영 정보 비노출. 값·shape 의미 변경 없음 |
 | 2026-10-15 | v1.2 | 접근 제한(ADR-22, specs/002-access-gate). Base URL이 같은 출처 상대 경로로 바뀌었다. 접근 계층 응답 규칙과 `X-Requested-With` 헤더를 추가하고 CORS를 제거했다. 예시 호스트는 `pm-agent.example.com`이다(운영 정보 비노출). 응답 shape 변경 없음 |
 | 2026-10-15 | v1.2 (문구) | 접근 계층 응답에서 5xx HTML(nginx·Cloudflare 오류 페이지)을 제외했다. 프론트는 이를 연결 실패로 다룬다(frontend-dev 요청). shape 변경 없음 |
+| 2026-10-15 | v1.2 (재개) | 접근 제한 재개(헌법 v1.4.0)로 v1.2가 다시 정본이다. 전환 기간에는 인증 절의 `ACCESS_TOKEN`이 운영에서 켜져 있고(Access 검증 후 끈다), CORS 절은 CORS 제거 배포 이후의 상태다(그 전까지 운영 백엔드는 옛 Pages 출처를 허용한다). shape 변경 없음 |
 
 ## 공통
 
