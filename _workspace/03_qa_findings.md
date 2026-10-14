@@ -18,6 +18,9 @@
 | 2026-10-15 | F6 (70c56b4) | 정적 통과 | 운영 URL로 build + `check -- f6` OK, 자산 `/kbap-pm-agent/`, 번들에 mock 데이터 없음, 레포 이름과 base 일치. 운영 왕복(T060)은 B8 대기. QA-3(운영 CORS 출처) cto |
 | 2026-10-15 | B5 (9a23420) T038 | 통과 (실제 요약 LLM 미검증) | `check_b5.py` OK(가짜 요약기: building→ready, 재동기화 요약 0회, 파일 1개 변경 1회, read_code 200줄, search_code 30건, 단가표). 실서버: `LLM_BUDGET_USD=0` → 메시지 403 `BUDGET_EXCEEDED` JSON, 메시지 저장 안 됨, 목록·상세 200, 프론트 입력창 아래 안내 + 입력 유지. real 키 없음: codeMapStatus building→failed + lastError, spentUsd 0. 실제 요약 비용 증가(SC-006)는 키 필요 |
 | 2026-10-15 | B6 (8cb3321) | BE 통과, T042 미검증 | `check_b6.py` OK(가짜 채팅 모델로 실제 create_agent 루프: 도구→구조화 final, 도구 예외 failed 후 계속, 호출·시간 상한 부분 final, 모델 실패 error). 정적: 제안 직렬화 by_alias로 null 키 유지, 모델명 하드코딩 없음, 소스 상태 문장. 실서버 real 키 없음: SSE message_created→error `UPSTREAM_ERROR` + assistantMessageId, DB failed·content ""·usage null, 프론트가 저장된 실패와 스트림 error 모두 code별 문구로 표시, 비용 0. T042(실제 질문 4부분 제안·openai 교체·성능)는 LLM 키 없어 미검증 |
+| 2026-10-15 | QA-3 (d32661a) | 확인됨 | ADR-18 운영 출처 `https://team-skyjs.github.io`, ADR 환경변수 표·T056 정정 확인 |
+| 2026-10-15 | B7 (ef2cfce) | fake 통과, real 승인 미검증 | `check_b7.py` OK(도구 예외·도구 목록 실패에도 final). 실서버 fake: connect 응답 = 계약 예시 원문, 직후 settings.amplitude connected·connectedAt ISO·키 = 계약, callback 3종 200 `text/html` 한 줄 문구(성공 문구는 real 승인 필요). real 동적 등록·승인·토큰 교환·list_tools·재시작 유지·실제 metric 근거(T046 후반·T050)는 사람 승인과 Amplitude 계정이 필요해 미검증 — QA가 외부에 OAuth 클라이언트를 추가 등록하지 않으려고 real connect도 호출하지 않음 |
+| 2026-10-15 | F5 ↔ B7 (T052·T054 fake) | fake 통과 | headless Chrome: 연결 안 됨 → 클릭 시 새 탭이 계약 예시 authorizationUrl로 이동(외부 요청은 가로채 막음), 3.2s 뒤 "연결됨 (시각)" + "연결되었습니다.", 이후 폴링 중단. T054 real 모드 Amplitude 항목은 미검증 |
 
 ## 결함
 
@@ -37,7 +40,7 @@
 - 실제: `backend/app/repo.py` `build_index`가 `rg ... -e PATTERN .`로 저장소 전체를 훑는다. team-skyjs/kbap-fe develop(f34c518): trackedEventCount 120 = ts/tsx 117 + `specs/004-inbox-server/tasks.md` 2 + `specs/001-notification-settings/tasks.md` 1. `rg -c` 줄 합은 119(tasks.md 한 줄에 2회). 문서 위치가 인덱스에 들어가 에이전트가 `specs/.../tasks.md:40`을 코드 근거로 인용할 수 있다
 - 수정 방향: 백엔드. rg에 소스 글로브를 준다(예: `-g '*.{ts,tsx,js,jsx}'` 또는 `--type ts --type js`, 필요하면 환경변수 `TRACK_CALL_GLOB`). 수정 후 kbap-fe에서 117이어야 한다. 세는 단위(줄 vs 호출)는 호출 수(-o)가 맞다고 본다 — T034 문구의 `rg -c`는 줄 수라 1 차이가 날 수 있음
 - 수신: backend-dev
-- 상태: 열림
+- 상태: 열림 (참고: d32661a로 T034 기준이 저장소 전체 `rg -o | wc -l`=120이 되어 문서 파일 매치를 그대로 통과시킨다. 기준을 소스 파일로 한정해야 한다고 cto에 전달)
 
 ### QA-3: 운영 CORS 출처(simhani1.github.io)가 레포 소유자(team-skyjs)와 다르다
 - 모듈: 계약/ADR (B8·F6 배포 전)
@@ -46,4 +49,4 @@
 - 실제: `git remote` origin = `https://github.com/team-skyjs/kbap-pm-agent.git`, `.github/workflows/pages.yml`은 이 레포에서 배포 → Pages 출처는 `https://team-skyjs.github.io`. 그대로면 운영에서 모든 요청이 CORS로 막혀 프론트가 "연결 실패"
 - 수정 방향: CTO가 운영 출처를 확정해 ADR·T056·운영 `.env`의 CORS_ORIGINS를 맞춘다(배포 레포가 simhani1 포크면 그대로 두고 그 사실을 ADR에 명시)
 - 수신: cto
-- 상태: 열림
+- 상태: 확인됨 (d32661a ADR-18: 운영 출처 team-skyjs.github.io, T056 정정)

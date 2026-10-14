@@ -202,19 +202,19 @@ description: "PM Agent 프로토타입 구현 태스크"
 ### B7 — Amplitude MCP 연결
 
 - [ ] T046 [US4] [BE] research.md R1 검증 스파이크(B7 첫 태스크): 로컬에서 MCP SDK `OAuthClientProvider`로 `AMPLITUDE_MCP_URL`에 동적 클라이언트 등록 → 승인 → `list_tools` 성공 여부를 확인한다. 막히면 즉시 CTO에 보고(대체 경로: 고정 client_id 또는 `../kbap-amplitude/amp.py`) (B7)
-- [ ] T047 [US4] [BE] `backend/app/amplitude.py`: 외부 seam. (B7)
+- [x] T047 [US4] [BE] `backend/app/amplitude.py`: 외부 seam. (B7)
   - OAuth 저장: `OAuthClientProvider`와 `app_settings` 키 `amplitude_oauth` 기반 토큰 저장소를 쓴다. 토큰은 API로 노출하지 않는다.
   - 승인 URL: redirect handler가 승인 URL을 잡아 `POST /api/integrations/amplitude/connect`가 `{"authorizationUrl": ...}`로 응답한다.
   - 콜백: `GET /api/integrations/amplitude/callback`이 code·state를 받아 토큰을 교환하고 한 줄 HTML("Amplitude 연결 완료. 이 탭을 닫아도 됩니다." / "Amplitude 연결 실패: {사유}")을 낸다. redirect_uri는 `PUBLIC_BASE_URL`로 만든다.
   - fake 분기: 예시 URL을 응답하고 즉시 connected (`contracts/08-amplitude.md`).
-- [ ] T048 [US4] [BE] `backend/app/agent.py`·`backend/app/settings.py` 연결: 연결된 경우에만 `MultiServerMCPClient` 도구를 `source: "amplitude"`로 에이전트 도구에 더한다. MCP 호출 실패는 `tool_result` `failed`로 보내고 실행은 계속한다(US1-4, FR-010). settings `amplitude.status`·`connectedAt`·`serverUrl`을 반영한다 (B7)
-- [ ] T049 [US4] [BE] `backend/checks/check_b7.py`: fake 모드 connect 응답이 계약 예시와 같고 직후 settings `amplitude.status == "connected"`. 콜백이 `text/html`. Amplitude 도구가 예외를 던지도록 바꿔도 메시지 실행이 `final`로 끝난다 (B7 검사)
+- [x] T048 [US4] [BE] `backend/app/agent.py`·`backend/app/settings.py` 연결: 연결된 경우에만 `MultiServerMCPClient` 도구를 `source: "amplitude"`로 에이전트 도구에 더한다. MCP 호출 실패는 `tool_result` `failed`로 보내고 실행은 계속한다(US1-4, FR-010). settings `amplitude.status`·`connectedAt`·`serverUrl`을 반영한다 (B7)
+- [x] T049 [US4] [BE] `backend/checks/check_b7.py`: fake 모드 connect 응답이 계약 예시와 같고 직후 settings `amplitude.status == "connected"`. 콜백이 `text/html`. Amplitude 도구가 예외를 던지도록 바꿔도 메시지 실행이 `final`로 끝난다 (B7 검사)
 - [ ] T050 [US4] [QA] B7 교차 검증(real): 브라우저 승인 후 connected, 컨테이너 재시작 후 유지, US1 개선 질문에서 metric 근거가 실제 수치로 나오고 Amplitude에서 직접 확인한 값과 같음(SC-003 표본), MCP 차단 시 나머지 소스로 답하고 빠진 근거 명시(US1-4), `check_b7.py` 실행 (B7 QA)
 
 ### F5 — 설정 화면
 
 - [x] T051 [P] [US4] [FE] `frontend/src/api.ts`: Settings 타입, `getSettings()`, `putRepository()`, `syncRepository()`, `putTaxonomy()`, `connectAmplitude()` (F5)
-- [ ] T052 [US4] [FE] `frontend/src/SettingsPage.tsx`(`#/settings`): (F5)
+- [x] T052 [US4] [FE] `frontend/src/SettingsPage.tsx`(`#/settings`): (F5)
   - 저장소: URL·브랜치 등록과 동기화 버튼을 둔다. `headCommit`·`codeMapStatus`·`screenCount`·`syncedAt`·`lastError`를 표시한다.
   - 택사노미: `.json` 파일을 고르면 내용을 그대로 PUT한다. 성공하면 `eventCount`·`uploadedAt`를, 실패하면 `message`를 그대로 보여준다.
   - Amplitude: 연결 버튼은 `window.open(authorizationUrl)` 뒤 settings를 3초 간격, 최대 2분 다시 읽는다.
