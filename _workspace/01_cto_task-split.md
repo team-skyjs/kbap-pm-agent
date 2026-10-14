@@ -34,7 +34,7 @@ kbap-pm-agent/
 | B6 | 실제 에이전트 루프 | `POST .../messages` (`AGENT_MODE=real`) | `create_agent` + 코드·택사노미 도구 + `response_format`. 계약서 SSE 순서 동일. 세그먼트 B 질문("장바구니 개선 효과 측정 설계해줘")에 `funnel_design` 제안이 나오고 신규 이벤트마다 실제 존재하는 파일·함수가 들어감. 모델 호출 턴 `AGENT_MAX_TURNS`·실행 시간 `AGENT_TIMEOUT_SECONDS` 상한에서 부분 `final`(ADR-16). 도구 하나가 실패해도 실행 계속. `AGENT_MODEL`만 바꿔 `openai:` 모델로도 한 번 실행 확인 | B3, B5 |
 | B7 | Amplitude MCP 연결 | `POST /api/integrations/amplitude/connect`, `GET /api/integrations/amplitude/callback` | 브라우저 승인 후 `amplitude.status: "connected"`, 컨테이너 재시작 후에도 유지(토큰 DB 저장). 에이전트 도구 목록에 Amplitude MCP 도구가 `source: "amplitude"`로 붙음. 세그먼트 A 질문에 metric 근거가 실제 수치로 나옴. `AGENT_MODE=fake`면 connect가 예시 URL을 돌려주고 즉시 connected(ADR-15). **첫날 실연결부터 확인**하고 막히면 즉시 CTO 보고(ADR-3 대체 경로) | B6 |
 | B8 | 운영 배포 | 전체 | 멀티아키 이미지 푸시, 홈서버 `deploy/` compose로 기동, cloudflared 경유 `https://<운영 도메인>/api/health` 200. 홈서버 MySQL에 전용 DB·계정 | B7 |
-| B9 | LLM SDK 전환 (ADR-20) | (계약 변경 없음) `POST .../messages` 실제 모드 내부 | LangChain 제거, `anthropic` tool runner·`openai-agents` 두 런타임을 모델 접두사로 선택, Amplitude MCP는 MCP SDK 직접 연결(OAuth provider 공유). fake 동작 불변, 가짜 HTTP 전송으로 두 런타임 SSE 순서·실패·상한 검증(check_b6·check_b7), `rg langchain` 0, 계약 diff 0. 태스크 T062~T073 | B7 |
+| B9 | LLM SDK 전환 (ADR-20) | (계약 변경 없음) `POST .../messages` 실제 모드 내부 | LangChain 제거, `anthropic` tool runner·`openai-agents` 두 런타임을 모델 접두사로 선택, Amplitude MCP는 MCP SDK 직접 연결(OAuth provider 공유). fake 동작 불변, 가짜 HTTP 전송으로 두 런타임 SSE 순서·실패·상한 검증(check_b6·check_b7), `rg langchain` 0, 계약 diff 0. 태스크 T062~T073. 상한을 모델 턴 10으로(T074·T075). 조사·종합 2단계, 종합은 Fable 5.1(ADR-21, T076~T078) | B7 |
 
 ## frontend
 

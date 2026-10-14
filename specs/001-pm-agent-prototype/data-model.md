@@ -25,7 +25,7 @@
 | error_code | VARCHAR(50) NULL | status=failed일 때만 값 | `errorCode` |
 | created_at | DATETIME(3) | 대화 내 정렬 기준 | `createdAt` |
 
-`usage`는 `llm_usage`에서 `message_id`로 합산한다. `model`은 해당 메시지의 agent 호출 모델이고, user 메시지는 `null`이다.
+`usage`는 `llm_usage`에서 `message_id`로 합산한다(조사·종합 두 단계의 토큰·비용 합). `model`은 그 메시지에 종합 단계(`purpose=synthesis`)가 있으면 종합 모델, 없으면 조사 모델(`purpose=agent`)이다(ADR-21). user 메시지는 `null`이다.
 
 상태 전이: `running → completed`(final 이벤트) 또는 `running → failed`(error 이벤트, 클라이언트 끊김). 역전이는 없다. 한 대화에 running은 최대 1개다(`RUN_IN_PROGRESS`).
 
@@ -81,7 +81,7 @@ JSON 컬럼 내부 구조(계약서 Proposal 규칙과 동일):
 | 컬럼 | 타입 | 제약 |
 |---|---|---|
 | message_id | BIGINT NULL FK → messages ON DELETE SET NULL | 코드 요약은 NULL |
-| purpose | ENUM('agent','code_summary') | |
+| purpose | ENUM('agent','synthesis','code_summary') | `agent`=조사 단계(도구 루프), `synthesis`=종합 단계(ADR-21), `code_summary`=코드 요약. 기존 값은 그대로라 이관이 없다. `schema.sql`은 `ALTER TABLE llm_usage MODIFY purpose ENUM('agent','synthesis','code_summary') NOT NULL`을 추가한다 |
 | model | VARCHAR(100) | `AGENT_MODEL`·`CODE_SUMMARY_MODEL` 문자열 그대로(`provider:model`, ADR-20) |
 | input_tokens, output_tokens | INT | |
 | cost_usd | DECIMAL(10,4) | 설정 단가표로 계산. fake 모드도 행을 남기되 토큰 0·`cost_usd` 0(계약: fake `usage.costUsd`는 `0`, usage는 이 테이블 합산) |

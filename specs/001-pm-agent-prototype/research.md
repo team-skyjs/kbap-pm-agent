@@ -87,6 +87,25 @@ docker ps --format '{{.Names}} {{.Ports}}' | grep -E 'mysql|8001'
 - **미확인 (T073, 실제 키 필요)**: Anthropic 구조화 출력이 `AgentAnswer` 스키마의 제약(`minItems`, `anyOf`, `minimum`, `maxLength`)을 받는지 확인해야 한다. SDK가 스키마를 변환 없이 보낸다. 거부되면 ADR-17 규칙대로 해당 제약을 Pydantic 사후 검증으로 옮긴다.
 - **키 없는 검증 방법**: 두 SDK 모두 HTTP 클라이언트를 주입할 수 있다. 검사 스크립트가 스크립트된 API 응답(도구 호출 → 도구 결과 → 최종 JSON)을 넣어 실제 SDK 파싱 경로를 태운다(T069). 전송 계층은 SDK마다 다르다. **anthropic 1.x는 `httpx2`**를 쓰므로 `httpx2.MockTransport`로 넣는다(`httpx.AsyncClient`는 TypeError). openai·MCP SDK는 `httpx.MockTransport`다.
 
+## R9. 종합 모델 Claude Fable 5.1 제약과 비용 (ADR-21)
+
+- Decision: 종합 단계는 `SYNTHESIS_MODEL=anthropic:claude-fable-5-1`로 도구 없는 1회 호출이며, `AgentAnswer` 구조화 출력이다.
+- **확인한 제약** (claude-api 스킬, 모델 표 캐시 2026-10-06 기준):
+  - **가격·한도**: 입력 $10, 출력 $50(1M 토큰당)이고 Opus 5.5($4/$20)의 2.5배다. 컨텍스트는 1M, 최대 출력은 128K다.
+  - **사고**: 항상 켜져 있다. `thinking` 생략 또는 `{"type": "adaptive"}`만 허용되고, disabled·`budget_tokens`는 400이다. 원문 사고는 반환되지 않는다(`display` 기본 `"omitted"`). 사고 토큰은 출력으로 과금된다.
+  - **샘플링**: `temperature`·`top_p`·`top_k`는 400이다.
+  - **도구 강제**: `tool_choice` any/tool은 400이다. 종합은 도구가 없어 무관하다.
+  - **거절**: `stop_reason: "refusal"`(HTTP 200, `stop_details.category`)을 본문보다 먼저 확인한다. 서버 측 폴백은 `betas=["server-side-fallback-2026-07-01"]` + `fallbacks="default"`이고, 기존 Anthropic 런타임 설정과 같다.
+  - **데이터 보존**: 30일 보존이 필수이고, ZDR 조직은 Anthropic의 명시적 승인 없이는 `400 invalid_request_error`다.
+  - **effort**: `output_config.effort`는 `low`~`max`이며 기본은 `high`다(기본이 `medium`인 모델은 Opus 5.5와 Haiku 5.5뿐).
+  - **응답 시간·형식**: 어려운 작업에서는 한 요청이 수 분 걸릴 수 있어 스트리밍과 타임아웃을 계획해야 한다. 어시스턴트 prefill은 400이다.
+  - **사고 블록**: 사고 블록은 생성한 모델에 묶인다. 종합 입력은 텍스트만 넘기므로 해당 없다.
+- **비용 추정** (ADR-21 표, 추정): 조사(Sonnet 5.5)는 약 $0.14~0.32, 종합(Fable 5.1)은 약 $0.62로 질문당 약 $0.75~0.95다. 200달러 예산으로 약 210~260질문이 되며, 종합 출력(사고 포함)이 비용의 약 2/3다.
+- **검증 방법**:
+  - T077(가짜 전송): 종합 요청 본문에 `tools`·`tool_choice`·샘플링 파라미터가 없고, `thinking`이 없거나 adaptive이며, `fallbacks`·beta가 있는지 assert한다.
+  - T078(실제 키): 질문 3개로 단계별 `llm_usage` 비용과 종합 소요 시간을 잰다. 종합이 50초를 자주 넘으면 `SYNTHESIS_EFFORT=medium`으로 낮출지 CTO가 판단한다. ZDR 400이 나면 Opus 5.5로 바꾼다.
+- Alternatives considered: Opus 5.5 종합(약 40% 비용, 사용자는 Fable 지정), 조사·종합 모두 Fable(턴마다 2.5배 이상).
+
 ## 기술 선택 메모 (확정 ADR, 구현 시 주의)
 
 - **구조화 응답 (ADR-20, 구 ADR-17)**: Anthropic은 tool runner의 `output_format=AgentAnswer`, OpenAI는 `Agent(output_type=AgentAnswer)`다. 교차 규칙은 Pydantic 사후 검증이다. B9에서 두 구현을 각각 확인한다(가짜 전송으로 T069, 실제 키로 T073).
