@@ -8,7 +8,7 @@ from examples import REFINE, REFINE_CHOICE, TAXONOMY_BODY
 from llm_mock import script
 
 from app import db
-from app.refine import REFINE_PROMPT, build_prompt
+from app.refine import NAMES_MAX_CHARS, REFINE_PROMPT, TRUNCATED_NOTE, build_prompt, with_truncated_note
 
 c = client()
 
@@ -76,8 +76,8 @@ for rule in ["사용자의 의도를 바꾸지 않는다.",
 ok("REFINE_PROMPT: 규칙 문장 여섯 개")
 
 # --- 입력 조립
-p = build_prompt("질문입니다", None)
-assert "택사노미 없음" in p and "이력 없음" in p and p.rstrip().endswith("summary: 무엇이 달라졌는지 한 줄.")
+p, truncated = build_prompt("질문입니다", None)
+assert not truncated and "택사노미 없음" in p and "이력 없음" in p and p.rstrip().endswith("summary: 무엇이 달라졌는지 한 줄.")
 c.put("/api/settings/taxonomy", json=TAXONOMY_BODY)
 cid = c.post("/api/conversations", json={}).json()["id"]
 for i, (role, status, text) in enumerate([("user", "completed", "옛질문"), ("assistant", "completed", "옛답"),
@@ -86,12 +86,27 @@ for i, (role, status, text) in enumerate([("user", "completed", "옛질문"), ("
                                           ("assistant", "completed", ""), ("assistant", "completed", "최근답")]):
     db.x("INSERT INTO messages (conversation_id, role, status, content, created_at) VALUES (%s,%s,%s,%s, NOW(3) + INTERVAL %s SECOND)",
          (cid, role, status, text, i))
-p = build_prompt("그걸 주 단위로", cid)
+p, _ = build_prompt("그걸 주 단위로", cid)
 assert "scan_complete, scan_start" in p and "스캔 성공 여부" not in p and "메뉴판 스캔이" not in p, "택사노미는 이름만"
 hist = p.split("## 직전 대화(오래된 순)\n")[1].split("\n\n## 다듬을 질문")[0].splitlines()
 assert hist == ["[사용자] " + "가" * 500, "[에이전트] " + "나" * 500, "[사용자] 최근질문", "[에이전트] 최근답"], hist
 assert "옛질문" not in p and "실패답" not in p and p.split("## 다듬을 질문\n")[1].startswith("그걸 주 단위로")
 ok("조립: 택사노미 이름만, 이력 역할별 최근 2개·500자·오래된 순, 실패·빈 메시지 제외, 질문은 마지막")
+
+# --- 택사노미 이름 4,000자 상한: 앞에서 자르고 서버가 요약 끝에 표시(300자 이내)
+big = {"events": [{"name": f"event_{i:04d}_" + "x" * 30, "description": None, "category": None, "properties": []}
+                  for i in range(300)]}
+assert c.put("/api/settings/taxonomy", json=big).status_code == 200
+p, truncated = build_prompt("질문", None)
+names_line = p.split("## 택사노미 이벤트 이름\n")[1].split("\n")[0]
+assert truncated and len(names_line) <= NAMES_MAX_CHARS and names_line.startswith("event_0000_"), len(names_line)
+assert "event_0299_" not in names_line and names_line.split(", ")[-1].startswith("event_")  # 이름 중간에서 끊지 않음
+r = c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})
+assert r.status_code == 200 and r.json()["summary"] == REFINE["summary"] + TRUNCATED_NOTE, r.json()["summary"]
+assert len(with_truncated_note("요" * 300)) == 300 and with_truncated_note("요" * 300).endswith(TRUNCATED_NOTE)
+c.put("/api/settings/taxonomy", json=TAXONOMY_BODY)
+assert build_prompt("질문", None)[1] is False
+ok("상한: 이름 4,000자 이하로 앞부분만·truncated, fake 요약 끝에 고정 문구, 긴 요약도 300자 이내, 작은 택사노미는 표시 없음")
 
 # --- 두 런타임 가짜 전송
 os.environ["AGENT_MODE"] = "real"

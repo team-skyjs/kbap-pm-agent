@@ -12,6 +12,9 @@ log = logging.getLogger("app.refine")
 router = APIRouter(prefix="/api/questions")
 HISTORY_CHARS = 500
 HISTORY_PER_ROLE = 2
+NAMES_MAX_CHARS = 4000  # 이벤트 이름이 매우 많은 택사노미에서 입력 토큰 상한
+TRUNCATED_NOTE = " (택사노미 이름이 많아 앞부분만 참고)"
+SUMMARY_MAX = 300
 
 REFINE_PROMPT = """너는 PM이 분석 에이전트에게 보낼 질문을 보내기 전에 다듬는 도우미다. 질문을 답하기 좋은 모양으로 고쳐 쓴다.
 
@@ -39,6 +42,22 @@ def taxonomy_names() -> list[str]:
     return [e["name"] for e in t["events"]] if t and t.get("events") else []
 
 
+def cap_names(names: list[str]) -> tuple[list[str], bool]:
+    """쉼표로 이은 이름 문자열이 4,000자 안에 드는 앞쪽 이름까지만. (넣은 이름, 잘렸는가)"""
+    kept, length = [], 0
+    for n in names:
+        length += len(n) + (2 if kept else 0)
+        if length > NAMES_MAX_CHARS:
+            return kept, True
+        kept.append(n)
+    return kept, False
+
+
+def with_truncated_note(summary: str) -> str:
+    """모델은 잘림을 모르므로 서버가 요약 끝에 표시. 300자를 넘으면 모델 요약 쪽을 줄임"""
+    return summary.rstrip()[:SUMMARY_MAX - len(TRUNCATED_NOTE)] + TRUNCATED_NOTE
+
+
 def render_prompt(question: str, names: list[str], rows: list[dict]) -> str:
     """규칙 + 택사노미 이벤트 이름(정의·속성 없이) + 최근 대화(rows: role·content, 오래된 순) + 질문 + 출력 형식."""
     history = "\n".join(f"[{'사용자' if r['role'] == 'user' else '에이전트'}] {r['content'][:HISTORY_CHARS]}"
@@ -48,9 +67,11 @@ def render_prompt(question: str, names: list[str], rows: list[dict]) -> str:
             f"\n\n## 다듬을 질문\n{question}\n\n## 출력\nrefined: 다듬은 질문. summary: 무엇이 달라졌는지 한 줄.")
 
 
-def build_prompt(question: str, conversation_id: int | None) -> str:
+def build_prompt(question: str, conversation_id: int | None) -> tuple[str, bool]:
+    """(프롬프트, 택사노미 이름이 잘렸는가)"""
     rows = _history(conversation_id) if conversation_id is not None else []
-    return render_prompt(question, taxonomy_names(), rows)
+    names, truncated = cap_names(taxonomy_names())
+    return render_prompt(question, names, rows), truncated
 
 
 @router.post("/refine")
@@ -58,17 +79,19 @@ async def refine_question(body: RefineIn):
     if body.conversation_id is not None and not db.one("SELECT id FROM conversations WHERE id = %s",
                                                        (body.conversation_id,)):
         raise ApiError(404, "CONVERSATION_NOT_FOUND", f"대화 {body.conversation_id}을 찾을 수 없습니다.")
-    budget.check()
+    budget.check()  # 유료 호출 전에 거절
+    prompt, truncated = build_prompt(body.question, body.conversation_id)
     try:
-        result, model = await agent.refine(build_prompt(body.question, body.conversation_id))
+        result, model = await agent.refine(prompt)
     except Exception as e:
         # ponytail: 응답 파싱 단계에서 실패하면 그 호출의 토큰은 기록되지 않음. 실패가 잦으면 런타임에서 usage를 먼저 기록
         log.warning("refine failed: %s", type(e).__name__)
         raise ApiError(502, "UPSTREAM_ERROR", "질문 다듬기 모델 호출에 실패했습니다. 원문으로 보내거나 다시 시도해 주세요.")
+    summary = with_truncated_note(result.summary) if truncated else result.summary
     rid = db.x("""INSERT INTO question_refinements (conversation_id, original_question, refined_question, summary, model)
                   VALUES (%s, %s, %s, %s, %s)""",
-               (body.conversation_id, body.question, result.refined, result.summary, model))
-    return {"refinementId": rid, "refined": result.refined, "summary": result.summary}
+               (body.conversation_id, body.question, result.refined, summary, model))
+    return {"refinementId": rid, "refined": result.refined, "summary": summary}
 
 
 @router.post("/refine/{refinement_id}/choice")

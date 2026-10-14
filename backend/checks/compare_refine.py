@@ -110,7 +110,7 @@ async def main(out_dir: pathlib.Path = ROOT / "_workspace") -> list[dict]:
         names, source = FALLBACK_NAMES, source if source != "DB" else "고정 목록(DB에 택사노미 없음)"
     rows = []
     for kind, question, history in SAMPLES:
-        prompt = refine.render_prompt(question, names, history)
+        prompt = refine.render_prompt(question, refine.cap_names(names)[0], history)
         results = [await run_one(m, prompt) for m in MODELS]  # 순차 호출(지연 비교가 서로 간섭하지 않게)
         rows.append({"type": kind, "question": question, "history": history, "results": results})
         print(json.dumps(rows[-1], ensure_ascii=False))
