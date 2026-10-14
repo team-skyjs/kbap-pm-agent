@@ -1,16 +1,14 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: (none) → 1.0.0   (제정 2026-10-15)
-Bump rationale: 초기 제정.
-Modified principles: 없음 (신규 5개 원칙)
-Added sections: 기술 제약, 개발 워크플로우, Governance
-Removed sections: 없음
+Version change: 1.0.0 → 1.1.0   (개정 2026-10-15)
+Bump rationale (MINOR): "기술 제약"의 백엔드 LLM 계층을 LangChain 1.x에서 공급자 공식 SDK로 실질 변경.
+  사유: ADR-20(사용자 결정 — Claude 네이티브 기능 활용, OpenAI는 openai-agents로 교체 가능).
+Modified principles: 없음. 원칙 I~V 문구 변경 없음.
+Modified sections: 기술 제약 — 백엔드 줄.
 Templates reviewed:
-  ✅ .specify/templates/plan-template.md  — Constitution Check가 헌법을 동적 참조. 변경 불필요.
-  ✅ .specify/templates/spec-template.md  — 헌법 결합 없음.
-  ✅ .specify/templates/tasks-template.md — 테스트 OPTIONAL 문구와 원칙 V 일치. 변경 불필요.
-Follow-up: 없음.
+  ✅ plan-template.md / spec-template.md / tasks-template.md — 변경 불필요.
+Follow-up: plan.md Constitution Check의 "불일치(개정 대기)" 표시를 T072에서 해소.
 -->
 
 # K-Bap PM Agent Constitution
@@ -85,7 +83,8 @@ LLM, Amplitude MCP, GitHub 저장소 접근은 각각 한 지점(seam)을 통해
 PRD 5·7.3·8절과 CTO ADR(`_workspace/01_cto_tech-decisions.md`)에서 확정된 것.
 
 - 레포 구조: 이 저장소 하나에 `frontend/`와 `backend/`를 둔다.
-- 백엔드: Python 3.12, FastAPI, LangChain 1.x, MySQL. 패키지는 uv. 홈서버 Docker 컨테이너로 운영.
+- 백엔드: Python 3.12, FastAPI, MySQL. 패키지는 uv. LLM 호출은 공급자 공식 SDK로 한다(Claude는 `anthropic` SDK의
+  tool runner, GPT는 `openai-agents`). LangChain 계열은 쓰지 않는다. 공급자 선택은 모델 문자열 접두사(`anthropic:`/`openai:`)로 한다(ADR-20). 홈서버 Docker 컨테이너로 운영.
   로컬은 `docker compose up` 한 번으로 백엔드+MySQL이 떠야 한다.
 - 프론트: TypeScript, React, Vite 정적 SPA. GitHub Pages 프로젝트 페이지(`/kbap-pm-agent/`)에
   배포하므로 해시 라우팅을 쓰고 백엔드 주소는 빌드 시 환경변수로 받는다.
@@ -115,4 +114,4 @@ PRD 5·7.3·8절과 CTO ADR(`_workspace/01_cto_tech-decisions.md`)에서 확정�
 - plan.md의 Constitution Check는 원칙 I~V 각각에 대해 준수 여부와, 위반 시 정당화를 적어야 한다.
 - 복잡도(추상화, 새 의존성, 새 테이블)는 plan.md의 Complexity Tracking에 이유를 적어야 한다.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-15
+**Version**: 1.1.0 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-15
