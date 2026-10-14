@@ -35,7 +35,11 @@ def _safe_path(path: str) -> pathlib.Path:
 
 # --- 코드 도구 (source: code)
 def find_event_calls(eventName: str) -> str:
-    """이벤트를 보내는 코드 위치(파일·줄·함수) 인덱스 조회. LLM 비용 0."""
+    """이벤트를 보내는 코드 위치(파일·줄·함수) 인덱스 조회. LLM 비용 0.
+
+    Args:
+        eventName: 분석 이벤트 이름, 예: scan_complete (EVENTS 상수의 키)
+    """
     hits = repo.index().get(eventName, [])
     if not hits:
         return f"0곳: 코드에서 {eventName} 호출을 찾지 못했습니다."
@@ -44,7 +48,12 @@ def find_event_calls(eventName: str) -> str:
 
 
 def search_code(regex: str, glob: str | None = None) -> str:
-    """저장소에서 정규식으로 코드 줄 검색(최대 30건). glob 예: 'src/app/**/*.tsx'."""
+    """저장소에서 정규식으로 코드 줄 검색(최대 30건). 소스 파일(ts·tsx·js·jsx)만 대상.
+
+    Args:
+        regex: ripgrep 정규식, 예: handleRetry
+        glob: 저장소 루트 기준 경로 글롭으로 범위 축소, 예: src/app/**/*.tsx. 없으면 전체 소스
+    """
     files = repo.code_files(repo.clone_dir(), glob)  # 소스 파일만 대상, 문서 속 이벤트 문자열 오탐 방지
     if not files:
         return f"0건: /{regex}/ (대상 코드 파일 없음)"
@@ -59,7 +68,11 @@ def search_code(regex: str, glob: str | None = None) -> str:
 
 
 def get_screen_summary(path: str) -> str:
-    """화면 파일의 캐시된 요약(역할·컴포넌트·핸들러·이벤트)."""
+    """화면 파일의 캐시된 요약(역할·컴포넌트·핸들러·이벤트).
+
+    Args:
+        path: 저장소 루트 기준 파일 경로, 예: src/app/scan.tsx
+    """
     _safe_path(path)
     blob = _blobs().get(path)
     text = _cache().get(f"{path}@{blob}")
@@ -67,7 +80,13 @@ def get_screen_summary(path: str) -> str:
 
 
 def read_code(path: str, startLine: int, endLine: int) -> str:
-    """파일의 줄 범위 읽기(1부터, 호출당 최대 200줄)."""
+    """파일의 줄 범위 읽기(호출당 최대 200줄).
+
+    Args:
+        path: 저장소 루트 기준 파일 경로, 예: src/app/scan.tsx
+        startLine: 시작 줄 번호(1부터, 포함)
+        endLine: 끝 줄 번호(포함). startLine부터 200줄 넘으면 잘림
+    """
     lines = _safe_path(path).read_text(errors="replace").splitlines()
     start = max(1, startLine)
     end = min(endLine, start + MAX_READ_LINES - 1, len(lines))
@@ -82,7 +101,11 @@ def _events() -> list[dict]:
 
 
 def search_taxonomy(query: str) -> str:
-    """택사노미 정의에서 이벤트명·설명·카테고리에 query가 들어간 이벤트 검색."""
+    """택사노미 정의에서 이벤트명·설명·카테고리에 query가 들어간 이벤트 검색.
+
+    Args:
+        query: 찾을 문자열(대소문자 무시), 예: cart
+    """
     if not _events():
         return "택사노미가 업로드되지 않았습니다."
     q = query.lower()
@@ -92,7 +115,11 @@ def search_taxonomy(query: str) -> str:
 
 
 def get_event_definition(name: str) -> str:
-    """이벤트 하나의 정의(설명·속성)와 코드 존재 여부."""
+    """이벤트 하나의 정의(설명·속성)와 코드 존재 여부.
+
+    Args:
+        name: 택사노미의 이벤트 이름, 예: scan_complete
+    """
     e = next((e for e in _events() if e["name"] == name), None)
     in_code = bool(repo.index().get(name))
     if e is None:

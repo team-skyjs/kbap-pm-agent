@@ -38,7 +38,7 @@ assert rejects(lambda p: p.update(evidence=[]))
 assert rejects(lambda p: p["evidence"][1].update(value="x"))
 ok("AgentAnswer: 계약 예시 통과, 교차 규칙 위반 거부")
 
-# 등록된 저장소처럼 보이게: 인덱스 파일만 두면 find_event_calls가 돈다(rg 불필요)
+# 등록된 저장소처럼 보이게: 인덱스 파일만 두면 find_event_calls 동작(rg 불필요)
 os.environ["REPOS_DIR"] = tmp = tempfile.mkdtemp()
 (pathlib.Path(tmp) / "repo").mkdir()
 (pathlib.Path(tmp) / "index.json").write_text(json.dumps({"scan_complete": [{"file": "src/app/scan.tsx", "line": 405, "function": "fail"}]}))
@@ -76,9 +76,13 @@ try:
             assert "tool_choice" not in req and req["thinking"] == {"type": "adaptive"} and req["fallbacks"] == "default"
             assert req["cache_control"] == {"type": "ephemeral"} and req["output_config"]["format"]["type"] == "json_schema"
             assert {t["name"] for t in req["tools"]} >= {"find_event_calls", "read_code", "search_taxonomy"}
+            props = next(t for t in req["tools"] if t["name"] == "read_code")["input_schema"]["properties"]
         else:
             assert sent[0]["text"]["format"]["type"] == "json_schema"
             assert {t["name"] for t in sent[0]["tools"]} >= {"find_event_calls", "read_code", "search_taxonomy"}
+            props = next(t for t in sent[0]["tools"] if t["name"] == "read_code")["parameters"]["properties"]
+        # docstring Args 절이 매개변수 description으로 전달되는지
+        assert "1부터" in props["startLine"]["description"] and "저장소 루트 기준" in props["path"]["description"], props
         ok(f"{provider}: 도구 호출 → 구조화 final, SSE 순서, llm_usage 기록, GET 상세 일치, 요청 파라미터")
 
         def boom(eventName: str) -> str:
