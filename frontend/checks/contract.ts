@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs'
 
 const DIR = new URL('../../specs/001-pm-agent-prototype/contracts/', import.meta.url)
 
-export function blocks(file: string): string[] {
-  const md = readFileSync(new URL(file, DIR), 'utf8')
+export function blocks(file: string, dir: URL = DIR): string[] {
+  const md = readFileSync(new URL(file, dir), 'utf8')
   return [...md.matchAll(/^```[a-z]*\n([\s\S]*?)^```/gm)].map((m) => m[1])
 }
 export const jsonBlock = (file: string, i: number): unknown => JSON.parse(blocks(file)[i])

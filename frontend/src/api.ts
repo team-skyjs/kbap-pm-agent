@@ -454,7 +454,7 @@ export async function sendMessage(
 
 const ERROR_TEXT: Record<ClientErrorCode, string> = {
   VALIDATION_ERROR: '입력값이 올바르지 않습니다.',
-  UNAUTHORIZED: '접근 토큰이 없거나 틀렸습니다. 설정 화면에서 입력하세요.',
+  UNAUTHORIZED: '접근 토큰이 없거나 맞지 않습니다. 설정에서 확인하세요.',
   BUDGET_EXCEEDED: 'LLM 예산 상한에 도달해 실행할 수 없습니다.',
   CONVERSATION_NOT_FOUND: '대화를 찾을 수 없습니다.',
   PROPOSAL_NOT_FOUND: '제안을 찾을 수 없습니다.',

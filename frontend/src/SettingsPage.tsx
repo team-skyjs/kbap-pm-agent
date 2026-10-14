@@ -90,68 +90,79 @@ export default function SettingsPage() {
   }
 
   const r = s?.repository
+  const feedback = (area: string) => msg[area] && (
+    <p className={msg[area].startsWith('오류') ? 'feedback error' : 'feedback muted'} role="status">{msg[area]}</p>
+  )
   return (
     <div className="settings">
-      <h3>설정</h3>
-
       <section>
-        <h4>접근 토큰</h4>
+        <h2>접근 토큰</h2>
         <p className="muted">백엔드에 ACCESS_TOKEN이 설정된 경우에만 필요합니다. 이 브라우저에만 저장됩니다.</p>
-        <div className="composer">
-          <input type="password" value={token} onChange={(e) => setTokenInput(e.target.value)} placeholder="토큰" />
-          <button onClick={saveToken}>저장</button>
+        <div className="field-row">
+          <input type="password" value={token} onChange={(e) => setTokenInput(e.target.value)} placeholder="토큰" aria-label="접근 토큰" />
+          <button type="button" className="btn primary" onClick={saveToken}>저장</button>
         </div>
-        {msg.token && <div>{msg.token}</div>}
+        {feedback('token')}
       </section>
 
       {loadError && <p className="error">{loadError}</p>}
-      {!s && !loadError && <p>불러오는 중…</p>}
+      {!s && !loadError && <p className="muted">불러오는 중…</p>}
       {s && (
         <>
           <section>
-            <h4>상태</h4>
-            <div>실행 모드: <b>{s.agentMode === 'fake' ? 'fake (시연)' : 'real'}</b></div>
-            <div>모델: 에이전트 <code>{s.models.agent}</code> · 코드 요약 <code>{s.models.codeSummary}</code></div>
-            <div>예산: ${s.budget.spentUsd.toFixed(4)} / ${s.budget.limitUsd.toFixed(2)}</div>
+            <h2>상태</h2>
+            <dl className="metric">
+              <dt>실행 모드</dt><dd>{s.agentMode === 'fake' ? 'fake (시연)' : 'real'}</dd>
+              <dt>모델</dt><dd>에이전트 <code>{s.models.agent}</code> · 코드 요약 <code>{s.models.codeSummary}</code></dd>
+              <dt>예산</dt><dd>${s.budget.spentUsd.toFixed(4)} / ${s.budget.limitUsd.toFixed(2)}</dd>
+            </dl>
           </section>
 
           <section>
-            <h4>FE 저장소</h4>
+            <h2>FE 저장소 <span className={`status ${r ? (r.lastError ? 'down' : 'ok') : ''}`}>{r ? (r.lastError ? '오류' : '등록됨') : '미등록'}</span></h2>
             {r ? (
-              <div>
-                <div><code>{r.url}</code> ({r.branch}) · 커밋 <code>{r.headCommit}</code></div>
-                <div>코드 맵: {r.codeMapStatus}{r.codeMapCommit && ` (${r.codeMapCommit})`} · 화면 {r.screenCount}개 · 추적 이벤트 {r.trackedEventCount}곳</div>
-                <div>동기화: {time(r.syncedAt)}</div>
-                {r.lastError && <div className="error">마지막 오류: {r.lastError}</div>}
-              </div>
-            ) : <div className="muted">등록된 저장소가 없습니다.</div>}
-            <div className="composer">
-              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com/team-skyjs/kbap-fe" />
-              <input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="브랜치 (비우면 기본)" style={{ flex: '0 0 160px' }} />
-              <button disabled={busy !== '' || !url.trim()} onClick={() => void saveRepo()}>등록</button>
-              <button disabled={busy !== '' || !r} onClick={() => void sync()}>동기화</button>
+              <dl className="metric">
+                <dt>저장소</dt><dd><code>{r.url}</code> ({r.branch})</dd>
+                <dt>커밋</dt><dd><code>{r.headCommit}</code></dd>
+                <dt>코드 맵</dt><dd>{r.codeMapStatus}{r.codeMapCommit && ` (${r.codeMapCommit})`} · 화면 {r.screenCount}개 · 추적 이벤트 {r.trackedEventCount}곳</dd>
+                <dt>마지막 동기화</dt><dd>{time(r.syncedAt)}</dd>
+              </dl>
+            ) : <p className="muted">등록된 저장소가 없습니다.</p>}
+            {r?.lastError && <p className="error">마지막 오류: {r.lastError}</p>}
+            <div className="field-row">
+              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com/team-skyjs/kbap-fe" aria-label="저장소 주소" />
+              <input className="branch-input" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="브랜치 (비우면 기본)" aria-label="브랜치" />
+              <button type="button" className="btn primary" disabled={busy !== '' || !url.trim()} onClick={() => void saveRepo()}>등록</button>
+              <button type="button" className="btn" disabled={busy !== '' || !r} onClick={() => void sync()}>동기화</button>
             </div>
-            {busy === 'repo' && <div>클론·인덱싱 중…</div>}
-            {msg.repo && <div className={msg.repo.startsWith('오류') ? 'error' : ''}>{msg.repo}</div>}
+            {busy === 'repo' && <p className="feedback muted" role="status">클론·인덱싱 중…</p>}
+            {feedback('repo')}
           </section>
 
           <section>
-            <h4>택사노미</h4>
-            {s.taxonomy ? <div>이벤트 {s.taxonomy.eventCount}개 · 갱신 {time(s.taxonomy.uploadedAt)}</div> : <div className="muted">업로드된 택사노미가 없습니다.</div>}
-            <input
-              type="file" accept=".json,application/json" disabled={busy !== ''}
-              onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = '' }}
-            />
-            {msg.taxonomy && <div className={msg.taxonomy.startsWith('오류') ? 'error' : ''}>{msg.taxonomy}</div>}
+            <h2>택사노미 <span className={`status ${s.taxonomy ? 'ok' : ''}`}>{s.taxonomy ? '업로드됨' : '없음'}</span></h2>
+            {s.taxonomy ? <p>이벤트 {s.taxonomy.eventCount}개 · 갱신 {time(s.taxonomy.uploadedAt)}</p> : <p className="muted">업로드된 택사노미가 없습니다.</p>}
+            <label className="btn file-btn">
+              JSON 파일 선택
+              <input
+                type="file" accept=".json,application/json" disabled={busy !== ''} className="visually-hidden"
+                onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = '' }}
+              />
+            </label>
+            {feedback('taxonomy')}
           </section>
 
           <section>
-            <h4>Amplitude</h4>
-            <div>
-              {s.amplitude.status === 'connected' ? `연결됨 (${time(s.amplitude.connectedAt)})` : '연결 안 됨'} · <code>{s.amplitude.serverUrl}</code>
-            </div>
-            <button disabled={busy !== ''} onClick={connect}>{s.amplitude.status === 'connected' ? '다시 연결' : '연결'}</button>
-            {msg.amplitude && <div className={msg.amplitude.startsWith('오류') ? 'error' : ''}>{msg.amplitude}</div>}
+            <h2>
+              Amplitude{' '}
+              <span className={`status ${s.amplitude.status === 'connected' ? 'ok' : ''}`}>{s.amplitude.status === 'connected' ? '연결됨' : '미연결'}</span>
+            </h2>
+            <dl className="metric">
+              <dt>서버</dt><dd><code>{s.amplitude.serverUrl}</code></dd>
+              {s.amplitude.status === 'connected' && <><dt>연결 시각</dt><dd>{time(s.amplitude.connectedAt)}</dd></>}
+            </dl>
+            <button type="button" className="btn primary" disabled={busy !== ''} onClick={connect}>{s.amplitude.status === 'connected' ? '다시 연결' : '연결'}</button>
+            {feedback('amplitude')}
           </section>
         </>
       )}

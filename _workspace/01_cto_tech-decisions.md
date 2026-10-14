@@ -209,6 +209,42 @@
 - 미검증: 실제 키 호출(T073). 구조화 출력이 `AgentAnswer` 스키마 제약을 받는지가 남았다.
 - 상태: 확정 (헌법 "기술 제약"의 "LangChain 1.x" 문구 개정이 선행돼야 한다. 거버넌스 규칙. team-lead에 개정안 전달)
 
+### ADR-24: 답변 차트는 Chart.js v4(필요한 컨트롤러만, 지연 로드) (003 프론트 재설계)
+- 결정: `chart.js` v4에서 선·막대에 필요한 컨트롤러·스케일·요소·범례·툴팁·제목만 등록한다. 차트 블록이 처음 나올 때 동적 `import()`로 별도 청크를 받는다. 색은 CSS 토큰(`--chart-1`~`--chart-4`, `--chart-grid`, 글자색)에서 읽고, 시스템 테마가 바뀌면 다시 읽어 갱신한다. 캔버스 옆에 같은 데이터의 숨긴 표를 둔다(낭독기용).
+- 이유: 2026-10-15 esbuild 실측에서 선·막대만 쓰면 171KB(min)/59KB(gzip)로 예산 200KB 안이다. 범례·축 라벨·툴팁이 내장이라 직접 짤 코드가 없다. 지연 로드라 차트 없는 화면은 비용이 0이다.
+- 버린 대안: uPlot(50KB, 툴팁·막대 정렬을 직접 구현해야 함), Recharts(393KB, 예산 초과).
+- 바꾸면 영향: `frontend/src/ChartBlock.tsx` 내부만. 차트 블록 형식(specs/003 contracts/chart-block.md)과 파서는 그대로다.
+- 상태: 가정 — 실제 앱 빌드에서의 청크 크기와 사용자 확인(입력 문서의 첫 결정 지점)이 남았다. 200KB를 넘거나 사용자가 다른 것을 고르면 uPlot으로 바꾼다.
+
+### ADR-25: 마크다운은 react-markdown + remark-gfm, 원시 HTML 미해석, 구문 강조 없음 (003)
+- 결정: 답변 본문과 제안 텍스트를 같은 `Markdown` 컴포넌트로 그린다. `remark-gfm`으로 표·취소선·작업 목록을 켠다. `remark-cjk-friendly`(2.3.2)로 한국어 강조 닫힘 규칙을 고친다. CommonMark에서는 구두점 뒤·글자 앞의 닫는 `**`가 닫히지 않아 `**41%**로`가 문자로 보인다(2026-10-15 추가, team-lead 승인, 메인 청크 +13KB min/+5KB gzip, frontend-dev 4947e82). `rehype-raw`는 쓰지 않아 모델 출력의 HTML은 문자로 보인다. 링크는 `target="_blank" rel="noopener noreferrer"`다. 코드 블록은 고정폭·가로 스크롤·언어 표시·복사 버튼만 갖고 구문 강조는 하지 않는다. 언어 `chart` 블록은 ADR-27 파서로 넘긴다.
+- 이유: PRD 5절이 새 의존성을 "차트 하나 예외"로 묶었고, 구문 강조기는 기능 추가라 두 번째 예외가 된다. `remark-cjk-friendly`는 기능이 아니라 한국어 마크다운의 정확성 결함 수정이라 예외로 승인했다(자체 `**` 치환보다 단일 `*`와 강조 안 인라인 요소까지 다룬다). 답변 코드는 짧은 이벤트 호출 예시라 강조 없이도 읽힌다. HTML 미해석은 모델 출력을 신뢰하지 않는 기본값이다.
+- 버린 대안: highlight.js core 지연 로드(다음 사이클 후보), Shiki(수백 KB), `rehype-raw`+sanitize(필요 없음).
+- 바꾸면 영향: `Markdown.tsx` 한 곳.
+- 상태: 확정 (사용자 평가에서 코드 가독성이 지적되면 다시 본다)
+
+### ADR-26: UI 검사는 Playwright + axe, 기본은 계약 예시 기반 고정 응답, CI는 다음 단계 (003)
+- 결정:
+  - **도구·매트릭스**: `@playwright/test` + `@axe-core/playwright`(devDependency), Chromium 하나, `npm run check:ui`(기존 `npm run check`와 분리)다. 뷰포트 1280·768·375 × 모드 light·dark·reduced-motion 9조합이다.
+  - **API**: `page.route('**/api/**')`로 계약 분할본 예시 JSON과 SSE 스크립트 6종(여섯 화면 상태)을 준다. `CHECK_UI_LIVE=1`이면 정상 스트리밍 시나리오 하나만 로컬 fake 백엔드로 돈다.
+  - **통과 기준**: axe `critical`·`serious` 0이다. 스크린샷은 `_workspace/04_designer_screenshots/`에 두고 gitignore한다.
+  - **CI**: 이번에는 넣지 않는다.
+- 이유: 오류·부분 완료·세션 만료는 fake 백엔드로 재현할 수 없어 고정 응답이 필요하다. 고정 응답을 계약 예시에서 만들면 계약·화면 검사가 같은 기준을 본다(헌법 원칙 I). 배포 워크플로우는 접근 제한 PR이 바꾸는 중이라 같은 파일을 동시에 고치지 않는다.
+- 버린 대안: fake 백엔드만 사용(오류 상태 불가), MSW(의존성 추가), 브라우저 3종(시간 대비 이득 작음).
+- 바꾸면 영향: `frontend/playwright.config.ts`, `frontend/checks/ui/`.
+- 상태: 확정 (CI 편입은 두 PR 머지 후 별도 결정, specs/003 tasks Polish)
+
+### ADR-27: 차트 데이터는 답변 본문의 `chart` 코드 블록으로만, 형식은 엄격 검증 (003)
+- 결정: 형식 기준 파일은 `specs/003-frontend-redesign/contracts/chart-block.md`다.
+  - 형식: 키 `type`(line|bar)·`title`·`x`·`series[name, values]`만 허용하고, 길이가 일치해야 하며, 추가 키는 오류다.
+  - 파서: 프론트 `chartBlock.ts` 순수 함수가 검증하고, 실패하면 원문 코드 블록으로 보인다.
+  - 에이전트 지시: `SYSTEM_PROMPT`에 "시계열 지표를 답할 때 chart 블록을 함께 쓴다"는 한 줄과 형식 예시를 넣는다. 예시는 기준 파일과 글자 단위로 같다(`backend/checks/check_b9.py`가 확인).
+  - API 계약과 응답 shape는 바뀌지 않는다.
+- 이유: PRD 사용자 결정(차트는 답변 안 블록만, 계약 변경 없음). 엄격 검증이라야 모델 오타가 엉뚱한 차트가 되지 않고, 실패는 원문으로 남아 정보가 사라지지 않는다.
+- 버린 대안: 근거(Evidence)에 시계열 필드 추가(계약 변경, PRD 비목표), 느슨한 파싱(추가 키 무시. 모델 실수를 숨김).
+- 바꾸면 영향: 형식 파일, 파서, 프롬프트 한 줄.
+- 상태: 가정 — 모델이 블록을 안정적으로 내는지(spec SC-007: 실제 시계열 질문 5건 중 4건)는 실제 키로 확인해야 한다.
+
 ## 위임 (구현자가 정하되 "설정으로 바꿀 수 있게"만 지킨다)
 
 - UI 라이브러리·스타일링 (PRD: 세련된 UI 비목표)

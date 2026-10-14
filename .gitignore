@@ -22,3 +22,8 @@ frontend/dist/
 # local runtime data
 *.log
 backend/.cache/
+
+# UI 검사 산출물
+_workspace/04_designer_screenshots/
+frontend/test-results/
+frontend/playwright-report/
