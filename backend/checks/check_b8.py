@@ -12,7 +12,7 @@ base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
 auth = {"Authorization": f"Bearer {os.environ['ACCESS_TOKEN']}"} if os.environ.get("ACCESS_TOKEN") else {}
 
 
-def expected_origin() -> str:
+def expected_origin() -> tuple[str, str]:
     """Pages 출처의 단일 기준은 git remote 소유자다(ADR-18). 서버 CORS_ORIGINS를 기대값으로 쓰지 않는다(동어반복)."""
     try:
         url = subprocess.run(["git", "remote", "get-url", "origin"], capture_output=True, text=True,
@@ -21,12 +21,13 @@ def expected_origin() -> str:
         url = ""
     m = re.search(r"github\.com[:/]([^/]+)/", url)  # https://github.com/owner/repo(.git), git@github.com:owner/repo.git
     if m:
-        return f"https://{m.group(1).lower()}.github.io"
+        return f"https://{m.group(1).lower()}.github.io", "git remote"
+    # ponytail: 레포 밖 실행 시 수동 값. 기대 출처를 사람이 넣으므로 틀린 값이 통과할 수 있다. 레포 안에서 실행할 것
     assert os.environ.get("EXPECTED_ORIGIN"), "git remote가 없다. EXPECTED_ORIGIN=https://<owner>.github.io 를 지정"
-    return os.environ["EXPECTED_ORIGIN"].rstrip("/")
+    return os.environ["EXPECTED_ORIGIN"].rstrip("/"), "EXPECTED_ORIGIN"
 
 
-origin = expected_origin()
+origin, origin_source = expected_origin()
 
 r = httpx.get(f"{base}/api/health", timeout=10)
 assert r.status_code == 200 and r.json() == {"status": "ok", "db": "ok", "version": "0.1.0"}, r.text
@@ -35,7 +36,7 @@ print(f"PASS health {base}")
 r = httpx.options(f"{base}/api/conversations", headers={"Origin": origin, "Access-Control-Request-Method": "POST",
                                                        "Access-Control-Request-Headers": "authorization,content-type"})
 assert r.status_code == 200 and r.headers.get("access-control-allow-origin") == origin, (r.status_code, r.headers)
-print(f"PASS preflight Origin {origin}")
+print(f"PASS preflight Origin {origin} (기대 출처: {origin_source})")
 
 s = httpx.get(f"{base}/api/settings", headers=auth, timeout=10).json()
 if s["agentMode"] != "fake":
