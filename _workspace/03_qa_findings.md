@@ -46,6 +46,7 @@
 | 2026-10-15 | QA-8 재검증 (8869191) + 002 G5 운영 검사 (0a89c61) 로컬 | 통과, 운영 미검증 | QA-8: 커밋본 check_g4 위반 0이면 종료 0(운영 도메인 대조 포함), 임시 로컬 클론에 `${1:-` 기본값 .sh와 서버 경로 파일을 넣으면 FAIL 2·종료 1. G5: 공용 스택 무접촉으로 fake(지연 21초) 백엔드+웹을 별도 네트워크에 띄우고 Cloudflare Access 흉내 프록시(토큰 맞으면 통과, 없으면 XRW→401 HTML, 그 외 302) 앞에서 check_b8 → 8항목 PASS(SSE 105초·ping 5회), 종료 0. 게이트 없이 웹 직접 → 토큰 없음 3항목 FAIL·종료 1(메시지 전송 시험은 404로 끝나 에이전트 실행 없음). 닿지 않는 호스트 → 종료 1, 트레이스백·호스트 문자열 0. deploy.yml verify job: deploy 이후 ubuntu-latest, Variables·Secrets 없으면 즉시 실패, check_b8만 실행. T024(사용자 설정)·T025(운영)는 미검증. 위험: Access 앱·서비스 토큰·Secrets 설정 전 머지하면 main 배포마다 verify가 빨간색 |
 | 2026-10-15 | verify job 시크릿 미설정 분기 (fb881c0) | 통과 | 워크플로우 run 블록을 그대로 추출해 실행: 두 Secrets 빔 → 경고·종료 0, 하나만 설정 → 경고·종료 0, 둘 다 설정+닿지 않는 호스트 → check_b8 FAIL(7)·종료 1, 둘 다 설정+PUBLIC_BASE_URL 빔 → 종료 1. README에 규칙 한 줄. 참고: 반쯤 설정 상태도 조용히 생략되므로 T024 뒤 첫 배포 로그에서 경고 소멸 확인(T015 비고) |
 | 2026-10-15 | PR #7 재리뷰 수정 (0cea972) | 기각된 수정, 미반영 | 사용자가 재리뷰 지적 2건(OpenAI MCP 연결 후 항상 cleanup, 워크플로우 Variables 읽기)을 기각해 커밋 폐기. PR #7은 8eaca95 상태로 main 머지·운영 배포(v0.1.4). QA가 커밋본으로 check_b1~b7을 돌린 기록만 남김. main 워크플로우는 AMPLITUDE_TOOLS·TOOL_RESULT_MAX_CHARS 고정값 |
+| 2026-10-15 | 접근 제한 재개 (feat/access-gate-resume 4ffc529) | 통과, 결함 1(문서) | 회귀: `git archive HEAD` 백엔드·웹 이미지를 별도 네트워크·DB로 띄워(공용 스택·운영 무접촉) check_g1 OK(첫 tool_call 0.68s), check_b1~b7 OK, check_g4 OK(운영 도메인 대조 포함), 프론트 npm run check f1~f5·g2 OK + 빌드 후 `check -- f6` OK(run.ts는 f6을 빌드 산출물이 필요해 전체 실행에서 빼고 이름 지정 시만 실행). 전환 기간: 워크플로우 `ACCESS_TOKEN:?`·env 파일 기록·배포 단계 IMAGE_WEB·COMPOSE_FILE·ENV_FILE 전달·verify job ACCESS_TOKEN env 확인. 가짜 docker·curl로 배포 스크립트: 정상 토큰+보호 경로 401 → pull·up·헬스·종료 0, 빈 토큰 → pull 뒤 up 전 종료 1, 보호 경로 200 → 종료 1, IMAGE_WEB 없음 → docker 호출 전 종료 1. 토큰 켠 실제 백엔드: 토큰 없이 /api/conversations 401·있으면 200·health 200. 브라우저(웹 컨테이너 경유, 토큰 켠 백엔드): 토큰 없으면 UNAUTHORIZED 안내·만료 배너 없음, 설정에서 토큰 저장 후 질문→카드 2장. 충돌 해소: compose(IMAGE_WEB·ENV_FILE 필수), env 예시(ACCESS_TOKEN 값 자리표시자, example.com), push 스크립트(웹 이미지 빌드·REMOTE_DIR·IMAGE 필수·원격에 두 경로와 IMAGE_WEB 전달) 모두 두 설계를 담음. 계약 001 분할본 diff 0, 원본 v1.2(재개) 정본. 결함 QA-9 |
 
 ## 결함
 
@@ -120,3 +121,12 @@
 - 수정 방향: 백엔드. 검사 대상에서 `deploy/checks/check_g4.sh`를 빼거나(`git ls-files … ':!deploy/checks/check_g4.sh'`), 패턴을 쪼개 스크립트에 그대로 나타나지 않게 한다. 수정 후 위반 0이면 종료 0, 일부러 `${1:-x}` 줄을 넣은 임시 스크립트로 FAIL이 나는지 확인
 - 수신: backend-dev
 - 상태: 확인됨 (8869191: 검사 대상에서 check_g4.sh 제외. 위반 0 종료 0, 반대 확인 FAIL)
+
+### QA-9: deploy/README가 운영 ACCESS_TOKEN을 "비운다"로 안내해 전환 기간 필수 규칙과 어긋난다
+- 모듈: deploy / 접근 제한 재개(충돌 해소)
+- 경계면: 운영 설정 문서 ↔ 배포 워크플로우·배포 스크립트·계약 인증 절
+- 기대: 계약 v1.2(재개) 변경 이력 "전환 기간에는 인증 절의 `ACCESS_TOKEN`이 운영에서 켜져 있고(Access 검증 후 끈다)". 워크플로우 `${ACCESS_TOKEN:?…토큰 잠금이 필수다}`, 배포 스크립트 [1b] "ACCESS_TOKEN이 비어 있다 … 배포를 중단한다"
+- 실제: `deploy/README.md:26` Secrets 표 "`ACCESS_TOKEN` | 앱 내 공유 토큰. 운영은 Access가 막으므로 비운다". 이 안내대로 Secret을 비우면 deploy job이 실패한다(Access 설계 쪽 문구가 충돌 해소에서 남음)
+- 수정 방향: deploy 문서. "운영 필수(전환 기간). Access 검증 뒤 끌 때 워크플로우 검증·배포 스크립트 [1b]·[3b]·verify env를 함께 걷어낸다" 식으로 바꾼다
+- 수신: backend-dev
+- 상태: 열림
