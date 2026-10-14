@@ -54,8 +54,9 @@ API의 `Message.status`(`running`·`completed`·`failed`)와 SSE 이벤트에서
 | 진행 | `running`이고 도구 호출 있음 | 접힌 한 줄 진행 행(조회 중 → 완료 체크), 펼치면 `resultSummary` |
 | 완료 | `final`, `status: "completed"`, 상한 사유 없음 | 본문 + 제안 카드 |
 | 부분 완료 | `final`이고 `content`가 계약의 상한 사유 문장으로 시작 | 본문 위 연한 안내 블록 |
-| 오류 | `error` 이벤트 또는 `status: "failed"` | 짧은 문구 + 다시 시도(입력값 복원) |
-| 세션 만료 | `ApiError` 코드 `SESSION_EXPIRED`(접근 제한 머지 후 존재) 또는 `UNAUTHORIZED` | 상단 배너, 입력값 보존 |
+| 오류 | `error` 이벤트, `status: "failed"`, 또는 `ApiError`(아래 `SESSION_EXPIRED` 제외). `UNAUTHORIZED`도 여기다 | 짧은 문구 + 다시 시도(입력값 복원). `UNAUTHORIZED`면 "접근 토큰이 없거나 틀렸습니다" + 설정 화면 링크이고 다시 로그인 안내는 없다 |
+| 세션 만료 | `ApiError` 코드 `SESSION_EXPIRED`만. 접근 제한 PR(#12)이 프론트 판정을 추가한 뒤에만 생긴다 | 상단 배너 + 다시 로그인(새로고침), 입력값 보존. #12 병합 때 연결한다 |
 
 - 부분 완료 판정 문구는 계약 05-messages 비고의 두 예시 앞부분이다("모델 호출 상한(", "실행 시간 상한(").
 - 판정 함수는 `Chat.tsx` 안의 작은 순수 함수 하나로 두고 Playwright 고정 응답으로 검사한다.
+- `UNAUTHORIZED`(백엔드 공유 토큰 401, 계약 JSON)와 세션 만료(접근 계층 응답)는 섞지 않는다(계약 v1.1 공통 인증, v1.2 접근 계층 응답). 해결 방법이 다르다. 앞은 설정에서 토큰을 넣고, 뒤는 다시 로그인한다(QA UI-2).

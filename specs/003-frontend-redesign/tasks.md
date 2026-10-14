@@ -27,7 +27,7 @@ description: "프론트 재설계 구현 태스크"
 
 - 재설계(이 브랜치)가 먼저 main에 들어가고, 접근 제한 PR(#12)은 맨 나중이다. 재설계는 main의 현재 파일을 기준으로 바로 작업하며 기다릴 것이 없다.
 - `api.ts`·`vite.config.ts`는 여전히 고치지 않는다. #12가 그 둘을 바꾸기 때문에 충돌 범위를 줄인다.
-- #12가 나중에 이 변경 위로 병합할 때 겹치는 파일은 `App.tsx`·`Chat.tsx`·`style.css`·`checks/run.ts`·`checks/check-f6.ts`다. 세션 만료 배너(US8)와 `SESSION_EXPIRED` 판정은 그때 #12 쪽이 재설계된 화면에 다시 얹는다. 재설계는 지금 있는 `UNAUTHORIZED`(공유 토큰) 오류를 같은 상단 배너 자리에 표시한다(data-model.md 3절).
+- #12가 나중에 이 변경 위로 병합할 때 겹치는 파일은 `App.tsx`·`Chat.tsx`·`style.css`·`checks/run.ts`·`checks/check-f6.ts`다. 세션 만료 배너(US8)와 `SESSION_EXPIRED` 판정은 그때 #12 쪽이 재설계된 화면에 다시 얹는다. 재설계는 세션 만료 배너 자리만 마련해 두고 지금은 띄우지 않는다. `UNAUTHORIZED`(공유 토큰 401)는 세션 만료가 아니라 오류 상태이며, "토큰을 설정 화면에서 입력" 안내를 보인다(data-model.md 3절, QA UI-2).
 
 ---
 
@@ -56,7 +56,8 @@ description: "프론트 재설계 구현 태스크"
     - 완료: 제안 두 개가 든 `final`이다.
     - 부분 완료: `final`의 `content`가 "모델 호출 상한(10턴)에 도달해…"로 시작한다.
     - 오류: `error` `UPSTREAM_ERROR`다.
-    - 세션 만료: 401 `text/html`이다.
+    - 세션 만료: 401 `text/html`이다. 접근 제한 PR 병합 전에는 main의 `api.ts`가 `SESSION_EXPIRED`를 만들지 않으므로, 이 고정 응답을 쓰는 시나리오는 `test.fixme`로 두고 #12 병합 때 켠다.
+    - 토큰 오류: 401 계약 JSON `UNAUTHORIZED`(계약 01-common 예시 형식)다.
   - 마크다운 표본 답변: 제목 4단계, 목록, 작업 목록, 표, 인용, 구분선, 코드, 링크, `<script>` 문자열과 `contracts/chart-block.md`의 세 예시를 그대로 넣는다.
 - [x] T004 [FE] `frontend/checks/ui/helpers.ts`: 공용 도구다.
   - 접근성: `expectNoSeriousA11y(page)`는 axe `critical`·`serious` 0을 확인한다.
@@ -154,7 +155,7 @@ description: "프론트 재설계 구현 태스크"
   - 실행 중: 비활성과 안내 문구.
   - 접근성: `aria-label`과 포커스 윤곽선.
   - 보존: 오류·세션 만료 후 입력값을 보존한다.
-- [ ] T024 [US7] [FE] `frontend/checks/ui/us7.spec.ts`: Shift+Enter 줄바꿈, Enter 전송, 6줄 초과 시 높이 고정과 내부 스크롤, 진행 고정 응답에서 비활성·안내 문구, 오류·세션 만료 고정 응답 후 입력값 유지, 한글 조합 중 Enter 미전송(`compositionstart` 이벤트로 흉내)을 assert한다 (US7 검사)
+- [ ] T024 [US7] [FE] `frontend/checks/ui/us7.spec.ts`: Shift+Enter 줄바꿈, Enter 전송, 6줄 초과 시 높이 고정과 내부 스크롤, 진행 고정 응답에서 비활성·안내 문구, 오류·`UNAUTHORIZED` 고정 응답 후 입력값 유지(세션 만료는 `test.fixme`, #12 병합 때 켬), 한글 조합 중 Enter 미전송(`compositionstart` 이벤트로 흉내)을 assert한다 (US7 검사)
 - [ ] T025 [US7] [QA] us7 실행과 ui-review (US7 QA)
 
 ---
@@ -171,11 +172,13 @@ description: "프론트 재설계 구현 태스크"
     - 완료: 본문과 제안 카드.
     - 부분 완료: 연한 안내 블록.
     - 오류: 문구와 다시 시도(입력 복원).
-    - 세션 만료: 상단 배너(접근 제한의 동작 이어받기).
+    - 오류의 `UNAUTHORIZED` 변형: 토큰 안내와 설정 링크. 다시 로그인 배너는 띄우지 않는다.
+    - 세션 만료: 상단 배너 자리만 둔다(`SESSION_EXPIRED`일 때만). 연결은 접근 제한 PR 병합 때 한다.
   - 레이아웃·동작: 높이 예약으로 점프를 막는다. 애니메이션은 `--duration-*`만 쓰고 동작 줄이기를 따른다.
   - 스크롤·낭독: 맨 아래에 있을 때만 자동 스크롤한다. 진행 행은 `aria-live="polite"`다.
 - [ ] T027 [US8] [FE] `frontend/checks/ui/us8.spec.ts`: (US8 검사)
-  - 상태: 6종 고정 응답마다 해당 표시 요소가 보이고 나머지는 없다.
+  - 상태: 고정 응답마다 해당 표시 요소가 보이고 나머지는 없다. 세션 만료는 `test.fixme`(#12 병합 때 켬)다.
+  - 토큰 오류: `UNAUTHORIZED` 401 JSON이면 토큰·설정 안내가 보이고 "다시 로그인" 배너는 없다(QA UI-2).
   - 레이아웃: 진행 → 완료 전환에서 입력창의 `boundingBox().y` 변화가 2px 이하다.
   - 스크롤: 위로 스크롤한 상태에서 새 이벤트가 와도 `scrollTop`이 유지된다.
   - 동작 줄이기: reduced 프로젝트에서 대기 표시의 `animation-duration`이 0s다.

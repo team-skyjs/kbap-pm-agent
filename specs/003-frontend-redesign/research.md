@@ -53,5 +53,5 @@ Technical Context에 NEEDS CLARIFICATION은 없다. 이 문서는 plan이 정할
 - 사실(2026-10-15, `origin/main...origin/feat/access-gate-resume` 비교): 접근 제한 PR이 고친 프론트 파일은 `api.ts`, `App.tsx`, `Chat.tsx`(세션 만료 안내), `style.css`(1줄), `vite.config.ts`, `checks/check-f6.ts`·`check-g2.ts`·`run.ts`다. `api.ts`뿐 아니라 재설계가 다시 짜는 `App.tsx`·`Chat.tsx`·`style.css`와 겹친다.
 - Decision (2026-10-15 사용자 결정으로 변경): 재설계를 먼저 머지하고, 접근 제한 PR은 맨 나중에 이 변경 위로 병합한다.
   - 재설계는 main의 현재 화면 파일을 기준으로 바로 작업한다. `api.ts`·`vite.config.ts`는 고치지 않아 충돌 범위를 화면 파일과 검사 목록으로 줄인다.
-  - 접근 제한 쪽이 병합할 때 세션 만료 배너와 `SESSION_EXPIRED` 판정을 재설계된 `Chat.tsx`에 다시 얹는다. 재설계는 그 자리(상단 배너)를 지금의 `UNAUTHORIZED` 오류로 미리 만든다.
+  - 접근 제한 쪽이 병합할 때 세션 만료 배너와 `SESSION_EXPIRED` 판정을 재설계된 `Chat.tsx`에 다시 얹는다. 재설계는 배너 자리만 마련한다. 지금의 `UNAUTHORIZED`(공유 토큰 401)는 세션 만료가 아니라 오류 상태(토큰·설정 안내)로 표시한다(QA UI-2).
 - ADR 파일: 이 브랜치의 ADR-24~27은 접근 제한 브랜치의 ADR-21~23과 같은 위치(“위임” 절 앞)에 붙는다. 머지 때 글자 충돌이 나지만 두 블록을 순서대로 남기면 된다.
