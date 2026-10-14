@@ -15,8 +15,17 @@ def check() -> None:
         raise ApiError(403, "BUDGET_EXCEEDED", f"LLM 누적 비용이 예산 {num('LLM_BUDGET_USD', 200):g}달러에 도달해 실행할 수 없습니다.")
 
 
+# USD / 1M 토큰 (입력, 출력). 모델 문자열에 키가 들어 있으면 적용. LLM_PRICES(JSON)로 덮어쓰거나 추가한다.
+# 출처: Anthropic 모델 표(2026-10-06 캐시). 모르는 모델은 가장 비싼 단가로 잡아 예산을 보수적으로 깎는다
+PRICES = {"claude-fable-5-1": (10.0, 50.0), "claude-opus-5-5": (4.0, 20.0), "claude-sonnet-5-5": (2.0, 10.0),
+          "claude-haiku-5-5": (0.10, 0.50)}
+UNKNOWN = (10.0, 50.0)
+
+
 def cost(model: str, input_tokens: int, output_tokens: int) -> float:
-    return 0.0  # B5에서 단가표로 채운다
+    table = {**PRICES, **{k: tuple(v) for k, v in json.loads(env("LLM_PRICES") or "{}").items()}}
+    pin, pout = next((v for k, v in sorted(table.items(), key=lambda kv: -len(kv[0])) if k in model), UNKNOWN)
+    return round((input_tokens * pin + output_tokens * pout) / 1_000_000, 4)
 
 
 def record(purpose: str, model: str, input_tokens: int, output_tokens: int, message_id: int | None) -> float:

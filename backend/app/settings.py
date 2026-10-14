@@ -3,7 +3,7 @@ import json
 
 from fastapi import APIRouter, Request
 
-from app import budget, db, repo
+from app import budget, code_tools, db, repo
 from app.config import env, is_fake, num
 from app.errors import ApiError
 from app.schemas import M
@@ -40,12 +40,19 @@ def put_repository(body: RepositoryIn):
         raise ApiError(400, "VALIDATION_ERROR", "url은 https://github.com/ 으로 시작해야 합니다.")
     if body.branch is not None and not body.branch.strip():
         raise ApiError(400, "VALIDATION_ERROR", "branch는 빈 문자열일 수 없습니다.")
-    return repo.register(body.url, body.branch)
+    r = repo.register(body.url, body.branch)
+    if not is_fake():
+        code_tools.start_code_map()
+        r = {**r, "codeMapStatus": "building"}
+    return r
 
 
 @router.post("/repository/sync")
 def sync_repository():
-    r, _changed = repo.sync()
+    r, changed = repo.sync()
+    if changed and not is_fake():
+        code_tools.start_code_map()
+        r = {**r, "codeMapStatus": "building"}
     return r
 
 

@@ -73,3 +73,20 @@ async def run_agent(message_id: int, conversation_id: int, content: str) -> Asyn
             yield ev
         return
     yield {"type": "error", "code": "UPSTREAM_ERROR", "message": "실제 에이전트 모드는 아직 구현되지 않았습니다."}  # B6
+
+
+SUMMARY_PROMPT = ("다음은 React Native 화면 파일이다. 150단어 이내 한국어로 요약하라: 화면의 역할, 주요 컴포넌트, "
+                  "사용자 동작 핸들러 이름, 보내는 분석 이벤트(track 호출) 이름. 추측하지 말고 코드에 있는 것만.\n\n")
+
+
+def summarize(text: str) -> str:
+    """코드 요약 seam (CODE_SUMMARY_MODEL). 호출 전 budget.check()는 호출자가 한다."""
+    model_name = env("CODE_SUMMARY_MODEL") or "fake"
+    if is_fake():
+        budget.record("code_summary", model_name, 0, 0, None)
+        return "시연 모드 요약: 화면 역할·컴포넌트·핸들러·이벤트."
+    from langchain.chat_models import init_chat_model
+    resp = init_chat_model(model_name).invoke(SUMMARY_PROMPT + text)
+    u = resp.usage_metadata or {}
+    budget.record("code_summary", model_name, u.get("input_tokens", 0), u.get("output_tokens", 0), None)
+    return resp.text if isinstance(resp.text, str) else str(resp.content)

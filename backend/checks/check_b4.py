@@ -9,7 +9,10 @@ import tempfile
 from common import client, ok
 from examples import SETTINGS, TAXONOMY_BODY
 
+from app import agent
 from app.schemas import Repository, Settings
+
+agent.summarize = lambda text: "요약"  # 실제 LLM 호출 금지 (요약 캐시는 check_b5에서 검사)
 
 tmp = pathlib.Path(tempfile.mkdtemp())
 os.environ["REPOS_DIR"] = str(tmp / "repos")
@@ -60,6 +63,9 @@ try:
     assert r.json()["screenCount"] == 2
     ok("sync: 같은 커밋 유지, 새 커밋 HEAD·인덱스 반영")
 
+    import time
+    while c.get("/api/settings").json()["repository"]["codeMapStatus"] == "building":
+        time.sleep(0.1)
     good = c.get("/api/settings").json()["repository"]
     r = c.put("/api/settings/repository", json={"url": f"file://{tmp}/nope"})
     assert r.status_code == 502 and r.json()["error"]["code"] == "UPSTREAM_ERROR", r.text
