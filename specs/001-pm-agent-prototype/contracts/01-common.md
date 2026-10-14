@@ -11,18 +11,19 @@
 | 2026-10-15 | v1.2 | 접근 제한(ADR-22, specs/002-access-gate). Base URL이 같은 출처 상대 경로로 바뀌었다. 접근 계층 응답 규칙과 `X-Requested-With` 헤더를 추가하고 CORS를 제거했다. 예시 호스트는 `pm-agent.example.com`이다(운영 정보 비노출). 응답 shape 변경 없음 |
 | 2026-10-15 | v1.2 (문구) | 접근 계층 응답에서 5xx HTML(nginx·Cloudflare 오류 페이지)을 제외했다. 프론트는 이를 연결 실패로 다룬다(frontend-dev 요청). shape 변경 없음 |
 | 2026-10-15 | v1.2 (재개) | 접근 제한 재개(헌법 v1.4.0)로 v1.2가 다시 정본이다. 전환 기간에는 인증 절의 `ACCESS_TOKEN`이 운영에서 켜져 있고(Access 검증 후 끈다), CORS 절은 CORS 제거 배포 이후의 상태다(그 전까지 운영 백엔드는 옛 Pages 출처를 허용한다). shape 변경 없음 |
+| 2026-10-15 | v1.2 (정적 서빙) | 백엔드가 빌드된 프론트를 `/`에서 서빙한다(nginx 컨테이너 없음). 로컬 주소는 `localhost:8000`이다. 공유 토큰 검사는 `/api/` 요청에만 적용한다. 5xx HTML 예시에서 nginx를 뺐다. shape 변경 없음 |
 
 ## 공통
 
-- **Base URL:** 없음. 프론트와 API는 같은 출처이고, 프론트는 상대 경로(`/api/...`)로 호출한다. 모든 경로는 `/api`로 시작한다. 운영은 Cloudflare Access 뒤의 한 호스트명이고, 로컬은 `http://localhost:8080`(웹 컨테이너) 또는 `http://localhost:5173`(Vite dev 프록시)이다. 문서의 예시 호스트는 `https://pm-agent.example.com`이다.
+- **Base URL:** 없음. 프론트와 API는 같은 출처이고, 프론트는 상대 경로(`/api/...`)로 호출한다. 모든 경로는 `/api`로 시작한다. 운영은 Cloudflare Access 뒤의 한 호스트명이다. 로컬은 `http://localhost:8000`(백엔드가 빌드된 프론트를 `/`에서 정적 서빙) 또는 `http://localhost:5173`(Vite dev 프록시)이다. `/api` 밖의 경로는 정적 파일이며 이 계약의 대상이 아니다. 문서의 예시 호스트는 `https://pm-agent.example.com`이다.
 - **요청 헤더:** 프론트는 모든 요청에 `X-Requested-With: XMLHttpRequest`를 보낸다. 백엔드는 이 헤더를 해석하지 않는다. Access가 만료 세션에 302 대신 401을 주게 하는 용도다.
 - **접근 계층 응답:** Access를 통과하지 못한 요청은 백엔드에 닿지 않아 이 문서의 에러 형식이 아니다. 다음 셋이 해당한다.
   - 이 문서의 JSON 에러 형식이 아닌 401·403
   - 리다이렉트(`fetch`의 `redirect: "manual"`에서 `opaqueredirect`)
   - 상태 5xx가 아닌 `text/html` 응답
   - 프론트는 이를 세션 만료로 다루고 백엔드 에러 코드와 섞지 않는다. 백엔드의 401 `UNAUTHORIZED`(`ACCESS_TOKEN`)는 JSON 에러 형식이라 구분된다.
-  - 상태 5xx이면서 계약 JSON이 아닌 응답(웹 컨테이너 nginx의 502·504, 터널·Cloudflare 오류 페이지)은 세션 만료가 아니다. 프론트는 연결 실패(`NETWORK_ERROR`, 프론트 내부 코드)로 다룬다. Access는 5xx로 거부하지 않는다.
-- **인증:** 백엔드에 `ACCESS_TOKEN`이 설정되어 있으면 `GET /api/health`와 `GET /api/integrations/amplitude/callback`을 제외한 모든 요청에 `Authorization: Bearer <토큰>` 헤더가 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
+  - 상태 5xx이면서 계약 JSON이 아닌 응답(백엔드가 내려가 있을 때의 터널·Cloudflare 오류 페이지)은 세션 만료가 아니다. 프론트는 연결 실패(`NETWORK_ERROR`, 프론트 내부 코드)로 다룬다. Access는 5xx로 거부하지 않는다.
+- **인증:** 백엔드에 `ACCESS_TOKEN`이 설정되어 있으면 `GET /api/health`와 `GET /api/integrations/amplitude/callback`을 제외한 모든 `/api/` 요청에 `Authorization: Bearer <토큰>` 헤더가 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
 - **형식:** 요청·응답 본문은 `application/json; charset=utf-8`. 메시지 전송 응답만 `text/event-stream`.
 - **필드 이름:** camelCase 고정. DB의 snake_case를 그대로 노출하지 않는다.
 - **ID:** 양의 정수(JSON number).
