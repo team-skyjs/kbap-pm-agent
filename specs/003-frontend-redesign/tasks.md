@@ -66,7 +66,7 @@ description: "프론트 재설계 구현 태스크"
   - 스크린샷: `shot(page, story)`는 `_workspace/04_designer_screenshots/<story>-<project>.png`로 저장한다.
   - `frontend/checks/ui/smoke.spec.ts`: 고정 응답으로 앱이 뜨고 헬스 표시가 보인다.
 - [x] T005 [QA] 뼈대 검증: `npm run check:ui`로 smoke가 9프로젝트에서 통과하고 스크린샷 9장이 생기는지, 기존 `npm run check`가 영향 없이 통과하는지 확인한다
-- [ ] T006 [DS] 설계 문서 `_workspace/04_designer_shell.md`·`_chat.md`·`_proposal.md`·`_settings.md`를 쓴다(`chat-ui-design` 스킬 형식, ChatGPT 데스크톱 레퍼런스). 각 문서에 레이아웃, 상태, 반응형, 접근성 항목과 쓰는 토큰 이름을 적는다(data-model.md 1절)
+- [x] T006 [DS] 설계 문서 `_workspace/04_designer_shell.md`·`_chat.md`·`_proposal.md`·`_settings.md`를 쓴다(`chat-ui-design` 스킬 형식, ChatGPT 데스크톱 레퍼런스). 각 문서에 레이아웃, 상태, 반응형, 접근성 항목과 쓰는 토큰 이름을 적는다(data-model.md 1절)
 
 **Checkpoint**: 검사 명령이 돌고 설계 입력이 있다.
 
@@ -78,7 +78,7 @@ description: "프론트 재설계 구현 태스크"
 
 **Independent Test**: 토큰 제안서 계산값표를 확인하고, `us1.spec.ts`가 본문 크기·줄 간격·대비와 원시 값 부재를 검사한다.
 
-- [ ] T007 [US1] [DS] `_workspace/04_designer_tokens.md`: 토큰 제안서를 쓴다(`design-system` 스킬).
+- [x] T007 [US1] [DS] `_workspace/04_designer_tokens.md`: 토큰 제안서를 쓴다(`design-system` 스킬).
   - 값: data-model.md 1절 토큰 전부의 라이트·다크 값을 적는다.
   - 대비 계산표: `--color-text`·`--color-text-muted` 대 `--color-bg`·`--color-surface`·`--color-user-bubble`은 4.5:1 이상, `--color-focus`·`--chart-1`~`4` 대 배경은 3:1 이상이다.
   - 강조색 후보 3개를 낸다.
@@ -87,11 +87,11 @@ description: "프론트 재설계 구현 태스크"
   - 토큰: `:root`에 토큰을 두고, `@media (prefers-color-scheme: dark)`에서 같은 이름의 값만 교체한다. `@media (prefers-reduced-motion: reduce)`에서 `--duration-*`는 0ms다.
   - 기본 요소: 본문 글꼴·크기·줄 간격·배경·글자색을 토큰으로 둔다.
   - 정리: 기존 원시 값을 모두 토큰으로 바꾼다.
-- [ ] T010 [US1] [FE] `frontend/checks/ui/us1.spec.ts`: assert 항목은 다음과 같다. (US1 검사)
+- [x] T010 [US1] [FE] `frontend/checks/ui/us1.spec.ts`: assert 항목은 다음과 같다. (US1 검사)
   - 가독성: `body`의 계산된 `font-size` ≥ 16px, `line-height`/`font-size` ≥ 1.6이다.
   - 대비: light·dark 프로젝트에서 본문·보조 텍스트 대 배경 대비가 4.5:1 이상이다(`contrast`).
   - 원시 값 부재: `frontend/src/*.css`의 `:root` 블록 밖과 `*.tsx`의 `style={{...}}`에 hex 색·`px` 원시 값이 없다(0·1px·100% 예외, Node `fs`로 검사).
-- [ ] T011 [US1] [QA] us1 실행과 ui-review(토큰 일관성, 라이트·다크 스크린샷). 제안서 계산값과 화면 계산값 차이를 리포트한다 (US1 QA)
+- [x] T011 [US1] [QA] us1 실행과 ui-review(토큰 일관성, 라이트·다크 스크린샷). 제안서 계산값과 화면 계산값 차이를 리포트한다 (US1 QA)
 
 ---
 
@@ -120,8 +120,8 @@ description: "프론트 재설계 구현 태스크"
   - 글자: 글자 크기·줄 간격·단락 간격은 토큰이다.
   - 넘침: 긴 URL은 `overflow-wrap: anywhere`, 긴 코드는 블록 안 스크롤이다.
   - `api.ts` 호출과 SSE 처리 흐름은 바꾸지 않는다.
-- [ ] T016 [US4] [FE] `frontend/checks/ui/us4.spec.ts`: 긴 URL·긴 코드가 든 고정 응답 대화에서 가로 넘침이 없고, 사용자 메시지만 배경이 있고, AI 메시지에 아바타 요소가 없는지 assert한다 (US4 검사)
-- [ ] T017 [US4] [QA] us4 실행과 ui-review(메시지 타이포 스크린샷) (US4 QA)
+- [x] T016 [US4] [FE] `frontend/checks/ui/us4.spec.ts`: 긴 URL·긴 코드가 든 고정 응답 대화에서 가로 넘침이 없고, 사용자 메시지만 배경이 있고, AI 메시지에 아바타 요소가 없는지 assert한다 (US4 검사)
+- [x] T017 [US4] [QA] us4 실행과 ui-review(메시지 타이포 스크린샷) (US4 QA)
 
 ---
 
@@ -155,8 +155,8 @@ description: "프론트 재설계 구현 태스크"
   - 실행 중: 비활성과 안내 문구.
   - 접근성: `aria-label`과 포커스 윤곽선.
   - 보존: 오류·세션 만료 후 입력값을 보존한다.
-- [ ] T024 [US7] [FE] `frontend/checks/ui/us7.spec.ts`: Shift+Enter 줄바꿈, Enter 전송, 6줄 초과 시 높이 고정과 내부 스크롤, 진행 고정 응답에서 비활성·안내 문구, 오류·`UNAUTHORIZED` 고정 응답 후 입력값 유지(세션 만료는 `test.fixme`, #12 병합 때 켬), 한글 조합 중 Enter 미전송(`compositionstart` 이벤트로 흉내)을 assert한다 (US7 검사)
-- [ ] T025 [US7] [QA] us7 실행과 ui-review (US7 QA)
+- [x] T024 [US7] [FE] `frontend/checks/ui/us7.spec.ts`: Shift+Enter 줄바꿈, Enter 전송, 6줄 초과 시 높이 고정과 내부 스크롤, 진행 고정 응답에서 비활성·안내 문구, 오류·`UNAUTHORIZED` 고정 응답 후 입력값 유지(세션 만료는 `test.fixme`, #12 병합 때 켬), 한글 조합 중 Enter 미전송(`compositionstart` 이벤트로 흉내)을 assert한다 (US7 검사)
+- [x] T025 [US7] [QA] us7 실행과 ui-review (US7 QA)
 
 ---
 
@@ -164,7 +164,7 @@ description: "프론트 재설계 구현 태스크"
 
 **Independent Test**: `us8.spec.ts`(SSE 고정 응답 6종).
 
-- [ ] T026 [US8] [DS] `Chat.tsx`·`style.css`: 여섯 화면 상태를 표현한다(data-model.md 3절).
+- [x] T026 [US8] [DS] `Chat.tsx`·`style.css`: 여섯 화면 상태를 표현한다(data-model.md 3절).
   - 판정: 상태 판정은 작은 순수 함수 `viewState()` 하나다.
   - 각 상태 표시:
     - 전송 직후: 대기 점 애니메이션.
@@ -176,28 +176,28 @@ description: "프론트 재설계 구현 태스크"
     - 세션 만료: 상단 배너 자리만 둔다(`SESSION_EXPIRED`일 때만). 연결은 접근 제한 PR 병합 때 한다.
   - 레이아웃·동작: 높이 예약으로 점프를 막는다. 애니메이션은 `--duration-*`만 쓰고 동작 줄이기를 따른다.
   - 스크롤·낭독: 맨 아래에 있을 때만 자동 스크롤한다. 진행 행은 `aria-live="polite"`다.
-- [ ] T027 [US8] [FE] `frontend/checks/ui/us8.spec.ts`: (US8 검사)
+- [x] T027 [US8] [FE] `frontend/checks/ui/us8.spec.ts`: (US8 검사)
   - 상태: 고정 응답마다 해당 표시 요소가 보이고 나머지는 없다. 세션 만료는 `test.fixme`(#12 병합 때 켬)다.
   - 토큰 오류: `UNAUTHORIZED` 401 JSON이면 토큰·설정 안내가 보이고 "다시 로그인" 배너는 없다(QA UI-2).
   - 레이아웃: 진행 → 완료 전환에서 입력창의 `boundingBox().y` 변화가 2px 이하다.
   - 스크롤: 위로 스크롤한 상태에서 새 이벤트가 와도 `scrollTop`이 유지된다.
   - 동작 줄이기: reduced 프로젝트에서 대기 표시의 `animation-duration`이 0s다.
   - 실제 경로: `CHECK_UI_LIVE=1`이면 실제 fake 백엔드로 진행 → 완료 한 경로를 돈다.
-- [ ] T028 [US8] [QA] us8 실행(고정 응답 + live 한 번)과 ui-review(상태 6종 스크린샷) (US8 QA)
+- [x] T028 [US8] [QA] us8 실행(고정 응답 + live 한 번)과 ui-review(상태 6종 스크린샷) (US8 QA)
 
 ---
 
 ## Phase 9: User Story 3 — 사이드 패널 대화 목록 (P2)
 
-- [ ] T029 [US3] [DS] `ConversationList.tsx`·`style.css`: 다음을 반영한다.
+- [x] T029 [US3] [DS] `ConversationList.tsx`·`style.css`: 다음을 반영한다.
   - 목록 상단 "새 대화" 버튼, 최근순, 제목 한 줄 말줄임, 현재 대화 강조(`aria-current="page"`).
   - 제안 수·채택 수 표시, 하단 고정 설정 링크.
   - hover·focus-visible·active 토큰 조합. 목록은 링크·버튼 요소라 Tab·Enter로 조작된다.
-- [ ] T030 [US3] [FE] `frontend/checks/ui/us3.spec.ts`: 고정 응답 대화 3개에서 다음을 assert한다. (US3 검사)
+- [x] T030 [US3] [FE] `frontend/checks/ui/us3.spec.ts`: 고정 응답 대화 3개에서 다음을 assert한다. (US3 검사)
   - 정렬·표시: 최근순, 긴 제목 말줄임(`text-overflow`), 현재 항목 `aria-current`, 제안 수·채택 수 텍스트.
   - 키보드: Tab·Enter만으로 다른 대화 선택.
   - 배치: 설정 링크가 패널 하단이다.
-- [ ] T031 [US3] [QA] us3 실행과 ui-review(목록 상태 4종) (US3 QA)
+- [x] T031 [US3] [QA] us3 실행과 ui-review(목록 상태 4종) (US3 QA)
 
 ---
 
@@ -231,28 +231,28 @@ description: "프론트 재설계 구현 태스크"
   - 근거·퍼널: 근거 종류 라벨(지표·코드·택사노미), 코드 근거의 파일·함수·줄, 퍼널 단계 기존/신규 라벨.
   - 버튼·상태: 채택·보류·되돌리기는 카드 하단 오른쪽이고, 상태는 색과 라벨 텍스트를 같이 쓴다.
   - `updateProposal` 호출 흐름은 그대로다.
-- [ ] T043 [US9] [FE] `frontend/checks/ui/us9.spec.ts`: (US9 검사)
+- [x] T043 [US9] [FE] `frontend/checks/ui/us9.spec.ts`: (US9 검사)
   - 구역·근거: 계약 Proposal 예시 고정 응답에서 기본 펼침 상태, 근거 라벨 3종, 코드 근거의 `src/app/scan.tsx`·함수·줄 텍스트, 신규 단계 라벨.
   - 채택: 채택 클릭 → PATCH 고정 응답 → 상태 라벨 "채택", 새로고침 후 유지(상세 고정 응답 갱신).
-- [ ] T044 [US9] [QA] us9 실행과 ui-review(카드 접힘·펼침·상태 3종) (US9 QA)
+- [x] T044 [US9] [QA] us9 실행과 ui-review(카드 접힘·펼침·상태 3종) (US9 QA)
 
 ---
 
 ## Phase 12: User Story 11 — 접근성 (P2)
 
 - [x] T045 [US11] [DS] 전 화면 접근성을 손본다: 포커스 순서와 시각 순서 일치, `:focus-visible` 윤곽선(`--color-focus`), 아이콘 버튼 `aria-label`, 진행 live region(T026) 확인, Drawer 포커스 가두기(T012) 확인
-- [ ] T046 [US11] [FE] `frontend/checks/ui/us11.spec.ts`: (US11 검사)
+- [x] T046 [US11] [FE] `frontend/checks/ui/us11.spec.ts`: (US11 검사)
   - 키보드 흐름: 마우스 없이 새 대화 → 입력 → Enter → 완료 고정 응답 → 제안 "채택" 버튼까지 Tab으로 도달해 Enter로 채택한다.
   - axe: 채팅·설정·Drawer 열림·제안 카드 펼침 화면에서 `expectNoSeriousA11y`.
-- [ ] T047 [US11] [QA] us11 실행, 9조합 axe 결과 리포트(심각·중대 0) (US11 QA)
+- [x] T047 [US11] [QA] us11 실행, 9조합 axe 결과 리포트(심각·중대 0) (US11 QA)
 
 ---
 
 ## Phase 13: User Story 10 — 설정 화면 재스타일 (P3)
 
 - [x] T048 [US10] [DS] `SettingsPage.tsx`·`style.css`: 구역(저장소·택사노미·Amplitude·토큰·예산) 간격·타이포·폼 요소를 토큰으로 맞춘다. 상태는 라벨 텍스트와 색을 같이 쓴다(연결됨·미연결·마지막 동기화). 기능·API 호출은 바꾸지 않는다
-- [ ] T049 [US10] [FE] `frontend/checks/ui/us10.spec.ts`: 설정 고정 응답에서 상태 라벨 텍스트("연결됨" 등), 폼 요소 포커스 윤곽선, 토큰 입력과 저장 동작이 기존과 같은지(`localStorage` 키), 375 가로 스크롤 없음을 assert한다 (US10 검사)
-- [ ] T050 [US10] [QA] us10 실행과 ui-review(설정 라이트·다크) (US10 QA)
+- [x] T049 [US10] [FE] `frontend/checks/ui/us10.spec.ts`: 설정 고정 응답에서 상태 라벨 텍스트("연결됨" 등), 폼 요소 포커스 윤곽선, 토큰 입력과 저장 동작이 기존과 같은지(`localStorage` 키), 375 가로 스크롤 없음을 assert한다 (US10 검사)
+- [x] T050 [US10] [QA] us10 실행과 ui-review(설정 라이트·다크) (US10 QA)
 
 ---
 
@@ -260,8 +260,8 @@ description: "프론트 재설계 구현 태스크"
 
 **Goal**: 스토리별 시나리오를 한 명령으로 9조합 전부 안정적으로 돌리고 ui-review 입력을 만든다. 뼈대는 Phase 2에서 세웠다.
 
-- [ ] T051 [US12] [FE] `frontend/checks/ui/README.md`에 실행법, 프로젝트 목록, live 모드, 스크린샷 규칙을 적는다. 시나리오 전부를 3회 연속 돌려 불안정한 대기(`waitForTimeout`)를 상태 기반 대기로 바꾼다 (US12)
-- [ ] T052 [US12] [QA] 전체 검증: (US12 QA)
+- [x] T051 [US12] [FE] `frontend/checks/ui/README.md`에 실행법, 프로젝트 목록, live 모드, 스크린샷 규칙을 적는다. 시나리오 전부를 3회 연속 돌려 불안정한 대기(`waitForTimeout`)를 상태 기반 대기로 바꾼다 (US12)
+- [x] T052 [US12] [QA] 전체 검증: (US12 QA)
   - 검사: `npm run check`(f1~f7)와 `npm run check:ui` 전체(9조합)가 통과한다.
   - 화면 리뷰: 스크린샷 전체로 ui-review를 하고, 차단·높음이 0건이어야 한다(SC-002). 결과는 `_workspace/05_ui_review.md`에 쓴다.
 
@@ -269,7 +269,7 @@ description: "프론트 재설계 구현 태스크"
 
 ## Phase 15: Polish
 
-- [ ] T053 [QA] 회귀 확인: 질문 → 제안 → 채택 → 새로고침 흐름(fake 백엔드, SC-004)을 돈다. 기존 계약 검사도 돌린다(`cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md` 출력 없음, 계약 미변경 확인)
+- [x] T053 [QA] 회귀 확인: 질문 → 제안 → 채택 → 새로고침 흐름(fake 백엔드, SC-004)을 돈다. 기존 계약 검사도 돌린다(`cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md` 출력 없음, 계약 미변경 확인)
 - [ ] T054 [QA] 실제 키 확보 시 시계열 질문 5건으로 차트 블록 출현률을 잰다(SC-007, ADR-27 가정 검증). 결과는 CTO에 보낸다
 - [ ] T055 [USER] 두 사용자가 주관 평가를 한다(SC-006). 코드 가독성 지적이 있으면 구문 강조 재검토(ADR-25)
 - [ ] T056 [FE] 두 PR(접근 제한, 재설계) 머지 후: `check:ui`를 배포 워크플로우에 넣을지 team-lead와 정한다. 넣으면 Chromium 설치와 `check:ui` 단계를 추가하는 PR을 따로 연다(ADR-26)
