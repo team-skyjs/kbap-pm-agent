@@ -27,6 +27,7 @@
 | 2026-10-15 | 출처 구조 대응 (67c6f3a + check_b8 작업 트리) · F1·F6 mock 삭제 (0b98411) | 통과 | check_b8이 git remote로 기대 출처 계산: 서버 출처 simhani1이면 preflight 400으로 실패, team-skyjs면 통과, git 없는 컨테이너는 EXPECTED_ORIGIN 요구로 실패. check_b8 변경은 미커밋. 프론트 mock 참조 0, check-f1~f6 OK, 운영 빌드 자산 경로, 헬스 ok, F3 SSE 화면 흐름 통과 |
 | 2026-10-15 | check_b8 커밋 확인 (680ba9e·4a512df) | 확인됨 | 680ba9e = QA가 검증한 작업 트리와 동일. 4a512df: PASS 줄에 기대 출처 근거 표시("기대 출처: git remote"), EXPECTED_ORIGIN 폴백에 한계 주석. 레포 안 실행으로 team-skyjs 서버 preflight 통과 재확인 |
 | 2026-10-15 | T072 헌법 정합 (d3302ae) | 결함 1(문서) | 헌법 v1.1.0 기술 제약 백엔드 줄 = ADR-20(공식 SDK, Claude tool runner, openai-agents, LangChain 미사용, 접두사 선택). 원칙 I~V 문구 무변경. plan.md Constitution Check·data-model.md에 개정 전 문구 잔존 → QA-5 |
+| 2026-10-15 | QA-5 재검증 (155daef) | 확인됨 | T072 체크 |
 
 ## 결함
 
@@ -73,4 +74,4 @@
 - 실제: `specs/001-pm-agent-prototype/plan.md:63` "**불일치(개정 대기)**: 헌법 기술 제약의 \"백엔드: Python 3.12, FastAPI, LangChain 1.x\"가 ADR-20과 어긋난다" 그대로. `specs/001-pm-agent-prototype/data-model.md:85` llm_usage.model 설명 "`init_chat_model` 문자열 그대로"(ADR-4 대체됨, ADR-20은 `provider:model` 접두사 문자열)
 - 수정 방향: CTO. plan.md:63을 "일치(헌법 v1.1.0, d3302ae)"로, data-model.md:85를 "`AGENT_MODEL`·`CODE_SUMMARY_MODEL` 문자열 그대로(`provider:model`, ADR-20)"로. 백엔드 코드·`.env.example:13`의 LangChain 잔존은 B9(T062~T068) 범위라 B9 완료 시 QA가 확인
 - 수신: cto
-- 상태: 열림
+- 상태: 확인됨 (155daef: plan.md:63 "일치(헌법 v1.1.0, d3302ae)", data-model.md:85 provider:model. specs·.specify의 남은 LangChain 언급은 미사용을 밝히는 문장뿐)

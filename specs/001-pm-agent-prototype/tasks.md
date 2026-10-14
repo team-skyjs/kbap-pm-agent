@@ -284,7 +284,7 @@ description: "PM Agent 프로토타입 구현 태스크"
   - SSE 비교: fake 모드 메시지 전송 SSE 원문을 전환 전 기록(T022·T042 로그)과 비교해 이벤트 이름·data 키 구조가 같은지 본다.
   - 계약·LangChain 잔존: `cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md` 출력이 없어야 하고, `rg -n langchain backend`에 결과가 없어야 한다.
   - 프론트: 변경 없이 F3·F4 화면이 동작해야 한다.
-- [ ] T072 [QA] 헌법 정합 확인: 헌법 "기술 제약"의 백엔드 스택 문구가 ADR-20과 일치하는지 본다(team-lead 개정 후). 일치하지 않으면 CTO에 보고한다 (B9 QA)
+- [x] T072 [QA] 헌법 정합 확인: 헌법 "기술 제약"의 백엔드 스택 문구가 ADR-20과 일치하는지 본다(team-lead 개정 후). 일치하지 않으면 CTO에 보고한다 (B9 QA)
 - [ ] T073 [QA] 실제 키 확보 시: `AGENT_MODEL`을 `anthropic:`과 `openai:`로 각각 두고 T042 시나리오(US1·US2 질문, SC-004 시간 측정)를 다시 실행한다. Anthropic 구조화 출력이 `AgentAnswer` 스키마 제약을 거부하는지 확인한다(research.md R8). 키가 없으면 "미검증"으로 리포트한다 (B9 QA)
 
 ---
