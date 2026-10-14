@@ -4,6 +4,7 @@ fake면 계약서 예시 승인 URL 반환 후 즉시 connected."""
 import asyncio
 import contextlib
 import html
+import json
 import logging
 
 from fastapi import APIRouter
@@ -102,6 +103,10 @@ async def anthropic_tools():
             yield [(t, session) for t in keep((await session.list_tools()).tools)]
 
 
+def call_key(name: str, arguments) -> tuple[str, str]:
+    return name, json.dumps(arguments or {}, sort_keys=True, ensure_ascii=False)
+
+
 def openai_server(**kwargs):
     """OpenAI Agents 런타임용 MCP 서버 객체. 미연결이면 None. 같은 OAuth provider를 params["auth"]로 전달."""
     if is_fake() or not connected():
@@ -109,12 +114,27 @@ def openai_server(**kwargs):
     from agents.mcp import MCPServerStreamableHttp
 
     class Allowlisted(MCPServerStreamableHttp):
+        originals: dict = {}  # (도구 이름, 인자 JSON) → 자르기 전 원문 목록, 이벤트·DB용
+
         async def list_tools(self, *args, **kw):  # SDK가 턴마다 호출, 허용 목록 적용 지점은 Anthropic과 같은 keep()
             tools = await super().list_tools(*args, **kw)
             if getattr(self, "_kept", None) is None:  # 로그는 실행당 한 번
                 self._kept = {t.name for t in keep(tools)}
             return [t for t in tools if t.name in self._kept]
 
+        async def call_tool(self, tool_name, arguments, meta=None):
+            # 이 경로의 MCP 결과는 공통 래퍼를 거치지 않아 여기서 모델용 사본만 자름
+            from mcp.types import TextContent
+
+            from app.agent import clip
+            result = await super().call_tool(tool_name, arguments, meta)
+            text = "\n".join(getattr(c, "text", "") for c in result.content)
+            self.originals.setdefault(call_key(tool_name, arguments), []).append(text)
+            if clip(text) == text:
+                return result
+            return result.model_copy(update={"content": [TextContent(type="text", text=clip(text))]})
+
+    Allowlisted.originals = {}
     return Allowlisted(name="amplitude", cache_tools_list=True,
                                    params={"url": server_url(), "auth": oauth_provider(redirect_handler=_no_browser)},
                                    **kwargs)

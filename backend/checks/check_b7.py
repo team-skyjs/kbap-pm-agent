@@ -5,7 +5,7 @@ import os
 
 from common import client, ok
 from examples import AUTH_URL
-from app import amplitude
+from app import amplitude, db
 from app.schemas import Message
 
 c = client()
@@ -106,6 +106,21 @@ try:
         assert "Amplitude MCP 차단" in evs[2][1]["resultSummary"] and not evs[2][1]["resultSummary"].startswith("{"), evs[2]
         Message.model_validate(evs[-1][1])
         ok(f"{provider}: MCP 도구 성공(source amplitude), MCP isError → tool_result failed 후 final")
+
+        # MCP 결과도 모델에는 잘린 사본, DB에는 원문(openai는 공통 래퍼 밖 경로라 따로 확인)
+        os.environ["TOOL_RESULT_MAX_CHARS"] = "10"
+        script(provider, [("tool", "query_amplitude_data", {"events": ["scan_start"]}), ("final", done)])
+        evs = sse(c, c.post("/api/conversations", json={}).json()["id"])
+        os.environ.pop("TOOL_RESULT_MAX_CHARS")
+        if provider == "anthropic":
+            to_model = sent[1]["messages"][-1]["content"][0]["content"]
+        else:
+            to_model = next(i["output"] for i in sent[1]["input"] if i.get("type") == "function_call_output")
+        to_model = json.dumps(to_model, ensure_ascii=False)
+        assert "이하 생략" in to_model and "전환율 41.3%" not in to_model, to_model
+        stored = db.one("SELECT result_text FROM tool_calls WHERE id = %s", (evs[2][1]["id"],))["result_text"]
+        assert "전환율 41.3%" in stored and evs[2][1]["status"] == "succeeded", (stored, evs[2])
+        ok(f"{provider}: MCP 결과 → 모델에는 잘린 사본, DB·이벤트에는 원문")
 
         # 클라이언트 예외 경로(Amplitude 다운·연결 끊김): call_tool 자체가 ConnectionError 발생
         from mcp import ClientSession  # noqa: E402

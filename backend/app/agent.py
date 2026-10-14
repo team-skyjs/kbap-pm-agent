@@ -89,6 +89,7 @@ SYSTEM_PROMPT = """너는 K-Bap 앱 팀의 PM 에이전트다. PM 질문에 답�
 5. 쓸 수 없는 소스(아래 상태가 '없음'이거나 도구 호출이 실패한 소스)가 있으면 content에 어떤 근거가 빠졌는지 명시한다.
 6. 코드는 find_event_calls, search_code로 위치를 좁힌 뒤 read_code로 필요한 줄만 읽는다. 파일 전체를 읽으려 하지 않는다.
 7. Amplitude 도구는 조회에만 쓴다. 차트를 만들거나 수정·저장하지 않는다.
+8. Amplitude 조회는 필요한 범위만 요청한다. 시계열은 timeSeriesLimit로 최근 구간만, groupByLimit은 작게, includeAdditionalInfo는 끈다.
 """
 
 
@@ -127,6 +128,15 @@ def max_turns() -> int:
     return int(num("AGENT_MAX_TURNS", 10))
 
 
+def clip(text: str) -> str:
+    """모델에 넘길 도구 결과 사본을 TOOL_RESULT_MAX_CHARS로 자르기. 이벤트·DB에는 원문 유지.
+    큰 조회 결과가 매 턴 입력으로 반복 전송되어 토큰이 불어나는 것 방지."""
+    limit = int(num("TOOL_RESULT_MAX_CHARS", 3000))
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}\n…({len(text)}자 중 {limit}자, 이하 생략)"
+
+
 def wrap(fn, emit, source: str, name: str | None = None):
     """공통 도구 래퍼: tool_call 이벤트 → 실행 → tool_result 이벤트. 예외는 failed로 알린 뒤 다시 던져
     각 SDK가 오류 결과로 모델에 반환(도구 하나가 실패해도 실행 계속). functools.wraps로 원래 시그니처·docstring을
@@ -152,7 +162,7 @@ def wrap(fn, emit, source: str, name: str | None = None):
             raise
         await emit({"type": "tool_result", "key": key, "status": "succeeded",
                     "summary": text.splitlines()[0][:500] if text else "", "text": text})
-        return text
+        return clip(text)
 
     return tool
 
