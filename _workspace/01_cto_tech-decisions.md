@@ -157,6 +157,13 @@
 - 미검증: 실제 키 호출 전이다. T042에서 스키마 제약(`minItems` 등) 거부가 나오면 해당 제약을 Pydantic 사후 검증으로 옮긴다.
 - 상태: 확정
 
+### ADR-18: 운영 프론트 출처는 `https://team-skyjs.github.io` (ADR-11 가정 확인)
+- 결정: GitHub Pages는 `team-skyjs/kbap-pm-agent` 레포에서 배포한다. 운영 `CORS_ORIGINS`에는 `https://team-skyjs.github.io`(경로 없이 출처만)를 넣는다. 프론트 URL은 `https://team-skyjs.github.io/kbap-pm-agent/`다. Docker Hub 이미지(`simhani1/kbap-pm-agent`)와 홈서버 계정은 ADR-11 그대로다.
+- 이유: 실제 git remote가 `team-skyjs`다. ADR-11의 예시 출처 `simhani1.github.io`는 틀린 가정이었고, 그대로 배포하면 운영 요청이 전부 CORS로 거부된다(QA-3, 2026-10-15).
+- 버린 대안: simhani1 개인 포크에서 Pages 배포(레포가 둘이 되고 배포 경로가 갈라진다).
+- 바꾸면 영향: 운영 env의 `CORS_ORIGINS` 값과 `backend/checks/check_b8.py`의 Origin 한 줄.
+- 상태: 확정
+
 ## 위임 (구현자가 정하되 "설정으로 바꿀 수 있게"만 지킨다)
 
 - UI 라이브러리·스타일링 (PRD: 세련된 UI 비목표)
@@ -171,7 +178,7 @@
 | 이름 | 예시 | 비고 |
 |---|---|---|
 | `DATABASE_URL` | `mysql://pm:pm@mysql:3306/kbap_pm_agent` | |
-| `CORS_ORIGINS` | `https://simhani1.github.io,http://localhost:5173` | ADR-6 |
+| `CORS_ORIGINS` | `https://team-skyjs.github.io,http://localhost:5173` | ADR-6, ADR-18 |
 | `ACCESS_TOKEN` | (비우면 비활성) | ADR-7 |
 | `PUBLIC_BASE_URL` | `https://pm-agent-api.simhani1.dev` | OAuth 콜백 URL 생성 |
 | `AGENT_MODE` | `real` / `fake` | ADR-15 |
