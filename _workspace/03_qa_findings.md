@@ -21,6 +21,7 @@
 | 2026-10-15 | QA-3 (d32661a) | 확인됨 | ADR-18 운영 출처 `https://team-skyjs.github.io`, ADR 환경변수 표·T056 정정 확인 |
 | 2026-10-15 | B7 (ef2cfce) | fake 통과, real 승인 미검증 | `check_b7.py` OK(도구 예외·도구 목록 실패에도 final). 실서버 fake: connect 응답 = 계약 예시 원문, 직후 settings.amplitude connected·connectedAt ISO·키 = 계약, callback 3종 200 `text/html` 한 줄 문구(성공 문구는 real 승인 필요). real 동적 등록·승인·토큰 교환·list_tools·재시작 유지·실제 metric 근거(T046 후반·T050)는 사람 승인과 Amplitude 계정이 필요해 미검증 — QA가 외부에 OAuth 클라이언트를 추가 등록하지 않으려고 real connect도 호출하지 않음 |
 | 2026-10-15 | F5 ↔ B7 (T052·T054 fake) | fake 통과 | headless Chrome: 연결 안 됨 → 클릭 시 새 탭이 계약 예시 authorizationUrl로 이동(외부 요청은 가로채 막음), 3.2s 뒤 "연결됨 (시각)" + "연결되었습니다.", 이후 폴링 중단. T054 real 모드 Amplitude 항목은 미검증 |
+| 2026-10-15 | B8 (f2890fe) | 결함 1, 운영 미배포 | 별도 컨테이너(fake, FAKE_DELAY_SECONDS=21)에서 `check_b8.py` OK: health, preflight, SSE 105초 유지·ping 5회·final. 배포 파일 정적: 이미지·monitor-net·127.0.0.1:8001·/data 볼륨·healthcheck·db ok 확인·.env.prod gitignore 확인. 결함 QA-4. 운영 배포는 홈서버 SSH·Docker Hub 권한이 필요해 미실행 → T057·T060 미검증 |
 
 ## 결함
 
@@ -50,3 +51,12 @@
 - 수정 방향: CTO가 운영 출처를 확정해 ADR·T056·운영 `.env`의 CORS_ORIGINS를 맞춘다(배포 레포가 simhani1 포크면 그대로 두고 그 사실을 ADR에 명시)
 - 수신: cto
 - 상태: 확인됨 (d32661a ADR-18: 운영 출처 team-skyjs.github.io, T056 정정)
+
+### QA-4: B8 운영 env 예시와 check_b8의 출처가 ADR-18 이전 값(simhani1.github.io)이다
+- 모듈: backend / B8 (T055·T056)
+- 경계면: 운영 GitHub Pages → 백엔드 CORS preflight
+- 기대: ADR-18 "운영 `CORS_ORIGINS`에는 `https://team-skyjs.github.io`", ADR 환경변수 표 `CORS_ORIGINS` = `https://team-skyjs.github.io,http://localhost:5173`, T056 "`Origin: https://team-skyjs.github.io` preflight 통과"
+- 실제: `deploy/kbap-pm-agent.env.example` `CORS_ORIGINS=https://simhani1.github.io`, `backend/checks/check_b8.py:12` `origin = "https://simhani1.github.io"`. 이 예시로 .env.prod를 만들면 운영 Pages의 모든 요청이 CORS로 거부되고, check_b8은 틀린 출처로 통과해 그 사실을 숨긴다
+- 수정 방향: 백엔드. 두 곳을 `https://team-skyjs.github.io`로. check_b8은 출처를 환경변수로 받지 말고 ADR 값 고정(검사가 운영 설정을 따라가면 검사가 아니다)
+- 수신: backend-dev
+- 상태: 열림
