@@ -204,6 +204,7 @@
   - 바뀌는 것: `backend/app/agent.py`, `agent_anthropic.py`, `agent_openai.py`, `amplitude.py`의 도구 공급 함수, `pyproject.toml`, `backend/checks/check_b6.py`·`check_b7.py`.
   - 그대로인 것: API 계약 v1.1, 프론트, DB 스키마, SSE 이벤트 형식.
 - 구현 확인(9e1c2c6): `openai-agents` 0.23.1의 `function_tool`, `max_turns`/`MaxTurnsExceeded`, `result.context_wrapper.usage`를 확인했다. 트레이싱은 끈다. 실행 내용(코드 발췌, 지표)이 OpenAI 트레이스로 나가지 않게 하기 위해서다. MCP 도구는 두 런타임 모두 공통 래퍼로 감싼다(Anthropic `async_mcp_tool` 미사용). Anthropic SDK의 전송 계층은 `httpx2`다.
+- 알려진 런타임 차이(QA eb7f906): 모델이 없는 도구 이름을 부르면 Anthropic tool runner는 오류 결과를 돌려주고 계속한다. openai-agents는 `ModelBehaviorError`로 실행 전체가 `error` `UPSTREAM_ERROR`다. 둘 다 계약 안이다. 앞은 도구 실패, 뒤는 "추론 모델 자체 실패"로 분류된다. 지금은 맞추지 않는다. T073 실제 실행에서 OpenAI 쪽에 반복되면 `ModelBehaviorError`를 잡아 부분 `final`(`partial_content()`)로 보내도록 바꾼다. 이때 계약 05 비고에 중단 사유 하나를 추가해야 한다.
 - 미검증: 실제 키 호출(T073). 구조화 출력이 `AgentAnswer` 스키마 제약을 받는지가 남았다.
 - 상태: 확정 (헌법 "기술 제약"의 "LangChain 1.x" 문구 개정이 선행돼야 한다. 거버넌스 규칙. team-lead에 개정안 전달)
 
