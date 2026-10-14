@@ -234,7 +234,7 @@ description: "PM Agent 프로토타입 구현 태스크"
 
 - [x] T055 [BE] `deploy/`: `../kbap-amplitude/deploy/`의 compose·배포 스크립트·env 예시를 복사해 이름을 바꾼다(`docker-compose.kbap-pm-agent.yml`: 이미지 `simhani1/kbap-pm-agent:latest`, `monitor-net`, `127.0.0.1:8001:8000`. `deploy.kbap-pm-agent.sh`: pull → up → `/api/health` 확인). 멀티아키 빌드·푸시 명령. 홈서버 MySQL 전용 DB·계정 SQL. research.md R4 확인 결과 기록 (B8)
 - [x] T056 [BE] `backend/checks/check_b8.py`: `PUBLIC_BASE_URL`의 `/api/health`가 200, 운영 출처 preflight 통과(ADR-18). 기대 출처는 상수로 박지 않고 `git remote get-url origin`의 소유자로 `https://<owner>.github.io`를 만든다(QA-3·QA-4 재발 대응: 출처의 단일 출처는 git remote이고 env·ADR 값은 이 검사로 검증되는 사본이다), SSE 응답이 100초 이상 끊기지 않음(fake 실행에 지연을 넣어 확인) (B8 검사)
-- [ ] T057 [QA] B8 교차 검증: 운영 도메인 health, cloudflared 경유 SSE ping 유지, 운영 `ACCESS_TOKEN` 사용 여부를 사용자에게 확인(R3) (B8 QA)
+- [ ] T057 [QA] B8 교차 검증: 운영 도메인 health, cloudflared 경유 SSE ping 유지, 운영 `ACCESS_TOKEN` 사용 여부를 사용자에게 확인(R3) (B8 QA) (2026-10-15 결정: 운영에서 필수, 비활성 선택지 없음)
 - [x] T058 [P] [FE] `.github/workflows/pages.yml`: `frontend/` 빌드(`VITE_API_BASE_URL`은 레포 Variables) 후 GitHub Pages 배포 (F6)
 - [x] T059 [FE] `frontend/checks/check-f6.ts`: `frontend/dist/index.html`의 자산 경로가 `/kbap-pm-agent/`로 시작하고, 번들에 `VITE_API_BASE_URL` 값이 들어 있다 (F6 검사)
 - [ ] T060 [QA] F6↔B8 교차 검증: GitHub Pages URL에서 운영 백엔드로 health·대화·SSE·채택 왕복, `check-f6.ts` 실행 (F6 QA)
