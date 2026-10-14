@@ -121,7 +121,7 @@ function sessionExpired(): never {
 
 export type ResponseLike = Pick<Response, 'type' | 'status' | 'ok' | 'headers' | 'json'>
 
-// 백엔드에 닿지 못한 5xx(nginx·터널 오류 페이지)는 로그인과 무관한 연결 실패
+// 백엔드에 닿지 못한 5xx(터널·Cloudflare 오류 페이지)는 로그인과 무관한 연결 실패
 function unreachable(status: number): never {
   throw new ApiError('NETWORK_ERROR', '백엔드에 연결할 수 없습니다.', status)
 }

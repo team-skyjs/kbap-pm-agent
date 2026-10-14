@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# 검사: 웹 컨테이너 경유 같은 출처 동작 (정적 HTML, /api 헬스, SSE 첫 진행 5초 이내와 final 종료)
-# 실행: docker compose up -d --build && deploy/checks/check_g1.sh   (기본 BASE=http://localhost:8080, 백엔드 fake 모드)
+# 검사: 백엔드 정적 서빙 같은 출처 동작 (정적 HTML, /api 헬스, SSE 첫 진행 5초 이내와 final 종료)
+# 실행: docker compose up -d --build && deploy/checks/check_g1.sh   (기본 BASE=http://localhost:8000, 백엔드 fake 모드)
 set -euo pipefail
-BASE=${BASE:-http://localhost:8080}
+BASE=${BASE:-http://localhost:8000}
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 got=$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$BASE/" || true)
