@@ -109,9 +109,15 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   // 사용자가 맨 아래를 보고 있을 때만 자동 스크롤
   const atBottom = useRef(true)
 
+  const applied = useRef(0)
   const load = useCallback(() => {
     const seq = ++loadSeq.current
-    getConversation(id).then((d) => { setDetail(d); setLoadedSeq(seq); setLoadError('') }, (e) => setLoadError(describe(e)))
+    getConversation(id).then((d) => {
+      // 늦게 도착한 이전 응답이 새 상태를 덮지 않도록 버림
+      if (seq < applied.current) return
+      applied.current = seq
+      setDetail(d); setLoadedSeq(seq); setLoadError('')
+    }, (e) => setLoadError(describe(e)))
   }, [id])
 
   useEffect(() => { setDetail(null); setNotice(''); load() }, [load])
