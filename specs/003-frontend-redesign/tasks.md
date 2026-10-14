@@ -128,7 +128,7 @@ description: "프론트 재설계 구현 태스크"
 
 **Independent Test**: `us5.spec.ts`.
 
-- [ ] T018 [US5] [FE] `frontend/src/Markdown.tsx`: `react-markdown` + `remark-gfm` 컴포넌트를 만든다(ADR-25).
+- [x] T018 [US5] [FE] `frontend/src/Markdown.tsx`: `react-markdown` + `remark-gfm` 컴포넌트를 만든다(ADR-25).
   - HTML: `rehype-raw`를 쓰지 않는다(HTML 미해석).
   - 링크: `target="_blank" rel="noopener noreferrer"`.
   - 표: 가로 스크롤 감싸개 `div`(`tabIndex=0`, `role="region"`, `aria-label`)로 감싼다.
@@ -136,7 +136,7 @@ description: "프론트 재설계 구현 태스크"
   - 언어 `chart`는 US6 전까지 일반 코드 블록으로 둔다.
 - [ ] T019 [US5] [DS] `style.css`: 마크다운 요소 스타일을 토큰으로 둔다. 대상은 제목 4단계, 목록, 작업 목록, 인용, 구분선, 강조, 링크, 표(머리글 구분), 코드 블록(mono·스크롤·머리 영역), 인라인 코드다
 - [ ] T020 [US5] [DS] `Chat.tsx`·`ProposalCard.tsx`: AI 본문, 제안 `proposal`, `steps` 항목을 `Markdown`으로 렌더한다
-- [ ] T021 [US5] [FE] `frontend/checks/ui/us5.spec.ts`: 마크다운 표본 답변에서 다음을 assert하고 스크린샷을 찍는다. (US5 검사)
+- [x] T021 [US5] [FE] `frontend/checks/ui/us5.spec.ts`: 마크다운 표본 답변에서 다음을 assert하고 스크린샷을 찍는다. (US5 검사)
   - 요소: `h1`~`h4`, `table`과 `thead`, 작업 목록 체크박스(비활성), `blockquote`, `hr`가 있다.
   - 안전: 링크의 `target`·`rel`이 맞고, `<script>`는 문자로 보이며 DOM에 `script` 요소가 추가되지 않는다.
   - 상호작용: 코드 복사 클릭 후 클립보드 값이 원문이고(권한 부여), 표 감싸개가 가로 스크롤 가능하다.
@@ -203,16 +203,16 @@ description: "프론트 재설계 구현 태스크"
 - [ ] T032 [US6] [USER] 차트 라이브러리를 확인한다. 기본안은 Chart.js v4다(research R1 실측 171KB min). 다르게 정하면 CTO에 알린다(ADR-24)
 - [x] T033 [US6] [FE] `frontend/src/chartBlock.ts`: `parseChartBlock(text)`를 둔다. 반환은 `{ok:true, spec} | {ok:false, reason}`이고, 검증 규칙은 data-model.md 2절을 그대로 따른다(추가 키 오류, 길이 일치, 전부 null 오류)
 - [x] T034 [US6] [FE] `frontend/checks/check-f7.ts`: `contracts/chart-block.md`의 세 예시(선·막대 통과, pie 실패)와 다섯 가지 실패 사례(길이 불일치, 추가 키, 전부 null, `series` 5개, JSON 깨짐)를 assert한다. 예시는 파일에서 직접 읽는다. `frontend/checks/run.ts` 목록에 f7 한 줄을 추가한다 (US6 검사 1)
-- [ ] T035 [US6] [FE] `frontend/src/ChartBlock.tsx`: 차트를 그린다.
+- [x] T035 [US6] [FE] `frontend/src/ChartBlock.tsx`: 차트를 그린다.
   - 로드·등록: `import('chart.js')`로 지연 로드하고 ADR-24의 컨트롤러만 등록한다.
   - 색: `getComputedStyle`로 `--chart-1`~`4`·`--chart-grid`·`--color-text`를 읽고, `matchMedia('(prefers-color-scheme: dark)')` change에서 다시 읽어 `update()`한다.
   - 생명주기·크기: 언마운트 시 `destroy()`, x 라벨 자동 생략, 반응형 크기다.
   - 접근성: 캔버스 컨테이너에 `role="img"`·`aria-label={title}`을 두고, 시각적으로 숨긴 `<table>`을 같은 데이터로 렌더한다.
-- [ ] T036 [US6] [FE] `Markdown.tsx`: 언어 `chart` 코드 블록을 `parseChartBlock`으로 검사한다. 성공이면 `ChartBlock`, 실패면 원문 코드 블록이다
+- [x] T036 [US6] [FE] `Markdown.tsx`: 언어 `chart` 코드 블록을 `parseChartBlock`으로 검사한다. 성공이면 `ChartBlock`, 실패면 원문 코드 블록이다
 - [ ] T037 [US6] [DS] `style.css`: `--chart-1`~`4`·`--chart-grid` 토큰 라이트·다크 값(제안서 확정값), 차트 컨테이너(높이 예약·여백), 숨긴 표용 `.visually-hidden` 유틸리티
 - [ ] T038 [US6] [BE] `backend/app/agent.py` `SYSTEM_PROMPT`에 한 줄을 추가한다: "시계열 지표(날짜별 수치)를 답할 때는 본문에 chart 코드 블록을 함께 쓴다. 형식:"과 `contracts/chart-block.md`의 선 예시 JSON 한 줄. 모델명은 넣지 않는다. 다른 프롬프트 문장은 바꾸지 않는다
 - [ ] T039 [US6] [BE] `backend/checks/check_b9.py`: `SYSTEM_PROMPT`에 위 문장과 `specs/003-frontend-redesign/contracts/chart-block.md`의 선 예시 JSON이 글자 단위로 들어 있는지 assert한다 (US6 검사 2)
-- [ ] T040 [US6] [FE] `frontend/checks/ui/us6.spec.ts`: (US6 검사 3)
+- [x] T040 [US6] [FE] `frontend/checks/ui/us6.spec.ts`: (US6 검사 3)
   - 렌더링: 표본 답변에서 `canvas` 2개, 오류 예시는 `code.language-chart` 원문, 각 차트 컨테이너의 `aria-label`과 숨긴 표 행 수.
   - 다크: dark 프로젝트에서 차트가 그려진다(캔버스 비어 있지 않음, 픽셀 샘플).
   - 지연 로드: 차트 블록이 없는 대화를 열 때 `chart` 청크 요청이 없다(`page.on('request')`).
