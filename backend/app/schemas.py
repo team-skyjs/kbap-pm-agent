@@ -1,6 +1,6 @@
 """계약서 v1.1 공통 객체(contracts/02-objects.md). camelCase 별칭, extra 금지.
 라우트는 dict를 직접 만들고, 이 모델은 계약 검증(검사 스크립트)과 에이전트 최종 응답 강제(AgentAnswer)에 쓴다."""
-from typing import Annotated, Literal, Union
+from typing import Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
@@ -40,7 +40,9 @@ class TaxonomyEvidence(M):
     event_name: str
 
 
-Evidence = Annotated[Union[MetricEvidence, CodeEvidence, TaxonomyEvidence], Field(discriminator="kind")]
+# 판별자(discriminator) 대신 일반 Union: JSON 스키마가 oneOf가 아닌 anyOf가 되어 공급자 구조화 출력과 호환된다.
+# kind가 Literal이고 extra 금지라 검증 결과는 판별 유니온과 같다
+Evidence = Union[MetricEvidence, CodeEvidence, TaxonomyEvidence]
 
 
 class Location(M):

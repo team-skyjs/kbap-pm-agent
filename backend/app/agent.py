@@ -6,10 +6,14 @@
   {"type": "error", "code", "message"}
 DB 저장과 SSE 변환은 conversations.py가 한다."""
 import asyncio
+import datetime
+import logging
 from typing import AsyncIterator
 
-from app import budget
+from app import budget, db
 from app.config import env, is_fake, num
+
+log = logging.getLogger("app.agent")
 
 # 계약서 v1.1 예시 값 (시연 모드 표: 도구 2개 taxonomy·code, 제안 improvement 1 + funnel_design 1)
 FAKE_TOOLS = [
@@ -67,12 +71,121 @@ async def _fake(message_id: int) -> AsyncIterator[dict]:
     yield {"type": "final", "content": FAKE_CONTENT, "proposals": FAKE_PROPOSALS}
 
 
-async def run_agent(message_id: int, conversation_id: int, content: str) -> AsyncIterator[dict]:
-    if is_fake():
-        async for ev in _fake(message_id):
-            yield ev
+SYSTEM_PROMPT = """너는 K-Bap 앱 팀의 PM 에이전트다. PM 질문에 답하려고 택사노미, 프론트엔드 코드, Amplitude 지표를 도구로 여러 번 조회하고, 중간 결과를 보고 다음 조회를 정한다.
+
+최종 응답은 반드시 AgentAnswer 구조로 낸다.
+- content: 한국어 마크다운. 찾은 것을 짧게 요약한다. 제안 내용을 여기에 섞지 않는다.
+- proposals: 제안 0개 이상. 기획 개선이면 type "improvement", 측정 설계면 type "funnel_design".
+
+제안 규칙:
+1. 제안은 반드시 근거(evidence) → 제안(proposal) → 실행 단계(steps) → 측정 방법(measurement) 네 부분이다.
+2. 근거는 kind로 구분한다. metric은 Amplitude 수치(value에 단위, source에 조회 조건), code는 코드 위치(file은 저장소 루트 기준 경로, function은 감싸는 함수·컴포넌트 이름, line, snippet 10줄 이내), taxonomy는 이벤트 정의(eventName). 도구로 확인한 사실만 근거로 쓴다. 수치를 지어내지 않는다.
+3. 측정 퍼널의 각 단계는 기존 이벤트(status "existing", location null)인지 신규 이벤트(status "new")인지 표시한다. 신규 이벤트는 location(file, function, line)이 필수이고, 도구로 실제 존재를 확인한 파일·함수만 쓴다. order는 1부터 연속이다. funnel_design은 퍼널이 1단계 이상이어야 한다.
+4. 택사노미에 정의는 있으나 코드에서 호출을 찾지 못한 이벤트는 근거 summary에 "정의는 있으나 코드에서 발견되지 않음"이라고 쓴다. 코드에만 있고 택사노미 정의가 없는 이벤트는 "코드에만 존재, 정의 없음"이라고 쓴다.
+5. 쓸 수 없는 소스(아래 상태가 '없음'이거나 도구 호출이 실패한 소스)가 있으면 content에 어떤 근거가 빠졌는지 명시한다.
+6. 코드는 find_event_calls, search_code로 위치를 좁힌 뒤 read_code로 필요한 줄만 읽는다. 파일 전체를 읽으려 하지 않는다.
+"""
+
+
+def _model():
+    from langchain.chat_models import init_chat_model
+    return init_chat_model(agent_model(), max_tokens=16000)
+
+
+def _tools():
+    """(도구 목록, 이름 → source, 소스 상태 문장). 쓸 수 있는 소스의 도구만 넣는다."""
+    from app import code_tools, repo
+    tools, source = [], {}
+    has_code = bool(repo.state()) and repo.clone_dir().exists()
+    has_tax = bool(db.get_setting("taxonomy"))
+    if has_code:
+        tools += code_tools.CODE_TOOLS
+        source.update({f.__name__: "code" for f in code_tools.CODE_TOOLS})
+    if has_tax:
+        tools += code_tools.TAXONOMY_TOOLS
+        source.update({f.__name__: "taxonomy" for f in code_tools.TAXONOMY_TOOLS})
+    status = (f"소스 상태: 코드 저장소 {'있음' if has_code else '없음'}, 택사노미 {'있음' if has_tax else '없음'}, "
+              f"Amplitude 없음")
+    return tools, source, status
+
+
+def _history(conversation_id: int) -> list[dict]:
+    # ponytail: 최근 완료 메시지 20개를 본문만 넣는다(도구 결과 원문 제외). 긴 대화는 요약 압축으로
+    rows = db.q("""SELECT role, content FROM messages WHERE conversation_id = %s AND status = 'completed'
+                   ORDER BY created_at DESC, id DESC LIMIT 20""", (conversation_id,))
+    return [{"role": r["role"], "content": r["content"]} for r in reversed(rows) if r["content"]]
+
+
+def partial_content(reason: str, results: list[tuple[str, str]]) -> str:
+    lines = [reason, "", "조회 결과:"] + [f"- {name}: {summary}" for name, summary in results]
+    return "\n".join(lines if results else [reason, "", "조회한 결과가 없습니다."])
+
+
+async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
+    from langchain.agents import create_agent
+    from langchain.agents.middleware import ToolErrorMiddleware
+    from langchain.agents.structured_output import ProviderStrategy
+
+    from app.schemas import AgentAnswer
+
+    tools, source, status = _tools()
+    max_calls, timeout = int(num("AGENT_MAX_TOOL_CALLS", 20)), num("AGENT_TIMEOUT_SECONDS", 170)
+    results: list[tuple[str, str]] = []  # (도구 이름, 결과 요약) — 상한 도달 시 부분 답에 쓴다
+    names: dict[str, str] = {}
+    calls, answer, reason = 0, None, None
+    try:
+        # ToolStrategy는 tool_choice "any"를 강제해 최신 Claude 모델에서 400이다. 공급자 네이티브 구조화 출력을 쓴다
+        graph = create_agent(
+            _model(), tools,
+            system_prompt=f"{SYSTEM_PROMPT}\n오늘 날짜(UTC): {datetime.date.today().isoformat()}\n{status}",
+            response_format=ProviderStrategy(AgentAnswer),
+            middleware=[ToolErrorMiddleware(on_error=lambda e, _req: f"도구 오류: {type(e).__name__}: {str(e)[:300]}")])
+        async with asyncio.timeout(timeout):
+            async for chunk in graph.astream({"messages": _history(conversation_id)}, stream_mode="updates"):
+                for node, update in (chunk or {}).items():
+                    update = update or {}
+                    for msg in update.get("messages", []):
+                        if msg.type == "ai":
+                            u = msg.usage_metadata or {}
+                            budget.record("agent", agent_model(), u.get("input_tokens", 0), u.get("output_tokens", 0), message_id)
+                            for tc in msg.tool_calls:
+                                if tc["name"] not in source:
+                                    continue
+                                calls += 1
+                                names[tc["id"]] = tc["name"]
+                                yield {"type": "tool_call", "key": tc["id"], "source": source[tc["name"]],
+                                       "name": tc["name"], "input": tc["args"]}
+                        elif msg.type == "tool" and msg.tool_call_id in names:
+                            text = msg.content if isinstance(msg.content, str) else str(msg.content)
+                            failed = getattr(msg, "status", "success") == "error"
+                            summary = text.splitlines()[0][:500] if text else ""
+                            results.append((names[msg.tool_call_id], summary))
+                            yield {"type": "tool_result", "key": msg.tool_call_id,
+                                   "status": "failed" if failed else "succeeded", "summary": summary, "text": text}
+                    if update.get("structured_response") is not None:
+                        answer = update["structured_response"]
+                if calls >= max_calls and len(results) >= calls and answer is None:  # 걸린 호출의 결과까지 받은 뒤 멈춘다
+                    reason = f"도구 호출 상한({max_calls}회)에 도달해 여기까지의 조회 결과로 답합니다."
+                    break
+    except TimeoutError:
+        reason = f"실행 시간 상한({timeout:g}초)에 도달해 여기까지의 조회 결과로 답합니다."
+    except Exception as e:
+        log.exception("model call failed")
+        yield {"type": "error", "code": "UPSTREAM_ERROR", "message": f"LLM 공급자 응답 오류로 실행을 중단했습니다. ({type(e).__name__})"}
         return
-    yield {"type": "error", "code": "UPSTREAM_ERROR", "message": "실제 에이전트 모드는 아직 구현되지 않았습니다."}  # B6
+    if answer is not None:
+        yield {"type": "final", "content": answer.content,
+               "proposals": [p.model_dump(by_alias=True) for p in answer.proposals]}
+    elif reason:
+        yield {"type": "final", "content": partial_content(reason, results), "proposals": []}
+    else:
+        yield {"type": "error", "code": "UPSTREAM_ERROR", "message": "모델이 구조화된 최종 응답을 내지 않았습니다."}
+
+
+async def run_agent(message_id: int, conversation_id: int, content: str) -> AsyncIterator[dict]:
+    source = _fake(message_id) if is_fake() else _real(message_id, conversation_id)
+    async for ev in source:
+        yield ev
 
 
 SUMMARY_PROMPT = ("다음은 React Native 화면 파일이다. 150단어 이내 한국어로 요약하라: 화면의 역할, 주요 컴포넌트, "

@@ -206,6 +206,8 @@ async def _stream(aid: int, conversation_id: int, content: str, created: dict):
                              (aid, conversation_id, i, p["type"], p["title"], json.dumps(p["evidence"], ensure_ascii=False),
                               p["proposal"], json.dumps(p["steps"], ensure_ascii=False),
                               json.dumps(p["measurement"], ensure_ascii=False)))
+                    db.x("""UPDATE tool_calls SET status = 'failed', result_summary = '실행 상한으로 중단됨'
+                            WHERE message_id = %s AND status = 'running'""", (aid,))  # 시간 상한으로 끊긴 호출
                     db.x("UPDATE messages SET status = 'completed', content = %s WHERE id = %s", (ev["content"], aid))
                     db.x("UPDATE conversations SET updated_at = NOW(3) WHERE id = %s", (conversation_id,))
                     finished = True
