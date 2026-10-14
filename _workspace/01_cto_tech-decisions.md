@@ -72,6 +72,7 @@
 - 버린 대안: Cloudflare Access(GitHub Pages 출처에서 오는 교차 출처 요청과 궁합이 나쁨), 무방비 공개(예산 소진 위험).
 - 바꾸면 영향: 미들웨어 하나와 FE 설정 입력칸 하나.
 - 상태: 가정 — PRD에 없는 결정. 필요 없으면 `ACCESS_TOKEN`을 비워 두면 된다.
+- 2026-10-15 갱신: 사용자 결정으로 운영에서 **필수**. 배포 워크플로우가 ACCESS_TOKEN이 비면 실패하고, 배포 스크립트가 토큰 없는 보호 경로 401을 확인한다(헌법 v1.3.0). "비워 두면 꺼진다"는 로컬·시연용에만 해당.
 
 ### ADR-8: MySQL 스키마 뼈대 — 6개 테이블, 기동 시 `schema.sql` 적용
 - 결정: `backend/schema.sql`에 `CREATE TABLE IF NOT EXISTS`로 정의하고 앱 기동 시 실행한다. 이후 변경은 같은 파일에 `ALTER`를 추가하고 수동 적용한다. 시간은 UTC `DATETIME(3)`, 문자셋 `utf8mb4`.

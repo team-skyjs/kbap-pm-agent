@@ -83,6 +83,7 @@ jobs:
         run: |
           : "${DATABASE_URL:?secret DATABASE_URL 없음}"
           : "${PUBLIC_BASE_URL:?variable PUBLIC_BASE_URL 없음}"
+          : "${ACCESS_TOKEN:?secret ACCESS_TOKEN 없음 — 운영 API는 토큰 잠금이 필수다}"
           umask 077
           cat > deploy/.env.prod <<ENV
           AGENT_MODE=real

@@ -18,6 +18,9 @@ echo "==============================="
 echo "[1/4] 이미지 pull"
 docker compose -f "$COMPOSE_FILE" pull
 
+echo "[1b] 운영 env 검증 (ACCESS_TOKEN 필수, 기동 전에 확인)"
+grep -qE '^ACCESS_TOKEN=.+' "$ENV_FILE" || { echo "ACCESS_TOKEN이 비어 있다. 인증 없는 컨테이너를 띄우지 않도록 배포를 중단한다"; exit 1; }
+
 echo "[2/4] 컨테이너 기동"
 docker compose -f "$COMPOSE_FILE" up -d
 
@@ -31,6 +34,10 @@ for i in $(seq 1 20); do
   [ "$i" -eq 20 ] && { echo "20회 안에 응답 없음. 로그:"; docker logs --tail 30 "$NAME"; exit 1; }
   sleep 3
 done
+
+echo "[3b] 토큰 잠금 확인 (보호 경로는 토큰 없이 401)"
+code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8001/api/conversations)
+[ "$code" = "401" ] || { echo "토큰 잠금 실패: /api/conversations 가 토큰 없이 $code 로 응답. ACCESS_TOKEN 확인"; exit 1; }
 
 echo "[4/4] 컨테이너 상태"
 docker ps | grep "$NAME" || true

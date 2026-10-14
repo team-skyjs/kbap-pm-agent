@@ -4,7 +4,7 @@
 
 ## Git 워크플로우
 
-main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`, `docs/...`)에서 하고 PR로 main에 합친다. 하네스 에이전트도 같다: 리더가 빌드 시작 시 브랜치를 만들고, 팀원은 그 브랜치에 커밋하며, 완료 후 리더가 PR을 연다. PR 설명 끝에는 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`를 붙인다. PR 제목은 영어로 쓰고 항상 `접두어(범위)` 형식으로 시작한다. 접두어는 feat·fix·ci·docs·chore, 범위는 backend·frontend·deploy·harness·docs 중 하나이며 여러 영역에 걸치면 가장 큰 변경의 영역을 쓴다. 예: `feat(backend): ...`, `ci(deploy): ...`. 쌓인(stacked) PR은 아래 PR을 머지한 뒤 **위 PR의 base가 main으로 바뀐 것을 확인하고** 머지한다. base가 머지된 브랜치를 가리킨 채 머지하면 변경이 main에 닿지 않는다(2026-10-15 PR #2 사례). 본문은 한국어로 쓴다. 작업 중 만든 내부 식별자(ADR 번호, 태스크 번호, 모듈 코드, QA 번호 등)는 PR 제목·본문에 쓰지 않고, 무엇이 왜 바뀌었는지 말로 적는다.
+main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`, `docs/...`)에서 하고 PR로 main에 합친다. 하네스 에이전트도 같다: 리더가 빌드 시작 시 브랜치를 만들고, 팀원은 그 브랜치에 커밋하며, 완료 후 리더가 PR을 연다. PR 설명 끝에는 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`를 붙인다. 작업 트리를 여러 에이전트가 공유하므로 커밋은 항상 경로를 지정해(`git commit -- <경로>` 또는 `git commit -o <파일>`) 자기 파일만 담고, 커밋 전 `git diff --cached --name-only`로 인덱스에 남의 스테이징이 없는지 확인한다. `git add -A`·`git add -u` 금지. PR 제목은 영어로 쓰고 항상 `접두어(범위)` 형식으로 시작한다. 접두어는 feat·fix·ci·docs·chore, 범위는 backend·frontend·deploy·harness·docs 중 하나이며 여러 영역에 걸치면 가장 큰 변경의 영역을 쓴다. 예: `feat(backend): ...`, `ci(deploy): ...`. PR 머지는 머지 커밋(`gh pr merge --merge`)으로 한다. squash·rebase 머지는 쓰지 않는다(브랜치 커밋 이력 보존). 쌓인(stacked) PR은 아래 PR을 머지한 뒤 **위 PR의 base가 main으로 바뀐 것을 확인하고** 머지한다. base가 머지된 브랜치를 가리킨 채 머지하면 변경이 main에 닿지 않는다(2026-10-15 PR #2 사례). 본문은 한국어로 쓴다. 작업 중 만든 내부 식별자(ADR 번호, 태스크 번호, 모듈 코드, QA 번호 등)는 PR 제목·본문에 쓰지 않고, 무엇이 왜 바뀌었는지 말로 적는다.
 
 ## 코드 주석 규칙
 
@@ -14,6 +14,10 @@ main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`
 4. 간결성: 핵심 의도와 이유만. 배경 설명·장황한 서술 금지
 5. 일관성: 기존 주석 스타일을 존중하고 같은 규칙 적용
 6. `ponytail:` 표시는 유지하되 위 문체 규칙을 따름 (예: `# ponytail: 파일 캐시, 동시 요청 늘면 DB로`)
+
+## 운영 정보 비노출
+
+운영 호스트명·도메인·IP·ssh 별칭·서버 경로를 저장소 파일(코드, 문서, 예시 env, PR 제목·본문, 커밋 메시지)에 쓰지 않는다. 실제 값은 GitHub Variables/Secrets와 서버에만 둔다. 문서에는 `<운영 API 주소>` 같은 자리표시자나 변수 이름(PUBLIC_BASE_URL)으로 가리킨다. 레포가 공개이고 홈서버라 노출되면 공격 표면이 된다.
 
 ## PRD 문서 위치
 
@@ -30,6 +34,7 @@ main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`
 **변경 이력:**
 | 날짜 | 변경 내용 | 대상 | 사유 |
 |------|----------|------|------|
+| 2026-10-15 | 운영 정보 비노출 규칙, 경로 지정 커밋 규칙 추가 | CLAUDE.md | 사용자 지시(홈서버 주소 노출 금지), 공유 인덱스 커밋 사고 2건 |
 | 2026-10-15 | 프론트 GitHub Pages 유지·API 공유 토큰 잠금 결정. 헌법 v1.3.0, 접근 제한 PRD 보류, feat/access-gate 미머지 보관 | constitution, PRD-access-gate, CLAUDE.md | 사용자 결정 |
 | 2026-10-15 | frontend-designer 에이전트 + design-system·chat-ui-design·ui-review 스킬 추가, 오케스트레이터·QA 연결 | agents/frontend-designer, skills 3개, orchestrator, qa-integrator | 사용자 요청: ChatGPT 레퍼런스 채팅 UI/UX 전문 에이전트 |
 | 2026-10-15 | 초기 구성 (cto, frontend-dev, backend-dev, qa-integrator / 4 스킬) | 전체 | - |
