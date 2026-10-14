@@ -128,7 +128,7 @@ description: "PM Agent 프로토타입 구현 태스크"
 
 ### B4 — 저장소·택사노미
 
-- [ ] T031 [US2] [BE] `backend/app/repo.py`: 외부 seam. `REPOS_DIR` 아래 얕은 클론·pull·HEAD 7자리 SHA를 다룬다. (B4)
+- [x] T031 [US2] [BE] `backend/app/repo.py`: 외부 seam. `REPOS_DIR` 아래 얕은 클론·pull·HEAD 7자리 SHA를 다룬다. (B4)
   - 인증: `GITHUB_TOKEN`이 있으면 HTTPS URL에 넣되 로그·예외 메시지에서 제거한다.
   - 인덱스: rg로 `CODE_GLOB`(기본 `*.{ts,tsx,js,jsx}`) 파일만 대상으로 `TRACK_CALL_PATTERN` 인덱스(이벤트명 → `[{file,line,function}]`)를 만들고, `SCREEN_GLOB`로 화면 수를 센다. 문서 파일은 제외한다(ADR-19).
   - 실패 처리: 실패 사유를 `lastError` 문장으로 만든다.
@@ -139,7 +139,7 @@ description: "PM Agent 프로토타입 구현 태스크"
   - `POST /api/settings/repository/sync`: 미등록이면 409 `REPOSITORY_NOT_CONFIGURED`. 실패하면 502 `UPSTREAM_ERROR`를 내되 `lastError`를 저장하고 기존 클론을 유지한다.
   - `PUT /api/settings/taxonomy`: 전부 통과해야 교체한다. 실패하면 기존 값을 유지하고 `message`에 `"events[3].properties[0].type: ..."` 식으로 첫 위반 위치를 적는다. `app_settings` 키 `repository`·`taxonomy`.
 - [x] T033 [US2] [BE] `backend/checks/check_b4.py`: `file://` 시험 저장소(`track(EVENTS.a)` 3곳)를 등록해 `trackedEventCount == 3`, sync 시 HEAD 변경 반영, 택사노미 계약 예시 업로드 `eventCount == 2`, `"date"` 타입 업로드가 400이고 `eventCount` 2 유지, fake 모드 `PUT /api/settings/repository` 응답이 계약 예시 값 (B4 검사)
-- [ ] T034 [US2] [QA] B4 교차 검증: 실제 `team-skyjs/kbap-fe` 클론. `trackedEventCount`가 소스 파일 호출 수(`rg -o -g '*.{ts,tsx,js,jsx}' 'track\(EVENTS\.' | wc -l`, 한 줄에 여러 번 있으면 각각 센다)와 같은지 본다. kbap-fe develop f34c518 기준 117(문서 매치 3건 제외, ADR-19). 인덱스·`search_code` 결과에 `.md` 파일이 없는지도 확인한다(QA-2). 토큰을 빼고 동기화했을 때 `UPSTREAM_ERROR`이면서 `lastError` 사유가 남고, 응답·로그에 토큰 문자열이 없는지 확인한다(research.md R6). `check_b4.py` 실행 (B4 QA)
+- [x] T034 [US2] [QA] B4 교차 검증: 실제 `team-skyjs/kbap-fe` 클론. `trackedEventCount`가 소스 파일 호출 수(`rg -o -g '*.{ts,tsx,js,jsx}' 'track\(EVENTS\.' | wc -l`, 한 줄에 여러 번 있으면 각각 센다)와 같은지 본다. kbap-fe develop f34c518 기준 117(문서 매치 3건 제외, ADR-19). 인덱스·`search_code` 결과에 `.md` 파일이 없는지도 확인한다(QA-2). 토큰을 빼고 동기화했을 때 `UPSTREAM_ERROR`이면서 `lastError` 사유가 남고, 응답·로그에 토큰 문자열이 없는지 확인한다(research.md R6). `check_b4.py` 실행 (B4 QA)
 
 ### B5 — 코드 도구 + 요약 캐시 + 예산
 
@@ -229,8 +229,8 @@ description: "PM Agent 프로토타입 구현 태스크"
 
 ## Phase 7: Polish & 배포 (B8, F6)
 
-- [ ] T055 [BE] `deploy/`: `../kbap-amplitude/deploy/`의 compose·배포 스크립트·env 예시를 복사해 이름을 바꾼다(`docker-compose.kbap-pm-agent.yml`: 이미지 `simhani1/kbap-pm-agent:latest`, `monitor-net`, `127.0.0.1:8001:8000`. `deploy.kbap-pm-agent.sh`: pull → up → `/api/health` 확인). 멀티아키 빌드·푸시 명령. 홈서버 MySQL 전용 DB·계정 SQL. research.md R4 확인 결과 기록 (B8)
-- [ ] T056 [BE] `backend/checks/check_b8.py`: `PUBLIC_BASE_URL`의 `/api/health`가 200, `Origin: https://team-skyjs.github.io` preflight 통과(ADR-18), SSE 응답이 100초 이상 끊기지 않음(fake 실행에 지연을 넣어 확인) (B8 검사)
+- [x] T055 [BE] `deploy/`: `../kbap-amplitude/deploy/`의 compose·배포 스크립트·env 예시를 복사해 이름을 바꾼다(`docker-compose.kbap-pm-agent.yml`: 이미지 `simhani1/kbap-pm-agent:latest`, `monitor-net`, `127.0.0.1:8001:8000`. `deploy.kbap-pm-agent.sh`: pull → up → `/api/health` 확인). 멀티아키 빌드·푸시 명령. 홈서버 MySQL 전용 DB·계정 SQL. research.md R4 확인 결과 기록 (B8)
+- [x] T056 [BE] `backend/checks/check_b8.py`: `PUBLIC_BASE_URL`의 `/api/health`가 200, `Origin: https://team-skyjs.github.io` preflight 통과(ADR-18), SSE 응답이 100초 이상 끊기지 않음(fake 실행에 지연을 넣어 확인) (B8 검사)
 - [ ] T057 [QA] B8 교차 검증: 운영 도메인 health, cloudflared 경유 SSE ping 유지, 운영 `ACCESS_TOKEN` 사용 여부를 사용자에게 확인(R3) (B8 QA)
 - [x] T058 [P] [FE] `.github/workflows/pages.yml`: `frontend/` 빌드(`VITE_API_BASE_URL`은 레포 Variables) 후 GitHub Pages 배포 (F6)
 - [x] T059 [FE] `frontend/checks/check-f6.ts`: `frontend/dist/index.html`의 자산 경로가 `/kbap-pm-agent/`로 시작하고, 번들에 `VITE_API_BASE_URL` 값이 들어 있다 (F6 검사)

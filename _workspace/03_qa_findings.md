@@ -22,6 +22,7 @@
 | 2026-10-15 | B7 (ef2cfce) | fake 통과, real 승인 미검증 | `check_b7.py` OK(도구 예외·도구 목록 실패에도 final). 실서버 fake: connect 응답 = 계약 예시 원문, 직후 settings.amplitude connected·connectedAt ISO·키 = 계약, callback 3종 200 `text/html` 한 줄 문구(성공 문구는 real 승인 필요). real 동적 등록·승인·토큰 교환·list_tools·재시작 유지·실제 metric 근거(T046 후반·T050)는 사람 승인과 Amplitude 계정이 필요해 미검증 — QA가 외부에 OAuth 클라이언트를 추가 등록하지 않으려고 real connect도 호출하지 않음 |
 | 2026-10-15 | F5 ↔ B7 (T052·T054 fake) | fake 통과 | headless Chrome: 연결 안 됨 → 클릭 시 새 탭이 계약 예시 authorizationUrl로 이동(외부 요청은 가로채 막음), 3.2s 뒤 "연결됨 (시각)" + "연결되었습니다.", 이후 폴링 중단. T054 real 모드 Amplitude 항목은 미검증 |
 | 2026-10-15 | B8 (f2890fe) | 결함 1, 운영 미배포 | 별도 컨테이너(fake, FAKE_DELAY_SECONDS=21)에서 `check_b8.py` OK: health, preflight, SSE 105초 유지·ping 5회·final. 배포 파일 정적: 이미지·monitor-net·127.0.0.1:8001·/data 볼륨·healthcheck·db ok 확인·.env.prod gitignore 확인. 결함 QA-4. 운영 배포는 홈서버 SSH·Docker Hub 권한이 필요해 미실행 → T057·T060 미검증 |
+| 2026-10-15 | QA-2·QA-4 재검증 (5c5a6ad) | 확인됨 | kbap-fe f34c518 real 클론: trackedEventCount 117 = `rg -o -g '*.{ts,tsx,js,jsx}'` 117, index.json 비코드 파일 0, search_code `**/*.md` 0건, read_code가 md·저장소 밖 경로 거부. check_b4·b5 OK. deploy env 예시·check_b8 출처 team-skyjs.github.io, check_b8(FAKE_DELAY 21) health·preflight team-skyjs·SSE 105초 OK. 참고: 117곳 중 17곳은 `__tests__` 파일의 문자열 매치(ADR-19 범위 안, 남은 위험으로 기록) |
 
 ## 결함
 
@@ -41,7 +42,7 @@
 - 실제: `backend/app/repo.py` `build_index`가 `rg ... -e PATTERN .`로 저장소 전체를 훑는다. team-skyjs/kbap-fe develop(f34c518): trackedEventCount 120 = ts/tsx 117 + `specs/004-inbox-server/tasks.md` 2 + `specs/001-notification-settings/tasks.md` 1. `rg -c` 줄 합은 119(tasks.md 한 줄에 2회). 문서 위치가 인덱스에 들어가 에이전트가 `specs/.../tasks.md:40`을 코드 근거로 인용할 수 있다
 - 수정 방향: 백엔드. rg에 소스 글로브를 준다(예: `-g '*.{ts,tsx,js,jsx}'` 또는 `--type ts --type js`, 필요하면 환경변수 `TRACK_CALL_GLOB`). 수정 후 kbap-fe에서 117이어야 한다. 세는 단위(줄 vs 호출)는 호출 수(-o)가 맞다고 본다 — T034 문구의 `rg -c`는 줄 수라 1 차이가 날 수 있음
 - 수신: backend-dev
-- 상태: 열림 (참고: d32661a로 T034 기준이 저장소 전체 `rg -o | wc -l`=120이 되어 문서 파일 매치를 그대로 통과시킨다. 기준을 소스 파일로 한정해야 한다고 cto에 전달)
+- 상태: 확인됨 (5c5a6ad ADR-19 CODE_GLOB, kbap-fe 117). 이전 메모: d32661a로 T034 기준이 저장소 전체 `rg -o | wc -l`=120이 되어 문서 파일 매치를 그대로 통과시킨다. 기준을 소스 파일로 한정해야 한다고 cto에 전달)
 
 ### QA-3: 운영 CORS 출처(simhani1.github.io)가 레포 소유자(team-skyjs)와 다르다
 - 모듈: 계약/ADR (B8·F6 배포 전)
@@ -59,4 +60,4 @@
 - 실제: `deploy/kbap-pm-agent.env.example` `CORS_ORIGINS=https://simhani1.github.io`, `backend/checks/check_b8.py:12` `origin = "https://simhani1.github.io"`. 이 예시로 .env.prod를 만들면 운영 Pages의 모든 요청이 CORS로 거부되고, check_b8은 틀린 출처로 통과해 그 사실을 숨긴다
 - 수정 방향: 백엔드. 두 곳을 `https://team-skyjs.github.io`로. check_b8은 출처를 환경변수로 받지 말고 ADR 값 고정(검사가 운영 설정을 따라가면 검사가 아니다)
 - 수신: backend-dev
-- 상태: 열림
+- 상태: 확인됨 (5c5a6ad. 같은 출처 결함 2회째(QA-3→QA-4)라 재발 시 cto에 구조 원인 보고)
