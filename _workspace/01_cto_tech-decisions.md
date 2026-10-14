@@ -64,15 +64,17 @@
 - 버린 대안: 폴링(실행 상태 테이블·백그라운드 작업 필요), WebSocket(양방향 불필요), `EventSource`(GET만 가능).
 - 바꾸면 영향: 계약서 메시지 전송 엔드포인트와 FE 채팅 모듈.
 - 공개 도메인: 가정. 예시는 `https://pm-agent.example.com`(운영 값은 문서에 쓰지 않는다, CLAUDE.md "운영 정보 비노출"), 실제 값은 `VITE_API_BASE_URL`과 `PUBLIC_BASE_URL`로만 주입한다.
-- 상태: 일부 대체(→ADR-22) — CORS와 별도 API 호스트는 없어진다(같은 출처). POST 응답 SSE·15초 ping·터널 공개는 유지
+- 상태: 일부 대체(→ADR-22). CORS와 별도 API 호스트는 002의 CORS 제거 배포(T026) 전까지 유효하다. 전환 기간에는 옛 Pages 프론트가 이 경로로 호출하기 때문이다. 배포 후에는 같은 출처라 CORS와 별도 API 호스트가 없다. POST 응답 SSE·15초 ping·터널 공개는 계속 유지
 
 ### ADR-7: 공유 접근 토큰 하나로 공개 API를 잠근다
 - 결정: 환경변수 `ACCESS_TOKEN`이 설정되면 `/api/health`와 OAuth 콜백을 제외한 모든 요청에 `Authorization: Bearer <ACCESS_TOKEN>`을 요구한다. 프론트는 설정 화면에서 토큰을 한 번 입력받아 `localStorage`에 둔다. 미설정이면 검사하지 않는다(로컬 개발).
 - 이유: 백엔드는 인터넷에 공개되고 요청마다 LLM 비용이 든다. 사용자 인증(PRD 비목표)이 아니라 200달러 예산을 지키는 문지기다.
-- 버린 대안: Cloudflare Access(GitHub Pages 출처에서 오는 교차 출처 요청과 궁합이 나쁨), 무방비 공개(예산 소진 위험).
+- 버린 대안: Cloudflare Access(GitHub Pages 출처에서 오는 교차 출처 요청과 궁합이 나쁨. ADR-22에서 같은 출처로 바꿔 채택), 무방비 공개(예산 소진 위험).
 - 바꾸면 영향: 미들웨어 하나와 FE 설정 입력칸 하나.
-- 상태: 가정 — PRD에 없는 결정. 필요 없으면 `ACCESS_TOKEN`을 비워 두면 된다.
-- 2026-10-15 갱신: 사용자 결정으로 운영에서 **필수**. 배포 워크플로우가 ACCESS_TOKEN이 비면 실패하고, 배포 스크립트가 토큰 없는 보호 경로 401을 확인한다(헌법 v1.3.0). "비워 두면 꺼진다"는 로컬·시연용에만 해당.
+- 상태: 확정 (전환 장치, 헌법 v1.4.0).
+  - 지금: 운영 필수다. 배포 워크플로우가 `ACCESS_TOKEN`이 비면 실패하고, 배포 스크립트가 토큰 없는 보호 경로 401을 확인한다(2026-10-15 사용자 결정, v1.3.0부터).
+  - 끄는 시점: ADR-22의 Access 운영 검증(002 T025)이 끝난 뒤다. 순서는 002 T037(배포 강제·401 확인 제거) → T038(Secret 비움, 배포) → T039(QA: 토큰 없이 Access 경유 200, 게이트 밖 차단)다. Access와 토큰이 함께 꺼진 순간이 없게 한다.
+  - 코드: 백엔드 검사 코드는 남긴다. "비워 두면 꺼진다"는 로컬·시연과 T038 이후의 운영에 해당한다.
 
 ### ADR-8: MySQL 스키마 뼈대 — 6개 테이블, 기동 시 `schema.sql` 적용
 - 결정: `backend/schema.sql`에 `CREATE TABLE IF NOT EXISTS`로 정의하고 앱 기동 시 실행한다. 이후 변경은 같은 파일에 `ALTER`를 추가하고 수동 적용한다. 시간은 UTC `DATETIME(3)`, 문자셋 `utf8mb4`.
@@ -223,24 +225,25 @@
     - `opaqueredirect`
     - `text/html` 응답
   - **배포**: `deploy-backend.yml`을 `deploy.yml`로 바꾸고 웹 이미지(`ghcr.io/<owner>/kbap-pm-agent-web`) 빌드·푸시를 추가한다. compose에 `kbap-pm-agent-web` 서비스를 둔다. 배포 한 번에 둘 다 같은 커밋 태그다. `pages.yml`은 삭제한다.
-  - **공유 토큰**: `ACCESS_TOKEN`(ADR-7)은 그대로 두고 운영에서는 비운다.
-- 이유: GitHub Pages에는 Access를 걸 수 없고, github.io 주소가 우회로로 남는다(PRD 3절). 같은 출처면 CORS·API 주소 노출·토큰 동기화가 모두 사라진다. 경로 분기를 nginx(레포 안 설정)에 두면 다음 이점이 있다.
+  - **공유 토큰(전환 장치)**: `ACCESS_TOKEN`(ADR-7)은 Access 운영 검증(002 T025)까지 운영 필수로 켜 둔다. 검증 뒤 T037→T038→T039 순서로 끈다. 그 뒤에는 Access가 유일한 잠금이다.
+- 이유: GitHub Pages에는 Access를 걸 수 없고, github.io 주소가 우회로로 남는다(PRD 3절). 2026-10-15 재개 근거는 두 가지다. Pages 프로젝트 사이트는 조직 공용 출처라 브라우저 저장소의 공유 토큰이 같은 조직의 다른 Pages 사이트에 노출될 수 있다. 그리고 공유 토큰에는 사용자 구분과 만료가 없다. 같은 출처면 CORS·API 주소 노출·토큰 동기화가 모두 사라진다. 경로 분기를 nginx(레포 안 설정)에 두면 다음 이점이 있다.
   - 로컬 `docker compose up`에서 운영과 같은 같은 출처 구조를 재현할 수 있다(첫 모듈 검증 조건).
   - 대시보드의 손 설정이 규칙 하나로 준다.
   - 라우팅이 코드 리뷰 대상이 된다.
 - 버린 대안:
   - 터널 ingress의 경로 규칙(`^/api` → 백엔드, 나머지 → 프론트, PRD 7.2 원안): 동작은 하지만 로컬에서 같은 출처를 재현하려면 결국 프록시가 따로 필요하다. 라우팅 규칙이 대시보드에만 있어 리뷰·검사가 안 된다. 바꾸려면 nginx `location /api/` 블록을 지우고 대시보드 규칙 두 개를 만들면 된다.
-  - 자체 로그인, 공유 토큰 강제, VPN 전용 접속: PRD 6절.
+  - 공유 토큰만으로 영구 잠금(헌법 v1.3.0 상태): 위 재개 근거 두 가지 때문에 전환 장치로만 쓴다.
+  - 자체 로그인, VPN 전용 접속: PRD 6절.
   - 백엔드의 Access JWT 검증: 터널 외 경로가 없어 지금은 불필요(PRD 8절 다음 버전).
 - 바꾸면 영향: `frontend/Dockerfile`·`nginx.conf`·`vite.config.ts`·`api.ts`, `backend/app/main.py`(CORS 제거), compose 두 개, 배포 워크플로우. API 계약은 공통 절 문구(Base URL, CORS, 접근 계층 응답)만 바뀌고 응답 shape는 그대로다.
-- 상태: 확정 (세 가지는 가정이며 research.md 002 R1~R3로 검증한다. Access가 XHR 헤더에 401을 주는지, Amplitude 콜백이 Access 뒤에서 이어지는지, SSE 170초가 Access를 통과하는지. 헌법 "기술 제약"의 프론트·FE↔BE 문구 개정이 선행돼야 한다)
+- 상태: 확정 (세 가지는 가정이며 research.md 002 R1~R3로 검증한다. Access가 XHR 헤더에 401을 주는지, Amplitude 콜백이 Access 뒤에서 이어지는지, SSE 170초가 Access를 통과하는지. 헌법 "기술 제약" 정합은 v1.4.0에서 끝났다. 2026-10-15 재개, 이전 보관 기간에는 v1.3.0이 Pages 유지였다)
 
 ### ADR-23: 운영 검사(check_b8)는 Cloudflare Access 서비스 토큰으로 바깥에서 돌린다
 - 결정:
-  - **호출 방식**: `check_b8.py`는 운영 호스트명으로 바깥에서 호출한다. 헤더 `CF-Access-Client-Id`·`CF-Access-Client-Secret`(환경변수 `CF_ACCESS_CLIENT_ID`·`CF_ACCESS_CLIENT_SECRET`)를 붙인다. Access 애플리케이션에는 이 서비스 토큰만 통과시키는 "Service Auth" 정책을 하나 더 둔다.
+  - **호출 방식**: `check_b8.py`는 운영 호스트명으로 바깥에서 호출한다. 헤더 `CF-Access-Client-Id`·`CF-Access-Client-Secret`(환경변수 `CF_ACCESS_CLIENT_ID`·`CF_ACCESS_CLIENT_SECRET`)를 붙인다. 전환 기간(ADR-7이 켜진 동안)에는 앱 보호 경로용 `Authorization: Bearer <ACCESS_TOKEN>`도 함께 보낸다. 002 T037에서 이 env를 빼고, T039에서 토큰 없이 통과하는지 확인한다. Access 애플리케이션에는 이 서비스 토큰만 통과시키는 "Service Auth" 정책을 하나 더 둔다.
   - **검사 항목**:
     - 토큰이 있으면 같은 출처 `/` 200(index.html), `/api/health` 200, SSE 100초 이상 유지.
-    - 토큰이 없으면 `/api/health`가 백엔드 JSON이 아니어야 한다(Access 거부, US2 검증).
+    - Access 서비스 토큰이 없으면 `/api/health`가 백엔드 JSON이 아니어야 한다(Access 거부, US2 검증). 앱 토큰(`ACCESS_TOKEN`) 유무와는 별개다.
     - 다른 출처 preflight는 허용되지 않아야 한다(US3-2).
   - **실행 위치**: 배포 워크플로우의 배포 후 단계에서 돌린다. 토큰은 GitHub Secrets에 둔다.
 - 이유: 이번 기능이 바꾸는 것은 터널·Access·nginx 경로 분기이고, 서버 내부 실행은 이 셋을 하나도 지나지 않는다. 서비스 토큰 방식은 "막혀야 할 것이 막히는지"(토큰 없는 호출)도 같은 스크립트로 잰다.
@@ -263,8 +266,8 @@
 | 이름 | 예시 | 비고 |
 |---|---|---|
 | `DATABASE_URL` | `mysql://pm:pm@mysql:3306/kbap_pm_agent` | |
-| ~~`CORS_ORIGINS`~~ | 제거 | ADR-22 (같은 출처라 CORS 미들웨어 자체를 뺀다) |
-| `ACCESS_TOKEN` | 운영 필수(2026-10-15). Access 운영 검증 후 Secret을 비워 끈다 | ADR-7, ADR-22 |
+| `CORS_ORIGINS` | 전환 기간 운영 기본은 옛 Pages 출처(배포 워크플로우가 넣는다). 002 CORS 제거 배포(T026)에서 미들웨어와 함께 없앤다 | ADR-6, ADR-22 |
+| `ACCESS_TOKEN` | 운영 필수(전환 장치). Access 운영 검증(002 T025) 후 T037→T038→T039 순서로 끈다 | ADR-7, ADR-22, ADR-23 |
 | `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | (GitHub Secrets) | ADR-23, check_b8 전용 |
 | `PUBLIC_BASE_URL` | `https://pm-agent.example.com` (운영 값은 GitHub Variables에만) | OAuth 콜백 URL 생성 |
 | `AGENT_MODE` | `real` / `fake` | ADR-15 |
