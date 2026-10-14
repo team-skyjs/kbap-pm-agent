@@ -63,7 +63,7 @@
 - 이유: 에이전트 한 턴이 수십 초~수 분 걸려 Cloudflare의 100초 응답 대기 제한(524)에 걸린다. 스트리밍은 이를 피하고 도구 호출 진행 상황도 보여준다. POST 하나로 끝나 폴링·실행 ID 관리가 필요 없다.
 - 버린 대안: 폴링(실행 상태 테이블·백그라운드 작업 필요), WebSocket(양방향 불필요), `EventSource`(GET만 가능).
 - 바꾸면 영향: 계약서 메시지 전송 엔드포인트와 FE 채팅 모듈.
-- 공개 도메인: 가정. 예시는 `https://pm-agent.simhani1.cloud`, 실제 값은 `VITE_API_BASE_URL`과 `PUBLIC_BASE_URL`로만 주입한다.
+- 공개 도메인: 가정. 예시는 `https://<운영 API 주소>`, 실제 값은 `VITE_API_BASE_URL`과 `PUBLIC_BASE_URL`로만 주입한다.
 - 상태: 확정 (도메인만 가정)
 
 ### ADR-7: 공유 접근 토큰 하나로 공개 API를 잠근다
@@ -224,7 +224,7 @@
 | `DATABASE_URL` | `mysql://pm:pm@mysql:3306/kbap_pm_agent` | |
 | `CORS_ORIGINS` | `https://team-skyjs.github.io,http://localhost:5173` | ADR-6, ADR-18 |
 | `ACCESS_TOKEN` | (비우면 비활성) | ADR-7 |
-| `PUBLIC_BASE_URL` | `https://pm-agent.simhani1.cloud` | OAuth 콜백 URL 생성 |
+| `PUBLIC_BASE_URL` | `https://<운영 API 주소>` | OAuth 콜백 URL 생성 |
 | `AGENT_MODE` | `real` / `fake` | ADR-15 |
 | `AGENT_MODEL`, `CODE_SUMMARY_MODEL` | `anthropic:claude-sonnet-5-5`, `anthropic:claude-haiku-5-5` (OpenAI로 바꾸면 `openai:gpt-6-luna`) | ADR-20 |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | | 쓰는 쪽만 |

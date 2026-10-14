@@ -106,7 +106,7 @@ async function rawFetch(path: string, method: string, body?: string): Promise<Re
   try {
     return await fetch(API_BASE_URL + path, init)
   } catch {
-    throw new ApiError('NETWORK_ERROR', `백엔드에 연결할 수 없습니다 (${API_BASE_URL || '주소 미설정'}).`)
+    throw new ApiError('NETWORK_ERROR', '백엔드에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.')
   }
 }
 
