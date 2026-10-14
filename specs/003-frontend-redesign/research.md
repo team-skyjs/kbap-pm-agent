@@ -51,8 +51,7 @@ Technical Context에 NEEDS CLARIFICATION은 없다. 이 문서는 plan이 정할
 ## R5. 접근 제한 PR과의 병합 순서
 
 - 사실(2026-10-15, `origin/main...origin/feat/access-gate-resume` 비교): 접근 제한 PR이 고친 프론트 파일은 `api.ts`, `App.tsx`, `Chat.tsx`(세션 만료 안내), `style.css`(1줄), `vite.config.ts`, `checks/check-f6.ts`·`check-g2.ts`·`run.ts`다. `api.ts`뿐 아니라 재설계가 다시 짜는 `App.tsx`·`Chat.tsx`·`style.css`와 겹친다.
-- Decision: 접근 제한 PR을 먼저 머지한다. 이 브랜치에 main을 병합한 뒤 화면 파일 작업을 시작한다(tasks.md 선행 조건).
-  - 토큰·렌더러·차트 파서·검사 뼈대는 겹치지 않는 새 파일이라 그 전에 시작해도 된다. 해당 태스크: US1의 제안서, US5·US6 렌더러, US12 뼈대.
-  - 재설계는 접근 제한이 넣은 세션 만료 배너 동작을 US8의 "세션 만료 상단 배너"로 이어받는다.
-  - `api.ts`·`vite.config.ts`·`checks/run.ts`는 재설계가 고치지 않는다(`check:ui`는 별도 npm 스크립트, f7은 `run.ts` 목록에 한 줄 추가가 필요하다. 이 한 줄은 병합 뒤에 한다).
+- Decision (2026-10-15 사용자 결정으로 변경): 재설계를 먼저 머지하고, 접근 제한 PR은 맨 나중에 이 변경 위로 병합한다.
+  - 재설계는 main의 현재 화면 파일을 기준으로 바로 작업한다. `api.ts`·`vite.config.ts`는 고치지 않아 충돌 범위를 화면 파일과 검사 목록으로 줄인다.
+  - 접근 제한 쪽이 병합할 때 세션 만료 배너와 `SESSION_EXPIRED` 판정을 재설계된 `Chat.tsx`에 다시 얹는다. 재설계는 그 자리(상단 배너)를 지금의 `UNAUTHORIZED` 오류로 미리 만든다.
 - ADR 파일: 이 브랜치의 ADR-24~27은 접근 제한 브랜치의 ADR-21~23과 같은 위치(“위임” 절 앞)에 붙는다. 머지 때 글자 충돌이 나지만 두 블록을 순서대로 남기면 된다.

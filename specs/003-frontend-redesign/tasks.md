@@ -23,11 +23,11 @@ description: "프론트 재설계 구현 태스크"
 - 표현 스토리의 완료 조건은 `npm run build` 통과, 해당 `checks/ui/usN.spec.ts` 통과, ui-review 스크린샷 확인이다.
 - 커밋은 경로 지정, 스토리 단위, `feat/frontend-redesign`에 한다.
 
-## 선행 조건
+## 병합 순서 (2026-10-15 사용자 결정으로 변경)
 
-- [ ] 접근 제한 PR이 main에 머지된 뒤 `git merge origin/main`으로 이 브랜치에 합친다. 이 병합 전에는 `style.css`·`App.tsx`·`Chat.tsx`·`checks/run.ts`를 고치지 않는다. 두 PR이 같은 파일을 바꾼다(research R5).
-  - 병합 전에 해도 되는 태스크: T001~T008(설치·검사 뼈대·설계 문서·토큰 제안서와 사용자 결정), T018·T033·T035(새 파일 렌더러·파서·차트), T032(사용자), T034(`run.ts` 한 줄 제외), T038·T039(백엔드).
-  - 병합 뒤 세션 만료 배너 동작은 US8이 이어받는다.
+- 재설계(이 브랜치)가 먼저 main에 들어가고, 접근 제한 PR(#12)은 맨 나중이다. 재설계는 main의 현재 파일을 기준으로 바로 작업하며 기다릴 것이 없다.
+- `api.ts`·`vite.config.ts`는 여전히 고치지 않는다. #12가 그 둘을 바꾸기 때문에 충돌 범위를 줄인다.
+- #12가 나중에 이 변경 위로 병합할 때 겹치는 파일은 `App.tsx`·`Chat.tsx`·`style.css`·`checks/run.ts`·`checks/check-f6.ts`다. 세션 만료 배너(US8)와 `SESSION_EXPIRED` 판정은 그때 #12 쪽이 재설계된 화면에 다시 얹는다. 재설계는 지금 있는 `UNAUTHORIZED`(공유 토큰) 오류를 같은 상단 배너 자리에 표시한다(data-model.md 3절).
 
 ---
 
@@ -81,8 +81,8 @@ description: "프론트 재설계 구현 태스크"
   - 값: data-model.md 1절 토큰 전부의 라이트·다크 값을 적는다.
   - 대비 계산표: `--color-text`·`--color-text-muted` 대 `--color-bg`·`--color-surface`·`--color-user-bubble`은 4.5:1 이상, `--color-focus`·`--chart-1`~`4` 대 배경은 3:1 이상이다.
   - 강조색 후보 3개를 낸다.
-- [ ] T008 [US1] [USER] 토큰 제안서를 보고 강조색 하나를 정한다(입력 문서의 첫 결정 지점). 결정을 제안서에 기록한다
-- [ ] T009 [US1] [DS] `frontend/src/style.css`(선행 조건 이후)를 토큰 기반으로 바꾼다.
+- [x] T008 [US1] [USER] 토큰 제안서를 보고 강조색 하나를 정한다. 2026-10-15 결정: 디자이너 추천안 B(파랑). 제안서에 기록한다
+- [ ] T009 [US1] [DS] `frontend/src/style.css`를 토큰 기반으로 바꾼다.
   - 토큰: `:root`에 토큰을 두고, `@media (prefers-color-scheme: dark)`에서 같은 이름의 값만 교체한다. `@media (prefers-reduced-motion: reduce)`에서 `--duration-*`는 0ms다.
   - 기본 요소: 본문 글꼴·크기·줄 간격·배경·글자색을 토큰으로 둔다.
   - 정리: 기존 원시 값을 모두 토큰으로 바꾼다.
@@ -202,7 +202,7 @@ description: "프론트 재설계 구현 태스크"
 
 - [ ] T032 [US6] [USER] 차트 라이브러리를 확인한다. 기본안은 Chart.js v4다(research R1 실측 171KB min). 다르게 정하면 CTO에 알린다(ADR-24)
 - [ ] T033 [US6] [FE] `frontend/src/chartBlock.ts`: `parseChartBlock(text)`를 둔다. 반환은 `{ok:true, spec} | {ok:false, reason}`이고, 검증 규칙은 data-model.md 2절을 그대로 따른다(추가 키 오류, 길이 일치, 전부 null 오류)
-- [ ] T034 [US6] [FE] `frontend/checks/check-f7.ts`: `contracts/chart-block.md`의 세 예시(선·막대 통과, pie 실패)와 다섯 가지 실패 사례(길이 불일치, 추가 키, 전부 null, `series` 5개, JSON 깨짐)를 assert한다. 예시는 파일에서 직접 읽는다. 선행 조건 이후 `frontend/checks/run.ts` 목록에 f7 한 줄을 추가한다 (US6 검사 1)
+- [ ] T034 [US6] [FE] `frontend/checks/check-f7.ts`: `contracts/chart-block.md`의 세 예시(선·막대 통과, pie 실패)와 다섯 가지 실패 사례(길이 불일치, 추가 키, 전부 null, `series` 5개, JSON 깨짐)를 assert한다. 예시는 파일에서 직접 읽는다. `frontend/checks/run.ts` 목록에 f7 한 줄을 추가한다 (US6 검사 1)
 - [ ] T035 [US6] [FE] `frontend/src/ChartBlock.tsx`: 차트를 그린다.
   - 로드·등록: `import('chart.js')`로 지연 로드하고 ADR-24의 컨트롤러만 등록한다.
   - 색: `getComputedStyle`로 `--chart-1`~`4`·`--chart-grid`·`--color-text`를 읽고, `matchMedia('(prefers-color-scheme: dark)')` change에서 다시 읽어 `update()`한다.
@@ -303,7 +303,6 @@ description: "프론트 재설계 구현 태스크"
 
 ## Dependencies & Execution Order
 
-- **선행 조건**(접근 제한 머지 → main 병합)은 DS의 `style.css`·`App.tsx`·`Chat.tsx` 태스크와 T034의 `run.ts` 한 줄을 막는다. 병합 전에 시작할 수 있는 태스크: T001~T008(설치·검사 뼈대·설계 문서·토큰 제안서와 사용자 결정), T018·T033·T035(새 파일 렌더러·파서·차트), T032(사용자), T034(`run.ts` 한 줄 제외), T038·T039(백엔드).
 - **Phase 2**(T002~T006) → 모든 `usN.spec.ts`.
 - **US1**: T007 → T008(사용자) → T009 순서다. T009가 끝나야 DS 표현 태스크가 시작된다.
 - **P1 스토리 순서**: US2 → US4 → US5 → US7 → US8. US5의 T018(FE 새 파일)은 US1과 병렬이다.
@@ -318,7 +317,7 @@ description: "프론트 재설계 구현 태스크"
 
 ## Implementation Strategy
 
-1. Setup + 검사 뼈대 + 설계 문서 + 토큰 제안서(사용자 확인)까지 끝낸다. 렌더러·파서 새 파일은 이와 병렬로 만든다.
-2. 접근 제한 머지를 기다렸다가 main을 병합하고, P1 표현 스토리(US2 → US4 → US5 → US7 → US8)를 진행한다.
+1. Setup + 검사 뼈대 + 설계 문서 + 토큰 제안서(강조색 B 확정)까지 끝낸다. 렌더러·파서 새 파일은 이와 병렬로 만든다.
+2. P1 표현 스토리(US2 → US4 → US5 → US7 → US8)를 바로 진행한다(접근 제한 PR은 이 브랜치 머지 후).
 3. P2(US3·US6·US9·US11), P3(US10)를 진행한 뒤 US12 집계와 ui-review를 한다.
 4. 실제 키로 차트 블록 출현률, 사용자 주관 평가, CI 편입을 결정한다.
