@@ -9,6 +9,7 @@
 | 2026-10-15 | v1.1 (문구) | 메시지 전송 상한 비고: 도구 호출 수 → 모델 호출 턴 수 `AGENT_MAX_TURNS`(기본 10). shape 변경 없음 |
 | 2026-10-15 | v1.1 (예시) | 예시 운영 호스트를 `pm-agent.example.com`으로 바꿨다(Base URL 예시, connect 예시 redirect_uri). 운영 정보 비노출. 값·shape 의미 변경 없음 |
 | 2026-10-15 | v1.3 | 질문 마법사(specs/004-question-wizard): `POST /api/questions/refine`(질문 다듬기)와 `POST /api/questions/refine/{refinementId}/choice`(선택 기록)를 추가했다. 에러 코드 `REFINEMENT_NOT_FOUND`를 추가하고 시연 모드 동작도 정했다. 기존 엔드포인트 shape는 그대로다. v1.2는 접근 제한 PR(미머지)이 쓰는 번호라 건너뛴다 |
+| 2026-10-15 | v1.3 (문구) | PRD 보강 반영: 택사노미 이름 4,000자 상한과 잘림 시 요약 표시 규칙. shape 변경 없음 |
 
 ## 공통
 
