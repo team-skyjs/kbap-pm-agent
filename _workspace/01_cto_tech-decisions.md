@@ -1,0 +1,178 @@
+# 01 CTO — 기술 결정 (ADR)
+
+작성일: 2026-10-15 · 입력: `docs/prd/PRD-kbap-pm-agent.md`, `_workspace/00_input.md`, 형제 레포(읽기 전용) 조사
+
+## 0. 판단 근거로 쓴 사실 (형제 레포 조사)
+
+| 레포 | 스택 | 이 결정에 주는 의미 |
+|---|---|---|
+| `../kbap` | Kotlin 2.3, Spring Boot 4.1, Spring AI 2.0, MySQL, Flyway, Gradle 멀티모듈 | 팀의 주력 스택. 단 LLM 사용은 비전·임베딩 단발 호출뿐이고, **에이전트형 LLM 로직은 KB-301/KB-320에서 Spring 밖으로 뺐다** |
+| `../kbap-langchain` | Python 3.12, uv, LangGraph 1.x, LangChain 1.x, Langfuse | Spring의 LLM 파이프라인을 "이관해 없애는" 목적의 레포. 팀이 LLM 오케스트레이션은 Python으로 하기로 이미 결정한 흔적 |
+| `../kbap-amplitude` | Python 3.12, FastAPI, LangGraph, pymysql, React+Vite(TS), Docker Hub 이미지, cloudflared 터널 | **이 제품의 전신 POC.** Amplitude 질의 에이전트 + MySQL 대화 저장 + 홈서버 배포까지 이미 해 봤다. 배포 스크립트·compose 컨벤션·MySQL 계정 패턴을 그대로 가져온다 |
+| `../kbap-fe` | Expo 57 / React Native / TS | 분석 대상 FE 코드. 이벤트 호출이 `track(EVENTS.xxx, {...})` 단일 패턴이라 grep 선필터가 성립한다 (PRD 7.4 가정 확인됨) |
+| `../kbap-admin/web` | React 19 + Vite + TS | 팀의 웹 프론트 기본형 |
+
+---
+
+### ADR-1: 백엔드는 Python 3.12 + FastAPI + LangChain 1.x (uv 관리)
+- 결정: `backend/`는 Python 3.12, FastAPI(uvicorn 단일 워커), LangChain 1.x(`create_agent`), `langchain-mcp-adapters`, MySQL 드라이버는 구현자 위임. 패키지는 uv.
+- 이유: (1) 에이전트 루프·MCP 클라이언트(OAuth 포함)·Claude↔GPT 교체 세 가지 모두 Python 생태계가 가장 성숙하다. (2) 팀은 이미 같은 스택으로 전신 POC(`kbap-amplitude`)와 운영 파이프라인(`kbap-langchain`)을 만들었고, Spring에서 LLM 로직을 빼낸 이력이 있다. (3) 홈서버 배포도 Python 컨테이너로 해 본 경로다.
+- 버린 대안: Spring AI 2.0(Kotlin). 팀 숙련도는 가장 높지만, 이 앱은 kbap 백엔드와 코드·DB를 공유하지 않아 "운영 일관성" 이득이 작다. 멀티스텝 에이전트·MCP OAuth 클라이언트는 Spring AI 쪽 예제와 커뮤니티가 얇고, 프로토타입 기동·반복 속도도 느리다.
+- 바꾸면 영향: 아래 "ADR-1 뒤집기" 참고. API 계약서와 프론트는 영향 없음.
+- 상태: 확정 (2026-10-15 사용자 확인: Python 백엔드, TS 프론트)
+
+#### ADR-1 뒤집기 — Spring AI(Kotlin)로 바꾸면 바뀌는 것
+- **그대로인 것:** API 계약서 전체, 프론트 전부, MySQL 스키마(ADR-8), 배포 토폴로지(ADR-11), 비용 통제 전략(ADR-9). 계약을 언어 중립으로 썼기 때문이다.
+- **다시 써야 하는 것:** `backend/` 전체. 에이전트 루프는 Spring AI `ChatClient` + `@Tool` 자동 도구 호출로, 구조화 제안은 `.entity(ProposalSet::class.java)`로, MCP는 `spring-ai-starter-mcp-client`(streamable HTTP)로 대체한다.
+- **추가로 생기는 일:** Amplitude MCP OAuth를 서버가 대신 받는 흐름을 직접 붙여야 한다(Spring AI MCP 클라이언트의 OAuth 지원은 커뮤니티 모듈 수준). SSE는 `SseEmitter`/`Flux<ServerSentEvent>`. 스키마는 Flyway로.
+- **얻는 것:** kbap과 같은 빌드·리뷰 규칙(ArchUnit, Kotest)과 같은 Docker 베이스. 두 사람이 한 언어만 쓴다.
+- **뒤집기 신호:** 2주 차 끝에 MCP OAuth나 LangChain 버전 문제로 B7 모듈이 막히고, Spring 쪽에서 같은 기능을 하루 안에 검증할 수 있을 때.
+
+### ADR-2: 에이전트 루프는 LangChain `create_agent` 기본 루프 + 구조화 최종 응답
+- 결정: 직접 그래프를 짜지 않고 `langchain.agents.create_agent(model, tools, system_prompt, response_format=AgentAnswer)`를 쓴다. 최종 응답은 Pydantic 스키마 `AgentAnswer{content, proposals[]}`로 강제한다(계약서의 Proposal 구조 그대로). 스트리밍은 `astream(stream_mode="updates")` 결과를 SSE 이벤트로 변환한다.
+- 이유: PRD가 요구하는 것은 "도구 여러 번 호출 + 중간 결과 보고 다음 조회 결정"이고, 기본 ReAct 루프가 정확히 그것이다. 제안 4필드를 본문 문자열이 아닌 구조로 받는 것도 `response_format` 한 줄로 끝난다.
+- 버린 대안: kbap-amplitude식 9노드 StateGraph. 품질 튜닝 단계에서는 유효하나 v1에서 "채택할 만한가"를 검증하기 전에 짓기엔 과하다. 필요해지면 같은 LangGraph 위에서 노드를 추가한다.
+- 바꾸면 영향: `backend/app/agent/` 내부만. SSE 이벤트 형식은 계약이므로 유지.
+- 가드: 질문당 도구 호출 상한 `AGENT_MAX_TOOL_CALLS`(기본 20). 초과 시 그때까지의 결과로 최종 응답을 강제한다.
+- 상태: 확정
+
+### ADR-3: Amplitude는 `langchain-mcp-adapters` + MCP Python SDK OAuth, 서버가 토큰 보관
+- 결정: `MultiServerMCPClient`로 `https://mcp.amplitude.com/mcp`(streamable HTTP)에 연결한다. 인증은 MCP SDK의 `OAuthClientProvider`(OAuth 2.1 + 동적 클라이언트 등록)를 `auth`로 넘기고, 토큰 저장소는 MySQL `app_settings`에 둔다. 최초 1회는 브라우저 승인이 필요하므로 계약서의 `POST /api/integrations/amplitude/connect` → 승인 URL → `GET /api/integrations/amplitude/callback` 흐름으로 처리한다.
+- 이유: Amplitude 원격 MCP는 OAuth만 받는다(API 키 미지원). 사용자 2명·인증 없음이므로 연결은 "서버 단위 1개"로 충분하다.
+- 버린 대안: Amplitude Dashboard REST API 직접 호출(kbap-amplitude 방식). 검증된 코드가 있지만 PRD가 공식 MCP를 명시했고 택사노미·차트 도구를 공짜로 얻는다. MCP 연결이 막히면 kbap-amplitude `amp.py`를 도구로 감싸는 것이 즉시 쓸 수 있는 대체 경로다.
+- 바꾸면 영향: Amplitude 도구 공급 함수 하나와 settings의 `amplitude` 상태 필드.
+- 상태: 가정 — 동적 클라이언트 등록 지원은 Amplitude 공식 문서가 아닌 서드파티(Nango) 문서로만 확인했다. B7 첫날 실연결로 검증한다.
+
+### ADR-4: 추론 모델은 `init_chat_model` 문자열 하나로 교체
+- 결정: 모델은 환경변수 `AGENT_MODEL`(예: `anthropic:claude-sonnet-5-5`, `openai:gpt-6-luna`)과 `CODE_SUMMARY_MODEL`로 지정하고 `langchain.chat_models.init_chat_model`로 생성한다. 코드에 공급자 분기를 두지 않는다.
+- 이유: PRD 7.3 "설정으로 교체 가능, 하나로 시작". 두 공급자의 도구 호출·구조화 출력이 LangChain에서 같은 인터페이스다.
+- 버린 대안: 공급자 SDK 직접 사용. 루프·도구 스키마 변환을 두 벌 써야 한다.
+- 기본값: 구현자 위임. 단 코드 요약은 200달러 크레딧이 있는 Claude 저가 모델로 시작하길 권장.
+- 상태: 확정
+
+### ADR-5: 프론트는 React + Vite + TypeScript 정적 SPA, HashRouter
+- 결정: `frontend/`는 React 19 + Vite + TS. 라우팅은 해시(`#/conversations/7`). `vite.config.ts`의 `base`는 `/kbap-pm-agent/`. API 주소는 빌드 시 `VITE_API_BASE_URL`.
+- 이유: GitHub Pages 프로젝트 페이지는 하위 경로 + 서버 리라이트 없음이라 해시 라우팅이 404 우회 없이 동작한다. 팀이 kbap-admin/web, kbap-amplitude/web에서 같은 구성을 쓴다.
+- 버린 대안: Expo Web(kbap-fe 재사용). 모바일 의존성이 무겁고 정적 웹 산출물이 목적에 맞지 않는다. Next.js 정적 export는 이 규모에 기능 과잉이다.
+- 바꾸면 영향: 프론트 전체. 계약은 그대로.
+- 상태: 확정
+
+### ADR-6: FE↔BE는 Cloudflare Tunnel + CORS + POST 응답 SSE
+- 결정: 백엔드는 홈서버의 기존 cloudflared(`monitor-net`)로 공개한다. CORS 허용 출처는 `CORS_ORIGINS`(쉼표 구분). 메시지 전송은 `POST` 응답 자체를 `text/event-stream`으로 보내고, 프론트는 `fetch` + `ReadableStream`으로 읽는다. 15초마다 `: ping` 주석을 보낸다.
+- 이유: 에이전트 한 턴이 수십 초~수 분 걸려 Cloudflare의 100초 응답 대기 제한(524)에 걸린다. 스트리밍은 이를 피하고 도구 호출 진행 상황도 보여준다. POST 하나로 끝나 폴링·실행 ID 관리가 필요 없다.
+- 버린 대안: 폴링(실행 상태 테이블·백그라운드 작업 필요), WebSocket(양방향 불필요), `EventSource`(GET만 가능).
+- 바꾸면 영향: 계약서 메시지 전송 엔드포인트와 FE 채팅 모듈.
+- 공개 도메인: 가정. 예시는 `https://pm-agent-api.simhani1.dev`, 실제 값은 `VITE_API_BASE_URL`과 `PUBLIC_BASE_URL`로만 주입한다.
+- 상태: 확정 (도메인만 가정)
+
+### ADR-7: 공유 접근 토큰 하나로 공개 API를 잠근다
+- 결정: 환경변수 `ACCESS_TOKEN`이 설정되면 `/api/health`와 OAuth 콜백을 제외한 모든 요청에 `Authorization: Bearer <ACCESS_TOKEN>`을 요구한다. 프론트는 설정 화면에서 토큰을 한 번 입력받아 `localStorage`에 둔다. 미설정이면 검사하지 않는다(로컬 개발).
+- 이유: 백엔드는 인터넷에 공개되고 요청마다 LLM 비용이 든다. 사용자 인증(PRD 비목표)이 아니라 200달러 예산을 지키는 문지기다.
+- 버린 대안: Cloudflare Access(GitHub Pages 출처에서 오는 교차 출처 요청과 궁합이 나쁨), 무방비 공개(예산 소진 위험).
+- 바꾸면 영향: 미들웨어 하나와 FE 설정 입력칸 하나.
+- 상태: 가정 — PRD에 없는 결정. 필요 없으면 `ACCESS_TOKEN`을 비워 두면 된다.
+
+### ADR-8: MySQL 스키마 뼈대 — 6개 테이블, 기동 시 `schema.sql` 적용
+- 결정: `backend/schema.sql`에 `CREATE TABLE IF NOT EXISTS`로 정의하고 앱 기동 시 실행한다. 이후 변경은 같은 파일에 `ALTER`를 추가하고 수동 적용한다. 시간은 UTC `DATETIME(3)`, 문자셋 `utf8mb4`.
+  - `conversations(id BIGINT PK AI, title VARCHAR(200), created_at, updated_at)`
+  - `messages(id, conversation_id FK→conversations ON DELETE CASCADE, role ENUM('user','assistant'), status ENUM('running','completed','failed'), content MEDIUMTEXT, error_code VARCHAR(50) NULL, created_at)`
+  - `tool_calls(id, message_id FK CASCADE, seq INT, source ENUM('amplitude','code','taxonomy'), name VARCHAR(100), input_json JSON, status ENUM('running','succeeded','failed'), result_summary VARCHAR(1000), result_text MEDIUMTEXT, duration_ms INT NULL, started_at)`
+  - `proposals(id, message_id FK CASCADE, conversation_id FK CASCADE, seq INT, type ENUM('improvement','funnel_design'), title VARCHAR(200), evidence_json JSON, proposal_text TEXT, steps_json JSON, measurement_json JSON, decision_status ENUM('pending','adopted','on_hold') DEFAULT 'pending', decision_note TEXT NULL, decided_at NULL, created_at)`
+  - `llm_usage(id, message_id NULL FK SET NULL, purpose ENUM('agent','code_summary'), model VARCHAR(100), input_tokens INT, output_tokens INT, cost_usd DECIMAL(10,4), created_at)` — 예산 집계의 단일 출처
+  - `app_settings(k VARCHAR(100) PK, v JSON, updated_at)` — 저장소 설정, 택사노미, Amplitude OAuth 토큰
+- 이유: PRD 7.1-5와 핵심 결과 1(채택 건수)을 SQL 한 줄로 집계할 수 있는 최소 구조. 채택은 제안당 상태 하나라 별도 이력 테이블 없이 컬럼으로 둔다. 제안 내부 구조(근거·단계·측정)는 프론트 계약을 그대로 담는 JSON 컬럼이다.
+- 버린 대안: Alembic 마이그레이션(v1 스키마 변동 대비로는 과함, 변동이 잦아지면 도입). 채택 이력 테이블(누가 바꿨는지 볼 필요가 없는 2인 팀).
+- 바꾸면 영향: 계약서 응답 필드 일부, 집계 쿼리.
+- 상태: 확정
+
+### ADR-9: 코드 분석 비용 통제 — 무료 인덱스 → 좁힌 읽기 → 파일 단위 요약 캐시 → 예산 상한
+- 결정:
+  1. **무료 인덱스(LLM 0원):** 저장소 동기화 시 ripgrep으로 `TRACK_CALL_PATTERN`(기본 `track\(EVENTS\.(\w+)`)을 훑어 이벤트→`파일:줄` 목록을 만든다. 화면 목록은 `SCREEN_GLOB`(기본 `src/app/**/*.tsx`, expo-router).
+  2. **에이전트 코드 도구는 좁혀서만 읽는다:** `find_event_calls(eventName)`(인덱스), `search_code(regex, glob)`(rg, 최대 30건), `get_screen_summary(path)`(캐시), `read_code(path, startLine, endLine)`(호출당 최대 200줄). 파일 통째 전송 도구는 없다.
+  3. **화면 요약 캐시:** 화면 파일마다 저가 모델로 150단어 요약(역할·주요 컴포넌트·핸들러·발생 이벤트)을 만들고 **git blob SHA를 키로** 저장한다. 커밋이 바뀌면 blob이 바뀐 파일만 다시 요약한다. 저장 매체(DB/파일)는 위임.
+  4. **예산 상한:** 모든 LLM 호출을 `llm_usage`에 기록하고, 누적이 `LLM_BUDGET_USD`(기본 200)를 넘으면 새 메시지를 `BUDGET_EXCEEDED`로 거절한다. 단가는 설정 표로 둔다.
+- 이유: PRD 5절·7.3. 인덱스와 grep은 비용이 0이고, 커밋 단위가 아닌 blob 단위 캐시라 작은 커밋은 거의 공짜로 갱신된다.
+- 버린 대안: 벡터 임베딩 RAG(인프라·튜닝 비용 대비 이 규모의 FE 코드에선 grep으로 충분), 커밋 단위 전체 재요약(변경 한 줄에 전체 비용).
+- 바꾸면 영향: `backend/app/code/` 내부. 계약에는 settings의 `repository` 상태 필드만 노출된다.
+- 상태: 확정
+
+### ADR-10: 외부 연동은 "에이전트 실행" 한 곳에서 가짜로 갈아 끼운다
+- 결정: `AGENT_MODE=fake`이면 실제 LLM·Amplitude 대신 스크립트된 실행기가 계약서와 같은 SSE 이벤트(도구 호출 2개 + improvement 제안 1개 + funnel_design 제안 1개)를 내고 DB에 저장한다. GitHub는 가짜를 두지 않고 `file://` 로컬 경로 클론으로 시험한다. 그 외 추상화 계층은 만들지 않는다.
+- 이유: QA와 FE 연동은 LLM 비용·OAuth 없이 돌아야 한다. 교체 지점이 하나면 가짜가 실제와 어긋날 곳도 하나다.
+- 버린 대안: LLM·MCP·GitHub 각각의 인터페이스+가짜 구현(구현 하나짜리 추상화 세 개, 유지비만 늘어남).
+- 바꾸면 영향: 없음(테스트 경로).
+- 상태: 대체됨(→ADR-15) — 헌법 원칙 III이 fake 모드에서 GitHub·Amplitude까지 대체하도록 요구한다
+
+### ADR-11: 로컬은 `docker compose up`, 운영은 kbap-amplitude 배포 컨벤션 그대로
+- 결정:
+  - 로컬: 레포 루트 `docker-compose.yml`에 `backend`(build `./backend`, 포트 8000)와 `mysql`(`mysql:8.4`, 포트 3307, 볼륨)을 둔다. `backend` 이미지에는 `git`, `ripgrep`이 들어가고 클론은 볼륨 `/data/repos`.
+  - 운영 BE: 이미지 `simhani1/kbap-pm-agent:latest`(amd64·arm64). 홈서버에는 `deploy/docker-compose.kbap-pm-agent.yml`(이미지만, `monitor-net`, `127.0.0.1:8001:8000`)과 `kbap-pm-agent.env`. MySQL은 홈서버의 기존 MySQL 컨테이너에 전용 DB `kbap_pm_agent`와 계정을 만든다(kbap-amplitude 7절과 같은 방식). cloudflared ingress를 `http://kbap-pm-agent:8000`으로.
+  - 운영 FE: GitHub Actions가 `frontend/`를 빌드해 GitHub Pages로 배포. `VITE_API_BASE_URL`은 레포 Variables.
+  - FE 로컬: `npm run dev`(5173), `VITE_API_BASE_URL=http://localhost:8000`.
+- 이유: 이미 돌아가는 홈서버 경로를 재사용하면 배포 결정이 0개다. 포트 8000은 kbap-amplitude가 쓰고 있어 8001.
+- 버린 대안: 운영에도 전용 MySQL 컨테이너 추가(홈서버 자원 중복).
+- 바꾸면 영향: compose 파일과 배포 스크립트만.
+- 상태: 가정 — GitHub 레포 이름 `kbap-pm-agent`, Docker Hub 계정 `simhani1`, 홈서버에 기존 MySQL·cloudflared가 그대로 있다는 전제.
+
+### ADR-12: 택사노미는 계약서에 정의한 JSON 하나로 받는다
+- 결정: `PUT /api/settings/taxonomy`에 계약서의 JSON 형식(이벤트명·설명·카테고리·속성 목록)으로 전체 교체 업로드한다. 프론트는 사용자가 고른 `.json` 파일을 읽어 그대로 보낸다. 다른 형식(CSV, Amplitude export) 변환은 사람이 한 번 한다.
+- 이유: PRD 열린 질문. 형식을 하나로 고정해야 FE·BE가 같은 파서를 가정한다.
+- 버린 대안: Amplitude MCP 택사노미 도구만 사용(우리 쪽 정의 문서가 따로 있다는 PRD 전제와 다름. 단, 에이전트는 MCP 택사노미 도구도 함께 쓸 수 있다).
+- 바꾸면 영향: 업로드 엔드포인트 요청 형식과 FE 파일 읽기.
+- 상태: 가정
+
+### ADR-13: 비공개 FE 저장소는 서버 환경변수 `GITHUB_TOKEN`으로 클론한다
+- 결정: `GITHUB_TOKEN`(fine-grained PAT, 대상 저장소 Contents read-only)이 있으면 HTTPS 클론 URL에 넣어 쓴다. 토큰은 API 응답·로그에 내보내지 않는다. 저장소는 1개만 등록한다.
+- 이유: PRD 열린 질문. 사용자 2명·저장소 1개에 GitHub App은 과하다.
+- 버린 대안: GitHub App, SSH 배포 키(이미지에 ssh 설정 필요).
+- 바꾸면 영향: 클론 함수 하나.
+- 상태: 가정
+
+### ADR-14: v1은 질문에 반응하는 모드만 만든다
+- 결정: 능동 제안(스케줄 실행)은 만들지 않는다.
+- 이유: PRD 8절 첫 버전 범위에 없고, 다음 버전의 "능동 리포트"와 겹친다.
+- 버린 대안: 주 1회 크론 실행. 다음 버전에서 같은 에이전트 실행 함수를 스케줄러가 부르면 된다.
+- 바꾸면 영향: 없음(추가만).
+- 상태: 가정
+
+### ADR-15: `AGENT_MODE=fake`는 LLM·Amplitude·GitHub 세 연동을 모두 대체한다 (ADR-10 대체)
+- 결정: 외부 호출은 세 지점(seam)으로만 한다. 에이전트 실행(LLM+MCP 도구), 저장소 클론·pull, Amplitude OAuth 연결이다. `AGENT_MODE=fake`이면 세 지점 모두 계약서 예시 값을 돌려준다(계약서 "시연 모드" 표). 분기는 각 지점 함수 안의 `if` 하나이며 인터페이스·가짜 클래스는 만들지 않는다.
+- 이유: 헌법 원칙 III("외부 연동 전부를 계약서 예시 값으로 대체")과 FR-011, SC-005. ADR-10은 GitHub를 `file://`로 시험하게 해 외부 키 없는 시연과 어긋났다.
+- 버린 대안: ADR-10 유지(헌법 위반), 연동별 인터페이스+가짜 구현(원칙 II 위반).
+- 바꾸면 영향: 저장소·Amplitude 함수 각각에 분기 하나. `file://` 클론은 real 모드 시험 수단으로 남는다.
+- 상태: 확정
+
+### ADR-16: 에이전트 실행 시간 상한 `AGENT_TIMEOUT_SECONDS`(기본 170초)
+- 결정: 도구 호출 상한(ADR-2)에 더해 실행 시간 상한을 둔다. 둘 중 하나에 닿으면 그때까지의 조회 결과로 `final`을 보내고 `content` 첫 문장에 중단 사유를 적는다. 개별 도구 실패는 실행을 멈추지 않는다.
+- 이유: 명세 SC-004(완성 제안 3분 이내)와 엣지 케이스(상한 시간 초과 시 부분 답변). 170초면 저장·전송 여유를 두고 3분 안에 끝난다.
+- 버린 대안: 상한 없음(SC-004 위반), 상한 초과 시 `error`(이미 모은 근거를 버림).
+- 바꾸면 영향: 에이전트 실행 함수 한 곳.
+- 상태: 확정
+
+## 위임 (구현자가 정하되 "설정으로 바꿀 수 있게"만 지킨다)
+
+- UI 라이브러리·스타일링 (PRD: 세련된 UI 비목표)
+- 캐시 저장 매체(DB 테이블 vs 볼륨 파일), MySQL 접근 라이브러리(SQLAlchemy Core / pymysql / aiomysql)
+- 추론 모델 기본값 (`AGENT_MODEL`, `CODE_SUMMARY_MODEL`)
+- 로깅 방식, Langfuse 연결 여부 (kbap-amplitude처럼 키 있으면 켜기 권장)
+- 시스템 프롬프트, 숫자 검증 같은 품질 장치 (kbap-amplitude `graph.py`의 이벤트명 검증·숫자 검증을 참고 권장. 핵심 결과 3 대응)
+- 라이브러리 정확한 버전 (Vite는 Node 버전과 맞출 것. kbap-amplitude는 Node 20.15에서 Vite 7+ 설치 문제로 6.x 고정한 이력이 있다)
+
+## 환경변수 목록 (backend)
+
+| 이름 | 예시 | 비고 |
+|---|---|---|
+| `DATABASE_URL` | `mysql://pm:pm@mysql:3306/kbap_pm_agent` | |
+| `CORS_ORIGINS` | `https://simhani1.github.io,http://localhost:5173` | ADR-6 |
+| `ACCESS_TOKEN` | (비우면 비활성) | ADR-7 |
+| `PUBLIC_BASE_URL` | `https://pm-agent-api.simhani1.dev` | OAuth 콜백 URL 생성 |
+| `AGENT_MODE` | `real` / `fake` | ADR-15 |
+| `AGENT_MODEL`, `CODE_SUMMARY_MODEL` | `anthropic:claude-sonnet-5-5` | ADR-4 |
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | | 쓰는 쪽만 |
+| `AGENT_MAX_TOOL_CALLS` | `20` | ADR-2 |
+| `AGENT_TIMEOUT_SECONDS` | `170` | ADR-16 |
+| `LLM_BUDGET_USD` | `200` | ADR-9 |
+| `AMPLITUDE_MCP_URL` | `https://mcp.amplitude.com/mcp` | EU면 `https://mcp.eu.amplitude.com/mcp` |
+| `GITHUB_TOKEN` | | ADR-13 |
+| `REPOS_DIR` | `/data/repos` | |
+| `TRACK_CALL_PATTERN`, `SCREEN_GLOB` | `track\(EVENTS\.(\w+)`, `src/app/**/*.tsx` | ADR-9 |
