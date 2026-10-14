@@ -5,3 +5,13 @@ header a { color: inherit; }
 .badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; }
 .badge.ok { background: #d4f5d4; } .badge.degraded { background: #fff0c2; } .badge.down { background: #ffd6d6; }
 .error { color: #b00020; }
+main { padding: 16px; max-width: 960px; }
+.muted { color: #777; font-size: 12px; }
+.msg { padding: 8px 12px; margin: 8px 0; border-radius: 6px; }
+.msg.user { background: #eef3ff; }
+.msg.assistant { background: #f6f6f6; }
+.msg p { margin: 6px 0; }
+.tools { margin: 6px 0; font-size: 12px; }
+.progress { margin-top: 6px; font-style: italic; }
+.composer { display: flex; gap: 8px; margin-top: 12px; }
+.composer textarea { flex: 1; font: inherit; }
