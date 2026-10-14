@@ -1,0 +1,73 @@
+# backend/ → ghcr.io 이미지 → 홈서버(self-hosted 러너)에서 compose pull·up·헬스체크
+# techmoa app/deploy.yml 패턴. 비밀값은 GitHub에 두지 않는다: 서버의 /home/simhani1/files/kbap-pm-agent.env 만 읽는다 (ADR-11)
+name: deploy-backend
+
+on:
+  push:
+    branches: [main]
+    paths: ['backend/**', 'deploy/**', '.github/workflows/deploy-backend.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false   # 배포 중간에 끊지 않는다
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}   # ghcr.io/team-skyjs/kbap-pm-agent
+
+jobs:
+  build:
+    name: build and push image
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: version
+        run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.version.outputs.tag }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: deploy on home server
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: deploy
+
+      - uses: docker/login-action@v3   # 비공개 패키지 pull 용
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: compose pull · up · health
+        env:
+          IMAGE: ${{ env.IMAGE }}
+          IMAGE_TAG: ${{ needs.build.outputs.tag }}   # 커밋 해시 태그로 고정 배포 (latest 아님)
+          COMPOSE_FILE: ${{ github.workspace }}/deploy/docker-compose.kbap-pm-agent.yml
+        run: bash deploy/deploy.kbap-pm-agent.sh
