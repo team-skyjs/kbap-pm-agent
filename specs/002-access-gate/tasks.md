@@ -73,7 +73,7 @@ description: "접근 제한 구현 태스크"
   - Access 설정 절차: T020·T021·T024 요약.
   - 서비스 토큰 교체 절차: 만료 1년, 새 토큰 발급 → Secrets 교체 → 옛 토큰 폐기.
 - [x] T013 [FE] `.github/workflows/pages.yml` 삭제(위 순서 주의) (G4)
-- [ ] T014 [BE] `deploy/checks/check_g4.sh`: assert 항목은 다음과 같다. (G4 검사)
+- [x] T014 [BE] `deploy/checks/check_g4.sh`: assert 항목은 다음과 같다. (G4 검사)
   - 더미 env로 `docker compose -f deploy/docker-compose.kbap-pm-agent.yml config`가 성공하고 서비스 `kbap-pm-agent`·`kbap-pm-agent-web` 둘이 있다.
   - `ENV_FILE` 없이는 compose가 실패한다(필수화 확인).
   - `deploy/push-and-deploy.sh`를 인자 없이 실행하면 원격 접속 전에 종료 코드 1로 끝난다. 레포의 셸 스크립트에 `${1:-` 형태로 호스트·별칭 기본값을 두는 줄이 없다(ssh 별칭 검출).
@@ -131,7 +131,7 @@ description: "접근 제한 구현 태스크"
 
 **Independent Test**: 쿠키·토큰 없이 `/`, `/api/health`, `/api/conversations`, 메시지 전송을 호출하면 모두 백엔드 응답이 아니고 백엔드 로그에 남지 않는다. `check_b8.py`가 토큰 유무 두 경우를 모두 통과한다.
 
-- [ ] T023 [US2] [BE] `backend/checks/check_b8.py` 재작성(ADR-23). (G5 검사)
+- [x] T023 [US2] [BE] `backend/checks/check_b8.py` 재작성(ADR-23). (G5 검사)
   - 정리: git remote 기반 Pages 출처 로직을 지운다.
   - 토큰 있음: `CF_ACCESS_CLIENT_ID`·`CF_ACCESS_CLIENT_SECRET`를 `CF-Access-Client-Id`·`CF-Access-Client-Secret` 헤더로 보낸다. `/`가 200 `text/html`, `/api/health`가 계약 JSON, SSE 장시간 시나리오(fake 모드일 때만, 기존 로직)가 100초 이상 유지되면 통과다.
   - 토큰 없음: `/api/health`·`/api/conversations`·메시지 전송 POST가 계약 JSON이 아니어야 한다. `X-Requested-With`를 붙이면 401이어야 한다(research R1, 아니면 경고만 내고 R1 대체 판정으로 넘긴다).
@@ -170,7 +170,7 @@ description: "접근 제한 구현 태스크"
 
 **Independent Test**: 프론트만 바꾼 PR을 병합하면 배포 작업 하나가 웹 이미지를 새로 올리고 `check_b8` 단계가 통과한다.
 
-- [ ] T032 [US4] [BE] `.github/workflows/deploy.yml`에 `deploy` 이후 job `verify`를 추가한다. `ubuntu-latest`에서 `check_b8.py`를 실행하고, 환경변수 `PUBLIC_BASE_URL`(Variables)·`CF_ACCESS_CLIENT_ID`·`CF_ACCESS_CLIENT_SECRET`(Secrets)를 쓴다. SSE 장시간 항목은 real 모드라 건너뛰는 기존 분기를 쓴다. 로그에 운영 호스트명을 찍지 않는다(GitHub가 Variables를 마스킹하지 않으므로 스크립트가 출력하지 않는다) (G5)
+- [x] T032 [US4] [BE] `.github/workflows/deploy.yml`에 `deploy` 이후 job `verify`를 추가한다. `ubuntu-latest`에서 `check_b8.py`를 실행하고, 환경변수 `PUBLIC_BASE_URL`(Variables)·`CF_ACCESS_CLIENT_ID`·`CF_ACCESS_CLIENT_SECRET`(Secrets)를 쓴다. SSE 장시간 항목은 real 모드라 건너뛰는 기존 분기를 쓴다. 로그에 운영 호스트명을 찍지 않는다(GitHub가 Variables를 마스킹하지 않으므로 스크립트가 출력하지 않는다) (G5)
 - [ ] T033 [US4] [QA] US4 검증: 프론트만 바꾼 작은 PR을 병합해 배포 작업이 웹 이미지를 새 태그로 교체하고(US4-1) `verify` job이 통과하는지(US4-2) 확인한다. 백엔드만 바꿨을 때도 두 이미지 태그가 같은 커밋으로 맞춰지는지 본다 (US4 QA)
 
 ---
