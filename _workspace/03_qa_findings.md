@@ -59,6 +59,7 @@
 | 2026-10-15 | QA-11 재검증·T008 (01050f7) | 확인됨 | 커밋본 이미지·별도 DB: qa_refine.py 실패 0, check_b1~b7·b9·b10 OK(b4·b5는 rg가 PATH에 있어야 함), 계약 diff 0 |
 | 2026-10-15 | 004 US1·US3 실제 fake 왕복 (0b5c430) T020·T023 | 통과, 결함 2(중간 1, 낮음 1) | 커밋본 이미지·별도 DB(fake) + 커밋본 프론트 dev 서버. check f1~f5·f7~f9 OK, check:ui 364 통과·50 건너뜀·실패 0. 시연 1~8 Playwright: 빈 입력 비활성, 다듬는 동안 입력창 잠금·aria-busy, 카드 원문·개선안·요약, 첫 포커스 개선안으로 보내기, 개선안·원문 전송과 기록, 입력창에 넣기 직후 POST 없음·NULL, 편집 전송 refined, 비우면 cancelled, ESC cancelled·입력창 포커스, 채택 비율 SQL 40.0·shown 5, refine 사용량 5행 0원, 선택 POST 순서 refined,original,refined,cancelled,cancelled. ui-review 라이트·다크 × 1280·375: 1280 좌우·375 위아래, 가로 스크롤 없음, 카드 최소 대비 5.17, 버튼 비활성·호버·포커스 링 2px, 동작 줄이기 0s. 예산: real 컨테이너 settings spentUsd = llm_usage 합계(refine 0.1048). 결함 QA-12, UI-4 |
 | 2026-10-15 | 프롬프트 재확인 Haiku (0b5c430, 347a825) | 통과 | 347a825에서 처리 메모 유입·세 문장·한자 0건, 지연 중앙값 4.12초(SC-001 안, 여유 감소). `06_refine_model_comparison.md` 재확인 절 |
+| 2026-10-15 | 계약 08b 보강(b91fbd3) 넣기 뒤 새 다듬기 (프론트 0b5c430) | 통과 | 실제 fake 왕복: 입력창에 넣기 직후 이전 행 NULL, 새로 다듬기 시작 시 이전 행 cancelled, 새 행 NULL. 문구 2차(03d77df)의 4,000자 502·택사노미 겹침 우선은 check_b10(347a825 OK)으로 확인 |
 
 ## 결함
 
