@@ -4,6 +4,8 @@ import { expect, test, type Page } from '@playwright/test'
 import { REFINE, mockApi } from './fixtures.ts'
 import { expectNoSeriousA11y, shot } from './helpers.ts'
 
+const SHORT_PHONE = { width: 375, height: 667 }
+
 const ORIGINAL = '스캔 이탈 왜 많아?'
 const REFINED = String(REFINE.refined)
 
@@ -129,6 +131,27 @@ test('닫기와 ESC: 카드만 닫히고 원문 유지, 선택 cancelled', async
   await expect(box(page)).toHaveValue(ORIGINAL)
   await expect.poll(() => rec.choices).toEqual(['cancelled', 'cancelled'])
   expect(rec.sent).toEqual([])
+})
+
+test('카드를 연 채 입력창 Enter: 원문 전송으로 기록하고 카드 닫힘, 이후 카드 선택 없음', async ({ page }) => {
+  const rec = capture(page)
+  await openCard(page, { scenario: 'hang' })
+  await box(page).press('Enter')
+  await expect(card(page)).toHaveCount(0)
+  await expect.poll(() => rec.choices).toEqual(['original'])
+  expect(rec.sent).toEqual([ORIGINAL])
+})
+
+test('좁고 짧은 화면의 빈 대화에서 카드를 열어도 axe 심각·중대 0', async ({ page }, info) => {
+  test.skip(info.project.name !== '375-light' && info.project.name !== '375-dark', '375 프로젝트 전용')
+  await page.setViewportSize(SHORT_PHONE)
+  await mockApi(page, { refine: 'ok' })
+  await page.goto('./#/conversations/8')
+  await box(page).fill(ORIGINAL)
+  await refineBtn(page).click()
+  await expect(card(page)).toBeVisible()
+  await expectNoSeriousA11y(page)
+  await shot(page, 'us12-card-short', info)
 })
 
 test('다듬기 실패: 카드 없이 안내, 원문 유지', async ({ page }, info) => {

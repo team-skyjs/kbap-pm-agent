@@ -25,6 +25,8 @@ export function useRefine({ conversationId, setInput, send, input }: Deps) {
   const run = useRef(0)
   // 입력창에 넣은 개선안의 기록 ID: 실제 전송 때 refined, 비우거나 떠나면 cancelled로 확정
   const pending = useRef<number | null>(null)
+  // 열린 카드. 호출자의 전송 함수는 이전 렌더의 상태를 볼 수 있어 상태 대신 ref로 판단(중복 기록 방지)
+  const openCard = useRef<number | null>(null)
 
   // 선택 기록은 집계용이라 기다리지 않고 실패도 무시(전송을 막지 않음)
   const record = (id: number, choice: RefineChoice) => { void recordRefineChoice(id, choice).catch(() => {}) }
@@ -42,12 +44,17 @@ export function useRefine({ conversationId, setInput, send, input }: Deps) {
     const q = question.trim()
     if (!q) return
     const mine = ++run.current
-    // 넣어 둔 개선안을 보내지 않고 다시 다듬으면 이전 것은 취소
+    // 넣어 둔 개선안이나 열린 카드를 두고 다시 다듬으면 이전 것은 취소
     settle('cancelled')
+    if (openCard.current !== null) record(openCard.current, 'cancelled')
+    openCard.current = null
     setState({ phase: 'refining' })
     try {
       const result = await refineQuestion(conversationId, q)
-      if (mine === run.current) setState({ phase: 'card', original: question, result })
+      if (mine === run.current) {
+        openCard.current = result.refinementId
+        setState({ phase: 'card', original: question, result })
+      }
     } catch (e) {
       if (mine === run.current) setState({ phase: 'error', code: e instanceof ApiError ? e.code : null, message: describe(e) })
     }
@@ -55,7 +62,8 @@ export function useRefine({ conversationId, setInput, send, input }: Deps) {
 
   // 카드 닫기. choice가 null이면 기록을 미룸(입력창에 넣기)
   const finish = (choice: RefineChoice | null) => {
-    if (state.phase !== 'card') return null
+    if (state.phase !== 'card' || openCard.current === null) return null
+    openCard.current = null
     if (choice) record(state.result.refinementId, choice)
     else pending.current = state.result.refinementId
     setState({ phase: 'idle' })
@@ -71,7 +79,15 @@ export function useRefine({ conversationId, setInput, send, input }: Deps) {
     insertRefined: () => { const s = finish(null); if (s) setInput(s.result.refined) },
     close: () => { finish('cancelled') },
     dismissError: () => setState({ phase: 'idle' }),
-    // 호출자가 메시지를 보내는 순간 호출(입력창을 비우기 전), 넣어 둔 개선안이 있으면 refined
-    sent: () => settle('refined'),
+    // 호출자가 메시지를 보내는 순간 호출(입력창을 비우기 전). 넣어 둔 개선안이 있으면 refined,
+    // 카드를 연 채 입력창으로 보내면 원문 전송이라 original로 기록하고 카드를 닫음
+    sent: () => {
+      settle('refined')
+      if (openCard.current !== null) {
+        record(openCard.current, 'original')
+        openCard.current = null
+        setState({ phase: 'idle' })
+      }
+    },
   }
 }
