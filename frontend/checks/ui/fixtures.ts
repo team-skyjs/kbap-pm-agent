@@ -58,6 +58,8 @@ type Options = {
   list?: Json[]
   // 진행 시나리오에서 첫 상세 재조회 뒤 완료로 전환
   completeAfterPoll?: boolean
+  // 409 순서 재현: 첫 전송 뒤 재조회는 1초 늦게 완료로, 두 번째 전송은 409, 409 뒤 첫 재조회만 실행 중
+  conflictRace?: boolean
 }
 
 // 대화 7(계약 상세 예시, 제안 두 개) + 전송 시나리오. 다른 대화는 빈 상태로 시작
@@ -78,6 +80,9 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
   // 저장 상태를 바꿔야 해서 복사 없이 원본 객체를 찾음
   const allProposals = () => [...threads.values()].flat().flatMap((m) => arr(m.proposals).filter(isJson))
   let readsAfterSend = -1
+  let posts = 0
+  let delayedSent = false
+  let readsAfterConflict = 0
   let nextId = 900
 
   await page.route('**/api/**', async (route: Route) => {
@@ -94,6 +99,17 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
     if (method === 'GET' && /^\/api\/conversations\/\d+$/.test(path)) {
       const id = Number(path.split('/').pop())
       const msgs = thread(id)
+      if (opts.conflictRace && posts === 1 && !delayedSent) {
+        // 응답 내용은 도착 시점(완료) 기준, 전달만 늦춤
+        delayedSent = true
+        const body = JSON.stringify({ ...detail, id, title: null, messages: clone(msgs) })
+        await new Promise((r) => setTimeout(r, 1000))
+        return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'x-fixture': 'delayed' }, body })
+      }
+      if (opts.conflictRace && posts >= 2 && ++readsAfterConflict === 1) {
+        const runningMsg = { id: 990, conversationId: id, role: 'assistant', status: 'running', content: '', errorCode: null, toolCalls: [], proposals: [], usage: null, createdAt: now() }
+        return json(200, { ...detail, id, title: null, messages: [...msgs, runningMsg] })
+      }
       // 전송 직후 재조회(스트림 종료 시)는 진행 상태로, 그 다음 주기 재조회부터 완료
       if (opts.completeAfterPoll && readsAfterSend >= 0 && ++readsAfterSend > 1) {
         for (const m of msgs) if (m.status === 'running') Object.assign(m, { status: 'completed', content: String(exampleEvent('final').content), toolCalls: arr(m.toolCalls).map((t) => ({ ...obj(t), status: 'succeeded', durationMs: 8, resultSummary: '완료' })) })
@@ -112,6 +128,7 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
     }
     if (method === 'POST' && /^\/api\/conversations\/\d+\/messages$/.test(path)) {
       if (scenario === 'hang') return new Promise<void>(() => {})
+      if (opts.conflictRace && ++posts >= 2) return json(409, { error: { code: 'RUN_IN_PROGRESS', message: '이 대화에서 이미 에이전트가 실행 중입니다.' } })
       readsAfterSend = 0
       if (scenario === 'token') return json(401, { error: { code: 'UNAUTHORIZED', message: '접근 토큰이 없거나 틀렸습니다.' } })
       if (scenario === 'expired') return route.fulfill({ status: 401, contentType: 'text/html', body: '<html><body>로그인</body></html>' })

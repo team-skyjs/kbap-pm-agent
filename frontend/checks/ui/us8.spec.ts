@@ -53,6 +53,31 @@ test('상태 표시: 세션 만료', async ({ page }, info) => {
   await shot(page, 'us8-expired', info)
 })
 
+test('409 뒤 늦게 도착한 이전 재조회는 안내를 지우지 않고, 실행 종료를 본 뒤에 지움', async ({ page }) => {
+  await mockApi(page, { scenario: 'done', conflictRace: true })
+  await page.goto('./#/conversations/8')
+  const box = page.getByRole('textbox', { name: '질문 입력' })
+  const hint = page.locator('#chat-hint')
+
+  // 첫 전송 완료 → 스트림 종료 재조회(1초 지연, 완료 상태)가 진행 중인 사이 두 번째 전송
+  const delayed = page.waitForResponse((r) => r.headers()['x-fixture'] === 'delayed')
+  await box.fill(QUESTION)
+  await box.press('Enter')
+  await expect(page.locator('.msg.assistant').last().locator('.card').first()).toBeVisible()
+  await box.fill('두 번째 질문')
+  await box.press('Enter')
+  await expect(hint).toContainText('이미 응답을 만드는 중')
+
+  // 늦게 온 이전 재조회(실행 중 아님)는 안내를 지우지 않음
+  await delayed
+  await expect(hint).toContainText('이미 응답을 만드는 중')
+  await expect(box).toHaveValue('두 번째 질문')
+
+  // 3초 주기 재조회에서 실행 종료를 보면 안내를 지움, 입력값은 유지
+  await expect(hint).not.toContainText('이미 응답을 만드는 중', { timeout: 10_000 })
+  await expect(box).toHaveValue('두 번째 질문')
+})
+
 test('진행에서 완료로 바뀌어도 입력창 위치가 그대로', async ({ page }) => {
   const box = await send(page, 'progress', { completeAfterPoll: true })
   const last = page.locator('.msg.assistant').last()
