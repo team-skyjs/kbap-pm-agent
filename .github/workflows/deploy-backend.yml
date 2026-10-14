@@ -55,7 +55,7 @@ jobs:
   deploy:
     name: deploy on home server
     needs: build
-    runs-on: [self-hosted, kbap]   # 홈서버 러너 simhani1-server
+    runs-on: [self-hosted, kbap]   # 홈서버 self-hosted 러너
     steps:
       - uses: actions/checkout@v4
         with:

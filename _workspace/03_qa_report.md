@@ -108,7 +108,7 @@ T057·T060은 미검증 부분이 남아 체크하지 않았다.
 
 ## 실행 방법 (사용자가 직접 재현)
 
-아래의 `pm-agent-api.simhani1.dev`는 예시 도메인이고 실존하지 않는다.
+아래의 `pm-agent.example.com`은 예시 도메인이다. 실제 운영 주소는 GitHub Variables `PUBLIC_BASE_URL`에만 둔다.
 
 ```bash
 # 1) 백엔드 + MySQL (fake 기본)
@@ -122,7 +122,7 @@ cd frontend && npm ci && VITE_API_BASE_URL=http://localhost:8000 npm run dev
 # 3) 검사 스크립트 전부
 for c in b1 b2 b3 b4 b5 b6 b7; do docker compose exec backend uv run python checks/check_$c.py; done
 cd frontend && npm run check
-VITE_API_BASE_URL=https://pm-agent-api.simhani1.dev npm run build && VITE_API_BASE_URL=https://pm-agent-api.simhani1.dev npm run check -- f6
+VITE_API_BASE_URL=https://pm-agent.example.com npm run build && VITE_API_BASE_URL=https://pm-agent.example.com npm run check -- f6
 
 # 4) B8 검사 (레포 안에서 실행: 기대 출처를 git remote로 계산. SSE 105초 검사는 서버가 fake+FAKE_DELAY_SECONDS=21일 때만)
 docker compose run -d --rm --name b8 -e FAKE_DELAY_SECONDS=21 -e CORS_ORIGINS=https://team-skyjs.github.io -p 8006:8000 backend

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # 서버에서 실행: pull → up → /api/health 확인
-# CI(self-hosted 러너)는 COMPOSE_FILE·IMAGE·IMAGE_TAG 를 환경변수로 넘긴다. 수동 실행은 기본값을 쓴다.
+# CI(self-hosted 러너)는 COMPOSE_FILE·ENV_FILE·IMAGE·IMAGE_TAG 를 환경변수로 넘긴다. 수동 실행도 COMPOSE_FILE·ENV_FILE을 직접 준다(서버 경로는 레포에 두지 않는다).
 set -e
 
-COMPOSE_FILE="${COMPOSE_FILE:-/home/simhani1/files/docker-compose.kbap-pm-agent.yml}"
-export ENV_FILE="${ENV_FILE:-/home/simhani1/files/kbap-pm-agent.env}"
+COMPOSE_FILE="${COMPOSE_FILE:?COMPOSE_FILE 필요 - 서버의 compose 파일 경로}"
+export ENV_FILE="${ENV_FILE:?ENV_FILE 필요 - 서버의 env 파일 경로}"
 export IMAGE="${IMAGE:-ghcr.io/team-skyjs/kbap-pm-agent}"
 export IMAGE_TAG="${IMAGE_TAG:-latest}"
 NAME="kbap-pm-agent"

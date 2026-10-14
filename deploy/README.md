@@ -1,5 +1,7 @@
 # 배포 (홈서버, ADR-11)
 
+운영 호스트명·서버 경로·ssh 별칭의 실제 값은 서버와 GitHub Secrets/Variables에서만 쓴다. 이 문서와 스크립트에는 `<운영 API 주소>`, `<서버 경로>` 같은 자리표시자와 환경변수 이름만 둔다.
+
 main에 병합되면 자동 배포된다.
 - 백엔드: `.github/workflows/deploy-backend.yml` — GitHub 러너가 `backend/`를 이미지로 빌드해 `ghcr.io/team-skyjs/kbap-pm-agent:<커밋해시>`로 푸시 → 홈서버의 self-hosted 러너가 `deploy/docker-compose.kbap-pm-agent.yml`로 pull·up·헬스체크. `backend/**`, `deploy/**` 변경 시에만 돈다.
 - 프론트: `.github/workflows/pages.yml` — `frontend/**` 변경 시 GitHub Pages로 배포.

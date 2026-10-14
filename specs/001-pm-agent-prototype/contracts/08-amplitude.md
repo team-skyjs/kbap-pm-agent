@@ -3,7 +3,7 @@
 - 요청: 본문 없음.
 - 응답 200:
 ```json
-{"authorizationUrl": "https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri=https%3A%2F%2Fpm-agent-api.simhani1.dev%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ&code_challenge=Q9v0aR3&code_challenge_method=S256"}
+{"authorizationUrl": "https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri=https%3A%2F%2Fpm-agent.example.com%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ&code_challenge=Q9v0aR3&code_challenge_method=S256"}
 ```
   (URL의 호스트·쿼리는 Amplitude가 정한다. 프론트는 문자열을 그대로 연다.)
 - 에러: `UPSTREAM_ERROR`.
