@@ -35,16 +35,20 @@ const TOOL_MARK: Record<ToolCall['status'], string> = { running: '…', succeede
 
 function ToolRow({ calls, running }: { calls: ToolCall[]; running: boolean }) {
   const cur = [...calls].reverse().find((t) => t.status === 'running')
+  const failed = calls.filter((t) => t.status === 'failed').length
+  // 완료 요약은 호출 상태에서 유도, 실패가 하나라도 있으면 경고 표기
   const summary = cur ? `${SOURCE_LABEL[cur.source]} 조회 중… (${cur.name})`
-    : running ? `조회 ${calls.length}건 완료, 답변 정리 중…` : `✓ 조회 ${calls.length}건`
+    : running ? `조회 ${calls.length}건 완료, 답변 정리 중…`
+    : failed ? `⚠ 조회 ${calls.length}건 중 ${failed}건 실패` : `✓ 조회 ${calls.length}건`
   return (
-    <details className="tools">
+    <details className={failed && !cur && !running ? 'tools has-failed' : 'tools'}>
       <summary aria-live={running ? 'polite' : undefined}>{summary}</summary>
       <ol>
         {calls.map((t) => (
-          <li key={t.id}>
+          <li key={t.id} className={t.status === 'failed' ? 'failed' : undefined}>
             <span aria-hidden="true">{TOOL_MARK[t.status]} </span>
-            <span className="sr-only">{t.status === 'running' ? '실행 중' : t.status === 'failed' ? '실패' : '완료'}: </span>
+            {t.status === 'failed' ? <span className="tool-failed">실패 </span>
+              : <span className="sr-only">{t.status === 'running' ? '실행 중' : '완료'}: </span>}
             {SOURCE_LABEL[t.source]} <code>{t.name}</code>
             {t.durationMs !== null && ` · ${t.durationMs}ms`}
             {t.resultSummary && <div>{t.resultSummary}</div>}
