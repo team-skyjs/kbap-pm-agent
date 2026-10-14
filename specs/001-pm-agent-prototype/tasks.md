@@ -249,7 +249,7 @@ description: "PM Agent 프로토타입 구현 태스크"
 **완료 기준**: fake 모드 동작이 전환 전과 같다. 두 런타임이 가짜 HTTP 전송으로 계약 SSE 순서를 만든다. `backend/` 어디에도 `langchain` import가 없다. 계약 동기화 diff가 비어 있다.
 
 - [x] T062 [BE] `backend/pyproject.toml`·`backend/uv.lock`: `langchain`, `langchain-anthropic`, `langchain-openai`, `langchain-mcp-adapters`를 제거하고 `anthropic[mcp]`, `openai-agents`를 추가한다. `mcp`는 1.x를 유지한다(`OAuthClientProvider`가 httpx.Auth여야 OpenAI Agents `params["auth"]`와 맞는다, research.md R8). `uv lock`·`uv sync` 후 Docker 이미지 빌드 확인 (B9)
-- [x] T063 [BE] `backend/app/code_tools.py`: 코드·택사노미 도구(`find_event_calls`, `search_code`, `get_screen_summary`, `read_code`, `search_taxonomy`, `get_event_definition`)를 프레임워크 없는 Python 함수로 정리한다. 타입 힌트와 docstring(Args 절)이 도구 스키마의 원천이다. LangChain 데코레이터를 제거하고, 상한(30건·200줄·`CODE_GLOB`)은 함수 안에 둔다 (B9)
+- [ ] T063 [BE] `backend/app/code_tools.py`: 코드·택사노미 도구(`find_event_calls`, `search_code`, `get_screen_summary`, `read_code`, `search_taxonomy`, `get_event_definition`)를 프레임워크 없는 Python 함수로 정리한다. 타입 힌트와 docstring(Args 절)이 도구 스키마의 원천이다. LangChain 데코레이터를 제거하고, 상한(30건·200줄·`CODE_GLOB`)은 함수 안에 둔다 (B9)
 - [x] T064 [BE] `backend/app/agent.py`: seam 재구성. (B9)
   - 런타임 선택: `AGENT_MODEL`·`CODE_SUMMARY_MODEL`을 `provider:model`로 파싱한다. `{"anthropic": agent_anthropic, "openai": agent_openai}` dict로 고르고, 다른 접두사는 기동 시 실패시킨다.
   - 공통 도구 래퍼: `tool_call` 이벤트 → 실행 → `tool_result` 이벤트 순서다. 예외가 나면 `failed`와 오류 문장을 모델에 돌려주고 실행을 계속한다(ADR-16, FR-010). `source`는 `code`/`taxonomy`/`amplitude`.

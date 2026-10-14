@@ -33,6 +33,7 @@
 | 2026-10-15 | check_b7 클라이언트 예외 경로 (a75addd) | 통과 | 재빌드 컨테이너(= 커밋본)에서 check_b7 OK: 두 런타임 × MCP 성공·isError·ConnectionError·연결 실패. 첫 실행은 backend-dev 수정 중 같은 검사용 DB를 동시에 써 저장 단계 IndexError로 실패했고, 단독 재실행은 통과(결함 아님). 리포트 남은 위험 항목 닫음 |
 | 2026-10-15 | T075 턴 상한 (7dbeab6) | 통과 | 계약 diff 0(f11d5b9 비고 문구 반영 확인). `AGENT_MAX_TOOL_CALLS` 잔존: backend·deploy·.env.example·docker-compose.yml·.github·루트 .env 0건(범위 밖 `docs/architecture/agent-loop-langchain.*` 2건, LangChain 시절 구조도). 재빌드 컨테이너(= 커밋본) check_b1~b7 OK, check_b6 AGENT_MAX_TURNS=2 병렬 2개 = 1턴·모델 요청 2회·도구 3회 후 부분 final. QA 추가: 기본 10턴에서 도구만 돌려주는 가짜 모델 → 두 런타임 모두 모델 요청 10회·tool 쌍 10·부분 final 첫 줄 = 계약 문구 "모델 호출 상한(10턴)에 도달해 여기까지의 조회 결과로 답합니다."·status completed·proposals []. fake SSE 이벤트·키 구조 기준선과 diff 0. 참고: 모델이 없는 도구 이름을 부르면 openai는 ModelBehaviorError로 실행 전체 UPSTREAM_ERROR, anthropic은 오류 결과로 계속(남은 위험) |
 | 2026-10-15 | 주석 정리 frontend (1430a07) | 통과 | 코드 변화 0: 바뀐 TS 15개 모두 esbuild 변환 결과 동일, style.css는 주석 1줄만. check-f1~f6 OK, 계약 diff 0. frontend 주석의 내부 식별자 8줄→0, 종결형 어미 32줄→0 |
+| 2026-10-15 | 주석 정리 backend (d24edde) | 통과, 결함 1(기존) | 코드 변화 0: 바뀐 .py 24개 docstring 제외 AST 동일, schema.sql·Dockerfile은 주석 줄만. 재빌드 컨테이너(= 커밋본) check_b1~b7 OK, 계약 diff 0. backend 주석 내부 식별자 24줄→0, 종결형 82줄→1(`backend/checks/check_b6.py:41` "돈다"; 정규식이 잡은 나머지 3줄은 명사 "필요" 오탐). 저장소 전체(주석 감사 대상 41개 파일): 식별자 32→0, 종결형 114→1. 도구 docstring 문구는 모델에 가는 도구 설명이라 문체만 바뀐 것 확인(의미 동일). 정리와 별개로 QA-7 발견 |
 
 ## 결함
 
@@ -89,3 +90,12 @@
 - 수정 방향: 백엔드. `.env.example`의 두 주석을 운영 예시에도 옮긴다
 - 수신: backend-dev
 - 상태: 확인됨 (20355dd·da85244: 접두사 규칙, openai 예시, ANTHROPIC/OPENAI 키 조건 주석)
+
+### QA-7: 에이전트 도구 6개의 docstring에 매개변수 설명(Args 절)이 없다
+- 모듈: backend / B9 (T063, 주석 정리 전부터 있던 공백)
+- 경계면: 백엔드 → LLM 공급자 도구 스키마(두 런타임 모두 docstring을 도구 설명 원천으로 쓴다)
+- 기대: T063 "타입 힌트와 docstring(Args 절)이 도구 스키마의 원천이다"
+- 실제: `backend/app/code_tools.py`의 `find_event_calls(eventName)`, `search_code(regex, glob)`, `get_screen_summary(path)`, `read_code(path, startLine, endLine)`, `search_taxonomy(query)`, `get_event_definition(name)` 모두 한 줄 요약만 있고 Args 절이 없다(d24edde~1과 d24edde 동일). 모델은 매개변수 이름과 타입만 보고 `glob` 형식, `startLine`이 1부터인지, `path`가 저장소 루트 기준인지 등을 docstring 첫 줄에서 추측해야 한다. QA가 B9(T071)에서 T063을 통과시킬 때 놓쳤다
+- 수정 방향: 백엔드. 각 함수에 `Args:` 절로 매개변수마다 한 줄(형식·범위). 두 런타임이 Args를 매개변수 description으로 옮기는지 check_b6의 요청 파라미터 assert에 하나 추가
+- 수신: backend-dev
+- 상태: 열림
