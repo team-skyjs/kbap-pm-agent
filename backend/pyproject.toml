@@ -1,0 +1,18 @@
+[project]
+name = "kbap-pm-agent"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi",
+  "uvicorn",
+  "httpx",
+  "pymysql>=1.1",
+  "langchain>=1.0,<2",
+  "langchain-anthropic",
+  "langchain-openai",
+  "langchain-mcp-adapters",
+  "mcp",
+]
+
+[tool.uv]
+package = false

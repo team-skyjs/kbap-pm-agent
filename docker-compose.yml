@@ -1,0 +1,42 @@
+# 로컬 개발: docker compose up -d --build  →  backend :8000, mysql :3307
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      AGENT_MODE: ${AGENT_MODE:-fake}
+      DATABASE_URL: mysql://root:root@mysql:3306/kbap_pm_agent   # ponytail: 로컬은 root. checks가 _check DB를 따로 만든다
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      AGENT_MODEL: ${AGENT_MODEL:-anthropic:claude-sonnet-5-5}
+      CODE_SUMMARY_MODEL: ${CODE_SUMMARY_MODEL:-anthropic:claude-haiku-5-5}
+      REPOS_DIR: /data/repos
+    volumes:
+      - backend-data:/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: kbap_pm_agent
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  backend-data:
+  mysql-data:
