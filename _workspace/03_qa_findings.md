@@ -41,6 +41,7 @@
 | 2026-10-15 | 운영 배포 T057·T060 (fix/prod-hostname 75ddea5) | 조회 범위 통과, 일부 미검증 | T057: 레포 안 check_b8 재현 — health PASS, preflight team-skyjs.github.io(from git remote) PASS, SSE 100초 SKIP(real). 운영 health 200 0.35s, 없는 경로 404 공통 형식, 허용 안 된 출처 preflight 400. **ACCESS_TOKEN 꺼짐**: 토큰 없이 대화 목록·설정 200(설정 응답에 비밀값 없음). T060: headless Chrome으로 운영 Pages 200, 자산 `/kbap-pm-agent/`, 헬스 배지 ok, 대화 목록 1개 = API, 대화 상세 메시지 4 = API, 설정 화면 real·저장소·택사노미 45개 표시, 번들에 운영 API 주소·localhost 없음. 쓰기 요청은 브라우저 단 차단(0건 발생). 미검증: cloudflared 경유 SSE 장시간 ping(T057), Pages에서 SSE·채택 왕복(T060) — 메시지 전송·PATCH 금지 범위. 관찰(사용자 실행 1건, 조회만): Anthropic 실제 구조화 응답 completed, 소스 3종 사용, 첫 tool_call 약 11초(SC-004 5초 초과)·final 약 53초, 질문 1건 $1.601(입력 780,309 토큰) |
 | 2026-10-15 | 운영 식별자 정리 (chore/scrub-ops-identifiers b18b17c..a59c1b8) | 통과 | 지정 grep 결과는 QA 리포트 예시 2줄뿐이었고 이 브랜치에서 `pm-agent.example.com`으로 교체해 0건. 계약: 예시 문구 2곳과 변경 이력 1줄만 바뀌고 원본·분할본 diff 0, fake 승인 URL과 examples.AUTH_URL이 계약 예시와 글자 단위 동일. 배포: compose ENV_FILE 필수(없으면 config 종료 1), deploy 스크립트 COMPOSE_FILE·ENV_FILE 없으면 docker 호출 전 종료 1, push 스크립트 REMOTE_DIR 없으면 원격 호출 전 종료 1, 원격 실행에 두 경로 명시. CI 경로: deploy-backend.yml 115·116줄이 COMPOSE_FILE·ENV_FILE을 넘기고, 같은 env로 가짜 docker·curl을 둔 deploy 스크립트가 pull·up·health·완료까지 종료 0. `git archive a59c1b8` 이미지(별도 DB)로 check_b1~b7 OK. 프론트 변경 0. 추가된 줄·커밋 메시지의 운영 식별자 0 |
 | 2026-10-15 | 003 US-001 디자인 토큰 (94971e9) | 통과 | 커밋본 frontend·backend를 따로 빌드(공용 스택 무접촉, preview + 별도 fake 백엔드). npm run check f1~f5 OK, 빌드 후 f6 OK, 계약 diff 0. 번들 365.4KB(gzip 114.0KB), 재설계 전 기준선 362.5KB 대비 +2.9KB. 원시 값: style.css 토큰 정의 밖 0(동작 줄이기의 시간 토큰 재정의만), TSX 인라인 1건(설정 입력 폭, 설정 재스타일 때 이동 예정). Playwright 라이트·다크 × 1280/768/375 × 채팅·설정: 본문 16px·줄 간격 1.60, 보이는 글자 전부 명도 대비 4.5 이상(최소 라이트 5.99, 다크 4.51 = "새 대화" 버튼, 여유 0.01), 포커스 윤곽선 solid 2px, 동작 줄이기에서 전환 0s. 기준선(ea4a100)은 보조 텍스트 14px·대비 미달 23~47곳·axe color-contrast 7~11건 → 해소. 재설계 전부터 있던 것(이번 변경 무관, 해당 모듈에서 재확인): 375px 가로 스크롤(채팅 560px·설정 726px), axe critical label 1(설정 입력), serious scrollable-region-focusable 1(채팅). 흐름 회귀(질문→진행 0.7s→카드 2장→채택→새로고침 유지, 409 안내) 통과 |
+| 2026-10-15 | 003 뼈대·렌더러·파서 (030e50c·91e5c19·2b89291) + 셸·사이드 패널·메시지 (01306ec) | 결함 1 | 커밋본(01306ec) 별도 빌드·별도 fake 백엔드. npm run check f1~f5·f7 OK, 빌드 후 f6 OK, 계약 diff 0. check:ui smoke 9프로젝트 9/9, 스크린샷 9장(T005). 원시 값: style.css 토큰 밖 0(동작 줄이기 시간 재정의·768px 분기점만), TSX 인라인 1(설정 입력 폭). Markdown: HTML 해석 플러그인 없음, 링크 target=_blank rel=noopener noreferrer, ChartBlock lazy. 번들 371.7KB(+9.2KB); 01306ec 시점에는 Markdown 미연결이라 차트 청크가 빌드에 없음 → 청크 분리·차트 미로드는 US6에서. Playwright 라이트·다크 × 1280/768/375: 본문 16px·lh 1.60, 대비 미달 0(최소 라이트 5.17, 다크 4.51), 375 가로 스크롤 해소(이전 560·726px), 동작 줄이기 0s. 셸: 1280 접기 새로고침 유지·접힌 패널 포커스 없음, 768·375 닫힌 Drawer에 Tab 안 들어감, 열림 role=dialog·body overflow hidden, ESC·배경 탭 닫힘. 키보드만으로 새 대화→입력→보내기→채택 가능. 메시지: 사용자만 배경, 1600px에서 본문 768px 가운데, 375 넘침 0. axe 남은 2건(재설계 전부터): serious scrollable-region-focusable = 제안 카드 코드 근거 `<pre>`(US9), critical label = 설정 택사노미 file input(US10). 결함 UI-1 |
 
 ## 결함
 
@@ -106,3 +107,13 @@
 - 수정 방향: 백엔드. 각 함수에 `Args:` 절로 매개변수마다 한 줄(형식·범위). 두 런타임이 Args를 매개변수 description으로 옮기는지 check_b6의 요청 파라미터 assert에 하나 추가
 - 수신: backend-dev
 - 상태: 확인됨 (dbf5428: 도구 6개 Args 절. anthropic beta_async_tool·openai function_tool 스키마 모두 매개변수 9개 description 확인, check_b6 요청 파라미터 assert 추가)
+
+### UI-1: Drawer가 포커스를 가두지 않고, 닫은 뒤 메뉴 버튼으로 포커스를 돌려주지 않는다
+- 화면·폭·모드: 모든 화면 / 768px·375px / light·dark
+- 항목: 접근성 — Drawer에 역할·포커스 가두기 (tasks T012 "포커스 가두기와 닫을 때 메뉴 버튼으로 포커스 복귀", FR-004)
+- 현상: 01306ec 커밋본, Playwright. 메뉴 열기 → Drawer(role=dialog, body 잠금은 정상) 열린 상태에서 Tab 16번 중 3번이 Drawer 밖 요소로 나감(768·375 동일). ESC로 닫은 뒤 `document.activeElement`가 body(aria-label null)로, 메뉴 버튼으로 돌아오지 않음. 재현: QA 스크립트 e2e_shell.mjs 또는 수동으로 375px에서 ☰ → Tab 반복 → ESC
+- 기준: tasks T012, FR-004 "열린 동안 본문 스크롤 잠금, 포커스 가두기", ui-review 접근성 "Drawer에 역할·포커스 가두기"
+- 수정 방향: `frontend/src/Shell.tsx` Drawer 열릴 때 첫 포커스 요소로 이동, Tab/Shift+Tab을 Drawer 안에서 순환(또는 Drawer 밖 영역에 `inert`), 닫힐 때 메뉴 버튼 ref로 focus()
+- 심각도: 차단(접근성 실패)
+- 수신: frontend-designer
+- 상태: 열림

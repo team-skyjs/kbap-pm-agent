@@ -33,7 +33,7 @@ description: "프론트 재설계 구현 태스크"
 
 ## Phase 1: Setup
 
-- [ ] T001 [FE] `frontend/package.json`과 `.gitignore`를 준비한다.
+- [x] T001 [FE] `frontend/package.json`과 `.gitignore`를 준비한다.
   - 의존성: `remark-gfm`, `chart.js`(^4)를 추가한다. 개발 의존성은 `@playwright/test`, `@axe-core/playwright`다.
   - 스크립트: `"check:ui": "playwright test -c playwright.config.ts"`를 추가한다. 기존 `check`·`build`는 그대로다.
   - `.gitignore`에 `_workspace/04_designer_screenshots/`, `frontend/test-results/`, `frontend/playwright-report/`를 넣는다.
@@ -45,10 +45,10 @@ description: "프론트 재설계 구현 태스크"
 
 **Purpose**: 모든 표현 스토리의 완료 조건(Playwright)과 설계 입력을 먼저 세운다.
 
-- [ ] T002 [FE] `frontend/playwright.config.ts`: `webServer`(`npm run dev`, 5173, reuseExistingServer)를 둔다.
+- [x] T002 [FE] `frontend/playwright.config.ts`: `webServer`(`npm run dev`, 5173, reuseExistingServer)를 둔다.
   - 프로젝트 9개: 뷰포트 `1280x800`·`768x1024`·`375x812` × 모드 `light`·`dark`(`colorScheme`)·`reduced`(`reducedMotion: 'reduce'`, light), Chromium 하나.
   - 환경변수 `CHECK_UI_LIVE`가 없으면 고정 응답 모드다(ADR-26).
-- [ ] T003 [FE] `frontend/checks/ui/fixtures.ts`: `page.route('**/api/**')` 고정 응답을 둔다.
+- [x] T003 [FE] `frontend/checks/ui/fixtures.ts`: `page.route('**/api/**')` 고정 응답을 둔다.
   - 계약 예시: 대화 목록, 상세, 설정, 제안 PATCH 응답을 `frontend/checks/contract.ts`로 계약 분할본에서 읽는다.
   - SSE 스크립트 6종은 계약 05-messages 예시를 바탕으로 만든다.
     - 전송 직후: `message_created`만 보내고 2초간 유지한다.
@@ -58,13 +58,13 @@ description: "프론트 재설계 구현 태스크"
     - 오류: `error` `UPSTREAM_ERROR`다.
     - 세션 만료: 401 `text/html`이다.
   - 마크다운 표본 답변: 제목 4단계, 목록, 작업 목록, 표, 인용, 구분선, 코드, 링크, `<script>` 문자열과 `contracts/chart-block.md`의 세 예시를 그대로 넣는다.
-- [ ] T004 [FE] `frontend/checks/ui/helpers.ts`: 공용 도구다.
+- [x] T004 [FE] `frontend/checks/ui/helpers.ts`: 공용 도구다.
   - 접근성: `expectNoSeriousA11y(page)`는 axe `critical`·`serious` 0을 확인한다.
   - 대비: `contrast(fg, bg)`는 WCAG 상대 휘도 공식으로 계산한다.
   - 레이아웃: `expectNoHorizontalScroll(page)`.
   - 스크린샷: `shot(page, story)`는 `_workspace/04_designer_screenshots/<story>-<project>.png`로 저장한다.
   - `frontend/checks/ui/smoke.spec.ts`: 고정 응답으로 앱이 뜨고 헬스 표시가 보인다.
-- [ ] T005 [QA] 뼈대 검증: `npm run check:ui`로 smoke가 9프로젝트에서 통과하고 스크린샷 9장이 생기는지, 기존 `npm run check`가 영향 없이 통과하는지 확인한다
+- [x] T005 [QA] 뼈대 검증: `npm run check:ui`로 smoke가 9프로젝트에서 통과하고 스크린샷 9장이 생기는지, 기존 `npm run check`가 영향 없이 통과하는지 확인한다
 - [ ] T006 [DS] 설계 문서 `_workspace/04_designer_shell.md`·`_chat.md`·`_proposal.md`·`_settings.md`를 쓴다(`chat-ui-design` 스킬 형식, ChatGPT 데스크톱 레퍼런스). 각 문서에 레이아웃, 상태, 반응형, 접근성 항목과 쓰는 토큰 이름을 적는다(data-model.md 1절)
 
 **Checkpoint**: 검사 명령이 돌고 설계 입력이 있다.
@@ -82,7 +82,7 @@ description: "프론트 재설계 구현 태스크"
   - 대비 계산표: `--color-text`·`--color-text-muted` 대 `--color-bg`·`--color-surface`·`--color-user-bubble`은 4.5:1 이상, `--color-focus`·`--chart-1`~`4` 대 배경은 3:1 이상이다.
   - 강조색 후보 3개를 낸다.
 - [x] T008 [US1] [USER] 토큰 제안서를 보고 강조색 하나를 정한다. 2026-10-15 결정: 디자이너 추천안 B(파랑). 제안서에 기록한다
-- [ ] T009 [US1] [DS] `frontend/src/style.css`를 토큰 기반으로 바꾼다.
+- [x] T009 [US1] [DS] `frontend/src/style.css`를 토큰 기반으로 바꾼다.
   - 토큰: `:root`에 토큰을 두고, `@media (prefers-color-scheme: dark)`에서 같은 이름의 값만 교체한다. `@media (prefers-reduced-motion: reduce)`에서 `--duration-*`는 0ms다.
   - 기본 요소: 본문 글꼴·크기·줄 간격·배경·글자색을 토큰으로 둔다.
   - 정리: 기존 원시 값을 모두 토큰으로 바꾼다.
@@ -114,7 +114,7 @@ description: "프론트 재설계 구현 태스크"
 
 **Independent Test**: `us4.spec.ts`.
 
-- [ ] T015 [US4] [DS] `frontend/src/Chat.tsx`·`style.css`: 메시지 표현을 바꾼다.
+- [x] T015 [US4] [DS] `frontend/src/Chat.tsx`·`style.css`: 메시지 표현을 바꾼다.
   - 구분: 사용자 메시지는 오른쪽 정렬·`--color-user-bubble` 배경, AI 메시지는 왼쪽·배경 없음·아바타 없음이다.
   - 글자: 글자 크기·줄 간격·단락 간격은 토큰이다.
   - 넘침: 긴 URL은 `overflow-wrap: anywhere`, 긴 코드는 블록 안 스크롤이다.
@@ -201,8 +201,8 @@ description: "프론트 재설계 구현 태스크"
 ## Phase 10: User Story 6 — 답변 안 데이터 블록을 차트로 (P2)
 
 - [ ] T032 [US6] [USER] 차트 라이브러리를 확인한다. 기본안은 Chart.js v4다(research R1 실측 171KB min). 다르게 정하면 CTO에 알린다(ADR-24)
-- [ ] T033 [US6] [FE] `frontend/src/chartBlock.ts`: `parseChartBlock(text)`를 둔다. 반환은 `{ok:true, spec} | {ok:false, reason}`이고, 검증 규칙은 data-model.md 2절을 그대로 따른다(추가 키 오류, 길이 일치, 전부 null 오류)
-- [ ] T034 [US6] [FE] `frontend/checks/check-f7.ts`: `contracts/chart-block.md`의 세 예시(선·막대 통과, pie 실패)와 다섯 가지 실패 사례(길이 불일치, 추가 키, 전부 null, `series` 5개, JSON 깨짐)를 assert한다. 예시는 파일에서 직접 읽는다. `frontend/checks/run.ts` 목록에 f7 한 줄을 추가한다 (US6 검사 1)
+- [x] T033 [US6] [FE] `frontend/src/chartBlock.ts`: `parseChartBlock(text)`를 둔다. 반환은 `{ok:true, spec} | {ok:false, reason}`이고, 검증 규칙은 data-model.md 2절을 그대로 따른다(추가 키 오류, 길이 일치, 전부 null 오류)
+- [x] T034 [US6] [FE] `frontend/checks/check-f7.ts`: `contracts/chart-block.md`의 세 예시(선·막대 통과, pie 실패)와 다섯 가지 실패 사례(길이 불일치, 추가 키, 전부 null, `series` 5개, JSON 깨짐)를 assert한다. 예시는 파일에서 직접 읽는다. `frontend/checks/run.ts` 목록에 f7 한 줄을 추가한다 (US6 검사 1)
 - [ ] T035 [US6] [FE] `frontend/src/ChartBlock.tsx`: 차트를 그린다.
   - 로드·등록: `import('chart.js')`로 지연 로드하고 ADR-24의 컨트롤러만 등록한다.
   - 색: `getComputedStyle`로 `--chart-1`~`4`·`--chart-grid`·`--color-text`를 읽고, `matchMedia('(prefers-color-scheme: dark)')` change에서 다시 읽어 `update()`한다.
