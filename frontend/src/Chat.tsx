@@ -100,14 +100,18 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   const [streamErrors, setStreamErrors] = useState<Record<number, string>>({})
   const [sessionExpired, setSessionExpired] = useState(false)
   const [tokenError, setTokenError] = useState(false)
-  const [busyNotice, setBusyNotice] = useState(false)
+  // 409 안내를 지울 판단 기준: 409 이후에 보낸 재조회 결과만 사용
+  const [busyFrom, setBusyFrom] = useState<number | null>(null)
+  const loadSeq = useRef(0)
+  const [loadedSeq, setLoadedSeq] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   // 사용자가 맨 아래를 보고 있을 때만 자동 스크롤
   const atBottom = useRef(true)
 
   const load = useCallback(() => {
-    getConversation(id).then((d) => { setDetail(d); setLoadError('') }, (e) => setLoadError(describe(e)))
+    const seq = ++loadSeq.current
+    getConversation(id).then((d) => { setDetail(d); setLoadedSeq(seq); setLoadError('') }, (e) => setLoadError(describe(e)))
   }, [id])
 
   useEffect(() => { setDetail(null); setNotice(''); load() }, [load])
@@ -165,6 +169,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     if (!content || streaming) return
     setNotice('')
     setTokenError(false)
+    setBusyFrom(null)
     setStreaming(true)
     try {
       const end = await sendMessage(id, content, onEvent)
@@ -181,7 +186,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
         const code: string = e.code
         if (code === 'SESSION_EXPIRED') setSessionExpired(true)
       }
-      if (e instanceof ApiError && e.code === 'RUN_IN_PROGRESS') { setBusyNotice(true); load() }
+      if (e instanceof ApiError && e.code === 'RUN_IN_PROGRESS') { setBusyFrom(loadSeq.current + 1); load() }
     } finally {
       setStreaming(false)
       onChanged()
@@ -190,8 +195,8 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
 
   // 다른 실행 중 안내는 그 실행이 끝나 입력이 풀리면 지움
   useEffect(() => {
-    if (!running && busyNotice) { setNotice(''); setBusyNotice(false) }
-  }, [running, detail])
+    if (busyFrom !== null && loadedSeq >= busyFrom && !running) { setNotice(''); setBusyFrom(null) }
+  }, [running, loadedSeq])
 
   // 빈 대화를 열면 바로 입력하도록 입력창에 포커스
   const empty = detail?.messages.length === 0
