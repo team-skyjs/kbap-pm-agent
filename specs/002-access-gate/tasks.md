@@ -57,11 +57,11 @@ description: "접근 제한 구현 태스크"
   - 캐시: `index.html`은 `Cache-Control: no-cache`, `/assets/`는 기본값이다.
 - [ ] T005 [BE] 레포 루트 `docker-compose.yml`: `web` 서비스를 두지 않는다(있으면 삭제). `backend` 빌드 컨텍스트를 레포 루트 + `backend/Dockerfile`로 바꿔 `localhost:8000`이 `/`와 `/api`를 함께 제공하게 한다 (2026-10-15 백엔드 정적 서빙으로 변경, 재작업) (G1)
 - [x] T006 [FE] `frontend/checks/check-f6.ts`의 기대값을 바꾼다. `dist/index.html` 자산 경로가 `/assets/`로 시작하고 번들에 `http://`·`https://` API 주소가 박혀 있지 않아야 한다 (G1)
-- [ ] T007 [FE] `deploy/checks/check_g1.sh`: 로컬 compose가 뜬 상태에서 curl로 다음을 assert한다. 실패하면 0이 아닌 종료다. (2026-10-15 백엔드 정적 서빙으로 변경, 재작업) (G1 검사)
+- [x] T007 [FE] `deploy/checks/check_g1.sh`: 로컬 compose가 뜬 상태에서 curl로 다음을 assert한다. 실패하면 0이 아닌 종료다. (2026-10-15 백엔드 정적 서빙으로 변경, 재작업) (G1 검사)
   - `localhost:8000/`이 200 `text/html`이다.
   - `localhost:8000/api/health`가 `{"status":"ok","db":"ok","version":"0.1.0"}`다.
   - fake 모드 메시지 전송 SSE를 같은 출처(`localhost:8000`)로 받아 첫 `tool_call`이 5초 안에 오고 `final`로 끝난다.
-- [ ] T008 [QA] G1 교차 검증: `docker compose up -d --build` 후 `check_g1.sh`와 `npm run check -- f6`를 실행한다. 브라우저 `localhost:8000`에서 네트워크 요청이 전부 같은 출처 `/api/...`이고, `ACCESS_TOKEN`이 켜져 있어도 첫 화면(`/`, `/assets/`)이 토큰 없이 열리는지 본다. 정의되지 않은 `/api/nope`이 계약 404 JSON이어야 한다. 001 quickstart 시나리오 3~5(질문→제안→채택)가 동작해야 한다 (2026-10-15 백엔드 정적 서빙으로 변경, 재작업) (G1 QA)
+- [x] T008 [QA] G1 교차 검증: `docker compose up -d --build` 후 `check_g1.sh`와 `npm run check -- f6`를 실행한다. 브라우저 `localhost:8000`에서 네트워크 요청이 전부 같은 출처 `/api/...`이고, `ACCESS_TOKEN`이 켜져 있어도 첫 화면(`/`, `/assets/`)이 토큰 없이 열리는지 본다. 정의되지 않은 `/api/nope`이 계약 404 JSON이어야 한다. 001 quickstart 시나리오 3~5(질문→제안→채택)가 동작해야 한다 (2026-10-15 백엔드 정적 서빙으로 변경, 재작업) (G1 QA)
 - [x] T040 [FE] `frontend/Dockerfile`·`frontend/nginx.conf`·`frontend/.dockerignore`를 삭제하고 `check_g1.sh` 대상을 `localhost:8000`으로 바꾼다(8a8e311) (G1)
 
 ### G4 — 배포 통합
