@@ -75,13 +75,19 @@ async def summarize(model: str, prompt: str) -> tuple[str, int, int]:
     return "".join(b.text for b in resp.content if b.type == "text"), *_usage(resp.usage)
 
 
+# 질문 다듬기에서 사고를 끄는 모델. 한 문장 재작성이라 사고가 지연만 늘림.
+# ponytail: disabled를 받는 것이 확인된 모델만(Haiku 5.5는 effort high 이하에서 허용, Sonnet·Opus 5.5·Fable은 400)
+REFINE_THINKING_OFF = {"claude-haiku-5-5"}
+
+
 async def refine(model: str, prompt: str):
-    """질문 다듬기: 도구·tool_choice·thinking 없이 구조화 출력 1회. 거절이면 agent.Refused"""
+    """질문 다듬기: 도구·tool_choice 없이 구조화 출력 1회. 거절이면 agent.Refused"""
     from app.agent import Refused
     from app.schemas import RefineResult
+    extra = {"thinking": {"type": "disabled"}} if model in REFINE_THINKING_OFF else {}
     resp = await _client().messages.parse(model=model, max_tokens=2000, output_format=RefineResult,
                                           output_config={"effort": "low"},
-                                          messages=[{"role": "user", "content": prompt}])
+                                          messages=[{"role": "user", "content": prompt}], **extra)
     if resp.stop_reason == "refusal":  # 본문을 읽기 전에 확인
         raise Refused()
     if resp.parsed_output is None:

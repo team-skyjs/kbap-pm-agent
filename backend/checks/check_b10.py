@@ -6,7 +6,7 @@ import time
 
 from common import client, ok
 from examples import REFINE, REFINE_CHOICE, TAXONOMY_BODY
-from llm_mock import script
+from llm_mock import script, sent
 
 from app import db
 from app.refine import NAMES_MAX_CHARS, REFINE_PROMPT, TRUNCATED_NOTE, build_prompt, with_truncated_note
@@ -159,7 +159,13 @@ try:
     script("anthropic", [("final", answer)])
     c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})
     assert db.one("SELECT model FROM question_refinements ORDER BY id DESC LIMIT 1")["model"] == "anthropic:claude-haiku-5-5"
-    ok("REFINE_MODEL 비면 CODE_SUMMARY_MODEL 사용")
+    assert sent[0]["thinking"] == {"type": "disabled"} and sent[0]["output_config"]["effort"] == "low", sent[0]
+    os.environ["REFINE_MODEL"] = "anthropic:claude-sonnet-5-5"
+    script("anthropic", [("final", answer)])
+    c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})
+    assert "thinking" not in sent[0], "disabled를 거부하는 모델에는 thinking을 보내지 않음"
+    os.environ.pop("REFINE_MODEL")
+    ok("REFINE_MODEL 비면 CODE_SUMMARY_MODEL 사용, Haiku 다듬기는 thinking disabled·effort low, 다른 모델은 thinking 미전송")
     os.environ["REFINE_MODEL"] = "foo:bar"
     from app import agent
     try:
