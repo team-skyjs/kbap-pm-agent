@@ -16,3 +16,5 @@ assert(html('**A**와 **B%**는').includes('<strong>A</strong>와 <strong>B%</st
 assert(html('`**코드**로`').includes('<code>**코드**로</code>'), '인라인 코드 안은 그대로')
 assert(html('```\n**x**로\n```').includes('**x**로'), '코드 블록 안은 그대로')
 assert(!html('2 ** 3 ** 4').includes('<strong>'), '공백 둘러싼 **는 굵게 아님')
+assert(html('*41%*로').includes('<em>41%</em>로'), '기울임도 같은 규칙')
+assert(html('**[링크](https://e.com)**로').includes('<strong><a'), '굵게 안 링크')

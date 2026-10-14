@@ -1,38 +1,11 @@
 import { lazy, Suspense, useState, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
+import remarkCjkFriendly from 'remark-cjk-friendly'
 import remarkGfm from 'remark-gfm'
 import { parseChartBlock } from './chartBlock.ts'
 
 // 차트 라이브러리는 차트 블록이 처음 나올 때만 별도 청크로 로드
 const ChartBlock = lazy(() => import('./ChartBlock.tsx'))
-
-type MdNode = { type: string; value?: string; children?: MdNode[] }
-
-// CommonMark은 닫는 ** 앞이 문장부호이고 뒤가 글자면 굵게로 닫지 않음("**41%**로"처럼 한글 조사가 붙는 경우)
-// 파싱 뒤 일반 텍스트에 남은 **…**만 굵게로 바꿈, 코드는 text 노드가 아니라 영향 없음
-// ponytail: ** 짝만 처리, 굵게 안에 링크·코드 같은 다른 인라인이 섞이면 원문 유지
-function remarkCjkStrong() {
-  const fix = (node: MdNode): void => {
-    if (!node.children) return
-    node.children = node.children.flatMap((child): MdNode[] => {
-      if (child.type !== 'text' || !child.value?.includes('**')) {
-        fix(child)
-        return [child]
-      }
-      const out: MdNode[] = []
-      let last = 0
-      for (const m of child.value.matchAll(/\*\*(?=\S)([^*\n]*?\S)\*\*/g)) {
-        if (m.index > last) out.push({ type: 'text', value: child.value.slice(last, m.index) })
-        out.push({ type: 'strong', children: [{ type: 'text', value: m[1] }] })
-        last = m.index + m[0].length
-      }
-      if (last === 0) return [child]
-      if (last < child.value.length) out.push({ type: 'text', value: child.value.slice(last) })
-      return out
-    })
-  }
-  return fix
-}
 
 type HastNode = { type: string; value?: string; tagName?: string; properties?: Record<string, unknown>; children?: HastNode[] }
 
@@ -92,10 +65,11 @@ const components: Components = {
 }
 
 // 답변·제안 텍스트 공용 렌더러. 모델이 쓴 HTML은 해석하지 않고 문자로 표시(react-markdown 기본 동작)
+// remark-cjk-friendly: 문장부호 뒤 닫는 강조에 한글 조사가 붙어도(**41%**로) 강조로 인식
 export default function Markdown({ children }: { children: string }): ReactNode {
   return (
     <div className="md">
-      <ReactMarkdown remarkPlugins={[remarkGfm, remarkCjkStrong]} components={components}>{children}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkCjkFriendly]} components={components}>{children}</ReactMarkdown>
     </div>
   )
 }
