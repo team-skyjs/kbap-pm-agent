@@ -47,6 +47,7 @@
 | 2026-10-15 | verify job 시크릿 미설정 분기 (fb881c0) | 통과 | 워크플로우 run 블록을 그대로 추출해 실행: 두 Secrets 빔 → 경고·종료 0, 하나만 설정 → 경고·종료 0, 둘 다 설정+닿지 않는 호스트 → check_b8 FAIL(7)·종료 1, 둘 다 설정+PUBLIC_BASE_URL 빔 → 종료 1. README에 규칙 한 줄. 참고: 반쯤 설정 상태도 조용히 생략되므로 T024 뒤 첫 배포 로그에서 경고 소멸 확인(T015 비고) |
 | 2026-10-15 | PR #7 재리뷰 수정 (0cea972) | 기각된 수정, 미반영 | 사용자가 재리뷰 지적 2건(OpenAI MCP 연결 후 항상 cleanup, 워크플로우 Variables 읽기)을 기각해 커밋 폐기. PR #7은 8eaca95 상태로 main 머지·운영 배포(v0.1.4). QA가 커밋본으로 check_b1~b7을 돌린 기록만 남김. main 워크플로우는 AMPLITUDE_TOOLS·TOOL_RESULT_MAX_CHARS 고정값 |
 | 2026-10-15 | 접근 제한 재개 (feat/access-gate-resume 4ffc529) | 통과, 결함 1(문서) | 회귀: `git archive HEAD` 백엔드·웹 이미지를 별도 네트워크·DB로 띄워(공용 스택·운영 무접촉) check_g1 OK(첫 tool_call 0.68s), check_b1~b7 OK, check_g4 OK(운영 도메인 대조 포함), 프론트 npm run check f1~f5·g2 OK + 빌드 후 `check -- f6` OK(run.ts는 f6을 빌드 산출물이 필요해 전체 실행에서 빼고 이름 지정 시만 실행). 전환 기간: 워크플로우 `ACCESS_TOKEN:?`·env 파일 기록·배포 단계 IMAGE_WEB·COMPOSE_FILE·ENV_FILE 전달·verify job ACCESS_TOKEN env 확인. 가짜 docker·curl로 배포 스크립트: 정상 토큰+보호 경로 401 → pull·up·헬스·종료 0, 빈 토큰 → pull 뒤 up 전 종료 1, 보호 경로 200 → 종료 1, IMAGE_WEB 없음 → docker 호출 전 종료 1. 토큰 켠 실제 백엔드: 토큰 없이 /api/conversations 401·있으면 200·health 200. 브라우저(웹 컨테이너 경유, 토큰 켠 백엔드): 토큰 없으면 UNAUTHORIZED 안내·만료 배너 없음, 설정에서 토큰 저장 후 질문→카드 2장. 충돌 해소: compose(IMAGE_WEB·ENV_FILE 필수), env 예시(ACCESS_TOKEN 값 자리표시자, example.com), push 스크립트(웹 이미지 빌드·REMOTE_DIR·IMAGE 필수·원격에 두 경로와 IMAGE_WEB 전달) 모두 두 설계를 담음. 계약 001 분할본 diff 0, 원본 v1.2(재개) 정본. 결함 QA-9 |
+| 2026-10-15 | nginx 제거·단일 컨테이너 (8a8e311·2e884e8, 문서 HEAD 2fe1c74) | 통과, 결함 1(문서) | `git archive` 루트 컨텍스트 이미지(별도 DB·포트): `/` 200 HTML, `/assets/*.js` 200 JS(ETag), `/api/health` JSON, check_g1 BASE 18010 OK(첫 tool_call 0.69s), 없는 `/api/nope`·`/missing.txt`·접두 없는 POST 모두 404 계약 JSON(HTML 아님). 토큰 켬: 화면·자산·health는 토큰 없이 200, `/api/conversations` 401→토큰 200, `/api/nope` 401→토큰 404. 이미지 안 check_b1~b7 OK. 브라우저: 토큰 없으면 UNAUTHORIZED(만료 배너 아님), 토큰 저장 후 질문→카드 2장. 로컬 uvicorn(static 없음) 기동, `/` 404 JSON. 가짜 docker·curl 배포 스크립트: 정상 종료 0, 빈 토큰 up 전 종료 1, 보호 경로 200 종료 1. compose 서비스 하나, check_g4 OK(운영 도메인 대조 포함). 계약: 인증 절 "모든 `/api/` 요청"(02fed20)으로 구현과 일치, 원본·분할본 diff 0. check_b8(2fe1c74): 앱 토큰 없으면 설정 조회 FAIL(401), 있으면 9항목 PASS·SSE 105초. 코드·설정 파일의 nginx·8080·IMAGE_WEB 0, 결정 기록(ADR 대체 표시·research 비교·계약 이력·완료 태스크)의 언급은 유지. QA-9 확인됨. 참고: 자산에 장기 캐시 헤더 없음(nginx 때 immutable) |
 
 ## 결함
 
@@ -129,4 +130,13 @@
 - 실제: `deploy/README.md:26` Secrets 표 "`ACCESS_TOKEN` | 앱 내 공유 토큰. 운영은 Access가 막으므로 비운다". 이 안내대로 Secret을 비우면 deploy job이 실패한다(Access 설계 쪽 문구가 충돌 해소에서 남음)
 - 수정 방향: deploy 문서. "운영 필수(전환 기간). Access 검증 뒤 끌 때 워크플로우 검증·배포 스크립트 [1b]·[3b]·verify env를 함께 걷어낸다" 식으로 바꾼다
 - 수신: backend-dev
+- 상태: 확인됨 (2e884e8·2fe1c74: "전환 기간에는 운영 필수 … Access 검증 뒤 끈다"와 끌 때 걷어낼 항목 명시)
+
+### QA-10: 프론트 진행 기록의 실행 안내가 nginx·8080 그대로다
+- 모듈: frontend / 진행 기록(nginx 제거 후)
+- 경계면: 문서 — 실행 방법(로컬 재현)
+- 기대: 단일 컨테이너 구조. 로컬은 `docker compose up -d --build` → `http://localhost:8000`(백엔드가 화면+API), check_g1 기본 BASE도 8000
+- 실제: `_workspace/02_frontend_progress.md:19` "→ http://localhost:8080 (nginx, 같은 출처 /api)", `:23` "compose web :8080". 이 기록을 보고 따라 하면 8080에 아무것도 없다
+- 수정 방향: 프론트 진행 기록의 두 줄을 8000·백엔드 정적 서빙으로 고치거나, 옛 구조였음을 표시
+- 수신: frontend-dev
 - 상태: 열림
