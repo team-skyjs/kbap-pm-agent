@@ -7,7 +7,7 @@ Technical Context에 NEEDS CLARIFICATION은 없다. 이 문서는 ADR-22·23이 
 - Decision: 프론트는 모든 요청에 `X-Requested-With: XMLHttpRequest`를 보내고 `redirect: "manual"`을 쓴다. 다음 셋 중 하나면 세션 만료로 판정한다(계약 v1.2 공통 절).
   - 이 문서의 JSON 에러 형식이 아닌 401·403
   - `opaqueredirect`
-  - 상태 5xx가 아닌 `text/html`. 5xx HTML(nginx·Cloudflare 오류 페이지)은 연결 실패로 다룬다. Access는 5xx로 거부하지 않는다
+  - 상태 5xx가 아닌 `text/html`. 5xx HTML(터널·Cloudflare 오류 페이지)은 연결 실패로 다룬다. Access는 5xx로 거부하지 않는다
 - Rationale: Cloudflare의 세션 관리 문서는 요청에 `X-Requested-With: XMLHttpRequest`가 있으면 만료 세션에 401을 준다고 설명한다. 헤더가 없으면 `<팀>.cloudflareaccess.com` 로그인으로 302 리다이렉트하는데, fetch가 이를 따라가면 교차 출처라 CORS 실패(TypeError)로 보인다. 여러 앱 포럼 사례가 이 증상이었다. `redirect: "manual"`은 헤더가 무시되는 경우의 대비다.
 - 출처 신뢰도: 401 동작은 검색으로 찾은 Cloudflare 문서(비표준 포트 URL로 노출)에서만 확인했고 표준 문서 주소로 재확인하지 못했다. 그래서 가정이다.
 - **검증 방법** (T022, Access 설정 후): 쿠키 없는 상태에서 다음 두 요청을 보낸다.
@@ -27,11 +27,11 @@ Technical Context에 NEEDS CLARIFICATION은 없다. 이 문서는 ADR-22·23이 
   2. `CF_Authorization`을 지운 직후 승인을 진행한다. 로그인 뒤 콜백 페이지가 뜨는지 본다.
 - **틀리면**: Access 애플리케이션에 경로 `/api/integrations/amplitude/callback`만 대상으로 하는 **Bypass** 정책(또는 별도 앱)을 둔다. 콜백은 앱 수준 인증이 원래 없고(계약), `state`가 위조 호출을 막는다. 대시보드 설정 하나라 코드 변경이 없다.
 
-## R3. SSE(최대 170초)가 Access·터널·nginx를 끊김 없이 지나나
+## R3. SSE(최대 170초)가 Access·터널을 끊김 없이 지나나
 
-- Decision: nginx `location /api/`에 `proxy_buffering off`, `proxy_read_timeout 200s`, `proxy_http_version 1.1`을 둔다. 백엔드의 기존 15초 ping과 `X-Accel-Buffering: no`를 유지한다.
-- Rationale: Cloudflare 프록시의 100초 응답 대기 제한은 바이트가 흐르면 문제가 아니며, 15초 ping이 이를 보장한다(ADR-6). Access는 인증 후 요청을 그대로 프록시하는 계층이라 스트림 시간 상한을 따로 두지 않는 것으로 본다. nginx 기본 버퍼링은 SSE를 묶어 보내므로 끈다.
-- **검증 방법**: `check_b8.py`의 SSE 장시간 시나리오(서비스 토큰 + `AGENT_MODE=fake`, `FAKE_DELAY_SECONDS=21`, 약 105초)를 운영 경로로 돌린다(T023·T025). 로컬은 `deploy/checks/check_g1.sh`가 웹 컨테이너 경유 SSE의 첫 이벤트 도착 시간을 잰다.
+- Decision: 프록시 계층을 추가하지 않는다(백엔드가 정적 서빙). 백엔드의 기존 15초 ping과 `X-Accel-Buffering: no`를 유지한다.
+- Rationale: Cloudflare 프록시의 100초 응답 대기 제한은 바이트가 흐르면 문제가 아니며, 15초 ping이 이를 보장한다(ADR-6). Access는 인증 후 요청을 그대로 프록시하는 계층이라 스트림 시간 상한을 따로 두지 않는 것으로 본다.
+- **검증 방법**: `check_b8.py`의 SSE 장시간 시나리오(서비스 토큰 + `AGENT_MODE=fake`, `FAKE_DELAY_SECONDS=21`, 약 105초)를 운영 경로로 돌린다(T023·T025). 로컬은 `deploy/checks/check_g1.sh`가 `localhost:8000`에서 SSE의 첫 이벤트 도착 시간을 잰다.
 - **틀리면**: Access가 끊으면 PRD 엣지 케이스대로 부분 결과와 재시도 안내(기존 끊김 처리: 상세 재조회)가 동작하는지 확인하고, Cloudflare 지원 범위를 다시 조사한다.
 
 ## R4. 서비스 토큰 정책과 이메일 정책이 한 애플리케이션에 공존하나
@@ -45,25 +45,26 @@ Technical Context에 NEEDS CLARIFICATION은 없다. 이 문서는 ADR-22·23이 
 
 | 기준 | 서비스 토큰으로 바깥에서 | 홈서버 내부에서 `127.0.0.1` |
 |---|---|---|
-| 이번에 바뀐 경로(터널·Access·nginx 분기) 검증 | 전부 지난다 | 하나도 안 지난다 |
+| 이번에 바뀐 경로(터널 뒤 Access, 같은 출처 정적 서빙) 검증 | 전부 지난다 | Access를 안 지난다 |
 | "막혀야 할 것이 막히나"(US2) 검증 | 토큰 없는 호출로 같은 스크립트가 잰다 | 불가 |
-| SSE 100초 이상 유지(R3) | 실제 경로로 잰다 | nginx만 |
+| SSE 100초 이상 유지(R3) | 실제 경로로 잰다 | 터널·Access 없이 |
 | 비밀 관리 | 서비스 토큰 1쌍(Secrets, 만료 1년) | 없음 |
 | 사람 손 설정 | 토큰 발급 + 정책 1개 | 없음 |
 
 - Decision: 서비스 토큰 방식. 비밀 하나가 늘지만, 이 기능이 바꾸는 것을 검증하는 유일한 방법이다. 내부 헬스체크는 이미 `deploy.kbap-pm-agent.sh`에 있다.
 
-## R6. 경로 분기 위치: nginx 프록시 vs 터널 경로 규칙 (ADR-22)
+## R6. 정적 프론트 제공 방식: 백엔드 정적 서빙 vs nginx 웹 컨테이너 vs 터널 경로 규칙 (ADR-22)
 
-| 기준 | nginx `location /api/` | 터널 ingress `^/api` 규칙 |
-|---|---|---|
-| 로컬에서 같은 출처 재현(첫 모듈 조건) | `docker compose up` 그대로 | 로컬용 프록시가 따로 필요 |
-| 리뷰·검사 가능 | 레포 안 설정 | 대시보드에만 있음 |
-| 대시보드 손 설정 | 규칙 1개(호스트 → 웹) | 규칙 2개(순서 중요) |
-| SSE 설정 | nginx 버퍼링 끔 필요 | 없음 |
-| 홉 | 하나 더 | 없음 |
+| 기준 | 백엔드 `StaticFiles` (채택) | nginx 웹 컨테이너 + `/api` 프록시 (첫 판) | 터널 ingress `^/api` 규칙 |
+|---|---|---|---|
+| 컨테이너·이미지 | 그대로 1개 | +1 | +1 |
+| 터널 손 설정 | 변경 없음 | 규칙 1개 변경 | 규칙 2개(순서 중요) |
+| 로컬 같은 출처 재현 | `localhost:8000` 그대로 | `docker compose`의 web 서비스 | 로컬용 프록시 별도 필요 |
+| SSE 경로 | 그대로 | nginx 버퍼링 끔 필요 | 그대로 |
+| 홈서버 운영 방식 | 다른 앱과 같음(서버에 nginx 없음) | 다름 | 다름 |
+| 대가 | 프론트만 바뀌어도 백엔드 이미지 재빌드, 토큰 검사를 `/api/`로 한정해야 함 | 설정 파일 하나 더 | 라우팅이 대시보드에만 있음 |
 
-- Decision: nginx 프록시. 되돌리려면 `location /api/` 블록을 지우고 대시보드 규칙 두 개를 만든다.
+- Decision: 백엔드 정적 서빙(2026-10-15 사용자 결정). 첫 판의 nginx 웹 컨테이너는 구현 후 걷어냈다(프론트 커밋 8a8e311).
 
 ## R7. 레포에 남은 운영 식별자 (CLAUDE.md "운영 정보 비노출")
 

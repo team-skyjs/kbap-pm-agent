@@ -14,7 +14,7 @@ description: "접근 제한 구현 태스크"
 
 - **역할**: `[BE]` backend-dev, `[FE]` frontend-dev, `[QA]` qa-integrator, `[USER]` 사용자가 Cloudflare·GitHub 대시보드에서 직접 하는 일(코드 없음)
 - **모듈**:
-  - G1: 웹 컨테이너와 같은 출처
+  - G1: 백엔드 정적 서빙과 같은 출처
   - G2: 세션 만료 구분
   - G3: CORS 제거와 예시 값
   - G4: 배포 통합
@@ -39,55 +39,58 @@ description: "접근 제한 구현 태스크"
 
 ---
 
-## Phase 2: Foundational — 웹 컨테이너 로컬 기동 + 같은 출처 `/api` 헬스 왕복, 배포 통합 (G1, G4)
+## Phase 2: Foundational — 백엔드가 프론트를 정적 서빙 + 같은 출처 `/api` 헬스 왕복, 배포 통합 (G1, G4)
 
-**Purpose**: 모든 스토리의 전제. 로컬에서 운영과 같은 같은 출처 구조를 띄우고, 같은 배포 흐름으로 웹 컨테이너가 홈서버에 올라간다.
+**Purpose**: 모든 스토리의 전제. 로컬에서 운영과 같은 같은 출처 구조(컨테이너 하나가 `/`와 `/api`를 함께 제공)를 띄우고, 같은 배포 흐름으로 그 이미지가 홈서버에 올라간다.
 
 **⚠️ 순서 주의**: `pages.yml`(T013)을 G1과 같은 PR에서 지운다. 남겨 두면 G1 병합 순간 Pages가 상대 경로 빌드로 재배포되어 깨진다. 지우면 마지막 정상 Pages가 새 입구 검증(T022)까지 그대로 남는다.
 
-### G1 — 웹 컨테이너와 같은 출처
+### G1 — 백엔드 정적 서빙과 같은 출처
 
 - [x] T001 [FE] `frontend/vite.config.ts`: `base: '/'`로 바꾼다. 개발 서버에 `server.proxy: { '/api': 'http://localhost:8000' }`를 둔다. 주석에서 Pages 언급을 지운다 (G1)
 - [x] T002 [FE] `frontend/src/api.ts`: `API_BASE_URL`과 `VITE_API_BASE_URL` 참조를 지우고 상대 경로 `/api/...`로 호출한다(계약 v1.2 Base URL). `NETWORK_ERROR` 문구에서 주소 출력을 뺀다. 남은 `VITE_API_BASE_URL` 참조(`vite-env.d.ts` 등)도 지운다 (G1)
-- [x] T003 [P] [FE] `frontend/Dockerfile`: 1단계 `node:22-alpine`에서 `npm ci && npm run build`, 2단계 `nginx:alpine`에 `dist/`와 `nginx.conf`를 복사한다. 빌드 단계에서 `npm run check -- f6`를 돌린다. 삭제되는 `pages.yml`이 하던 검사를 이어받는다 (G1)
-- [x] T004 [P] [FE] `frontend/nginx.conf`: 다음 두 블록을 둔다. (G1)
-  - `location /`: 정적 파일. `index.html`은 `Cache-Control: no-cache`, `/assets/`는 장기 캐시. 해시 라우팅이라 SPA 대체 규칙은 필요 없다.
-  - `location /api/`: `proxy_pass http://kbap-pm-agent:8000`. `proxy_http_version 1.1`, `proxy_buffering off`, `proxy_read_timeout 200s`, `proxy_set_header Host $host`를 둔다(SSE, research R3).
-- [x] T005 [FE] 레포 루트 `docker-compose.yml`에 `web` 서비스를 추가한다. build `./frontend`, `8080:80`, `depends_on: backend`다. 백엔드 서비스에 네트워크 별칭 `kbap-pm-agent`를 주어 nginx 설정을 운영과 같게 쓴다(plan Structure Decision) (G1)
+- [ ] T003 [BE] `backend/Dockerfile`: node 단계(`node:22-alpine`)에서 `frontend/`를 `npm ci && npm run build && npm run check -- f6`로 빌드하고, 산출물 `dist/`를 백엔드 이미지에 복사한다. 빌드 컨텍스트는 레포 루트(`-f backend/Dockerfile`)이며 `.dockerignore`로 `node_modules`·`.venv`를 뺀다. 삭제된 `pages.yml`의 f6 검사를 이어받는다 (2026-10-15 백엔드 정적 서빙으로 변경, 재작업) (G1)
+- [ ] T004 [BE] `backend/app/main.py`: 정적 파일과 토큰 범위를 다룬다. (2026-10-15 백엔드 정적 서빙으로 변경, 재작업) (G1)
+  - 정적 마운트: 모든 `/api` 라우터 뒤에 `StaticFiles(directory=<dist>, html=True)`를 `/`에 마운트한다. dist가 없으면(로컬 백엔드 단독 실행) 마운트를 건너뛴다.
+  - 404 유지: 정의되지 않은 `/api/...`는 계약 404 `NOT_FOUND` JSON 그대로여야 하고 `index.html`로 떨어지지 않는다.
+  - 토큰 범위: 공유 토큰 미들웨어 검사를 `/api/` 경로로 한정한다(계약 v1.2 인증 절). 정적 파일에 토큰을 요구하면 브라우저가 앱을 받지 못한다.
+  - 캐시: `index.html`은 `Cache-Control: no-cache`, `/assets/`는 기본값이다.
+- [ ] T005 [BE] 레포 루트 `docker-compose.yml`: `web` 서비스를 두지 않는다(있으면 삭제). `backend` 빌드 컨텍스트를 레포 루트 + `backend/Dockerfile`로 바꿔 `localhost:8000`이 `/`와 `/api`를 함께 제공하게 한다 (2026-10-15 백엔드 정적 서빙으로 변경, 재작업) (G1)
 - [x] T006 [FE] `frontend/checks/check-f6.ts`의 기대값을 바꾼다. `dist/index.html` 자산 경로가 `/assets/`로 시작하고 번들에 `http://`·`https://` API 주소가 박혀 있지 않아야 한다 (G1)
-- [x] T007 [FE] `deploy/checks/check_g1.sh`: 로컬 compose가 뜬 상태에서 curl로 다음을 assert한다. 실패하면 0이 아닌 종료다. (G1 검사)
-  - `localhost:8080/`이 200 `text/html`이다.
-  - `localhost:8080/api/health`가 `{"status":"ok","db":"ok","version":"0.1.0"}`다.
-  - fake 모드 메시지 전송 SSE를 웹 컨테이너 경유로 받아 첫 `tool_call`이 5초 안에 오고 `final`로 끝난다.
-- [x] T008 [QA] G1 교차 검증: `docker compose up -d --build` 후 `check_g1.sh`와 `npm run check -- f6`를 실행한다. 브라우저 `localhost:8080`에서 네트워크 요청이 전부 같은 출처 `/api/...`인지 본다. 001 quickstart 시나리오 3~5(질문→제안→채택)가 웹 컨테이너 경유로 동작해야 한다 (G1 QA)
+- [ ] T007 [FE] `deploy/checks/check_g1.sh`: 로컬 compose가 뜬 상태에서 curl로 다음을 assert한다. 실패하면 0이 아닌 종료다. (2026-10-15 백엔드 정적 서빙으로 변경, 재작업) (G1 검사)
+  - `localhost:8000/`이 200 `text/html`이다.
+  - `localhost:8000/api/health`가 `{"status":"ok","db":"ok","version":"0.1.0"}`다.
+  - fake 모드 메시지 전송 SSE를 같은 출처(`localhost:8000`)로 받아 첫 `tool_call`이 5초 안에 오고 `final`로 끝난다.
+- [ ] T008 [QA] G1 교차 검증: `docker compose up -d --build` 후 `check_g1.sh`와 `npm run check -- f6`를 실행한다. 브라우저 `localhost:8000`에서 네트워크 요청이 전부 같은 출처 `/api/...`이고, `ACCESS_TOKEN`이 켜져 있어도 첫 화면(`/`, `/assets/`)이 토큰 없이 열리는지 본다. 정의되지 않은 `/api/nope`이 계약 404 JSON이어야 한다. 001 quickstart 시나리오 3~5(질문→제안→채택)가 동작해야 한다 (2026-10-15 백엔드 정적 서빙으로 변경, 재작업) (G1 QA)
+- [x] T040 [FE] `frontend/Dockerfile`·`frontend/nginx.conf`·`frontend/.dockerignore`를 삭제하고 `check_g1.sh` 대상을 `localhost:8000`으로 바꾼다(8a8e311) (G1)
 
 ### G4 — 배포 통합
 
-- [x] T009 [BE] `.github/workflows/deploy-backend.yml`을 `git mv`로 `deploy.yml`로 바꾼다. (G4)
+- [ ] T009 [BE] `.github/workflows/deploy-backend.yml`을 `git mv`로 `deploy.yml`로 바꾼다. (G4)
   - 트리거: `paths`에 `frontend/**`를 추가한다.
-  - 빌드: `build` job이 백엔드(`context: backend`, `ghcr.io/<owner>/kbap-pm-agent`)와 웹(`context: frontend`, `ghcr.io/<owner>/kbap-pm-agent-web`) 이미지를 같은 커밋 태그로 빌드·푸시한다(matrix 또는 step 2개).
+  - 빌드: `build` job이 이미지 하나(`ghcr.io/<owner>/kbap-pm-agent`, 컨텍스트 레포 루트, `-f backend/Dockerfile`, 프론트 포함)를 커밋 태그로 빌드·푸시한다. 웹 이미지는 없다 (2026-10-15 백엔드 정적 서빙으로 변경, 재작업).
   - 정리: `CORS_ORIGINS` 관련 env 줄과 주석의 러너 이름·운영 식별자를 지운다.
-- [x] T010 [BE] `deploy/docker-compose.kbap-pm-agent.yml`: `kbap-pm-agent-web` 서비스를 추가한다(이미지 `${IMAGE_WEB}:${IMAGE_TAG}`, `monitor-net`, `127.0.0.1:8002:80`, `restart: unless-stopped`, healthcheck `wget -qO- http://127.0.0.1/`). `env_file` 기본값의 서버 경로를 지우고 `${ENV_FILE:?}` 필수로 바꾼다 (G4)
-- [x] T011 [BE] `deploy/deploy.kbap-pm-agent.sh`·`deploy/push-and-deploy.sh`: 서버 경로 기본값을 지우고 `COMPOSE_FILE`·`ENV_FILE`·원격 경로를 환경변수 필수로 바꾼다. `push-and-deploy.sh`의 ssh 별칭 기본값(`HOST="${1:-...}"`)도 지우고 첫 인자를 필수로 한다. 없으면 사용법을 출력하고 종료 코드 1이다(QA 지적). 헬스체크에 웹 컨테이너 `127.0.0.1:8002/`(HTML)와 `127.0.0.1:8002/api/health`(nginx 경유 백엔드)를 추가한다 (G4)
-- [x] T012 [BE] `deploy/README.md`·`deploy/kbap-pm-agent.env.example`: 운영 도메인을 `pm-agent.example.com`이나 `<운영 호스트명>`으로 바꾼다. `CORS_ORIGINS`·`VITE_API_BASE_URL`·Pages 절차를 지운다. 다음을 적는다. (G4)
-  - 터널 규칙: 운영 호스트명 → `http://kbap-pm-agent-web:80`, 백엔드 직접 규칙은 삭제.
+- [ ] T010 [BE] `deploy/docker-compose.kbap-pm-agent.yml`: 서비스는 `kbap-pm-agent` 하나다(웹 서비스가 있으면 삭제). `env_file`은 `${ENV_FILE:?}` 필수다 (2026-10-15 백엔드 정적 서빙으로 변경, 재작업) (G4)
+- [ ] T011 [BE] `deploy/deploy.kbap-pm-agent.sh`·`deploy/push-and-deploy.sh`: 서버 경로 기본값을 지우고 `COMPOSE_FILE`·`ENV_FILE`·원격 경로를 환경변수 필수로 바꾼다. `push-and-deploy.sh`의 ssh 별칭 기본값(`HOST="${1:-...}"`)도 지우고 첫 인자를 필수로 한다. 없으면 사용법을 출력하고 종료 코드 1이다(QA 지적). 헬스체크에 `127.0.0.1:8001/`(정적 `index.html`)과 기존 `127.0.0.1:8001/api/health`를 둔다한다 (G4)
+- [ ] T012 [BE] `deploy/README.md`·`deploy/kbap-pm-agent.env.example`: 운영 도메인을 `pm-agent.example.com`이나 `<운영 호스트명>`으로 바꾼다. `CORS_ORIGINS`·`VITE_API_BASE_URL`·Pages 절차를 지운다. 다음을 적는다. (G4)
+  - 터널 규칙: 운영 호스트명 → `http://kbap-pm-agent:8000`(기존 규칙 그대로, 변경 없음).
   - Access 설정 절차: T020·T021·T024 요약.
   - 서비스 토큰 교체 절차: 만료 1년, 새 토큰 발급 → Secrets 교체 → 옛 토큰 폐기.
 - [x] T013 [FE] `.github/workflows/pages.yml` 삭제(위 순서 주의) (G4)
-- [x] T014 [BE] `deploy/checks/check_g4.sh`: assert 항목은 다음과 같다. (G4 검사)
-  - 더미 env로 `docker compose -f deploy/docker-compose.kbap-pm-agent.yml config`가 성공하고 서비스 `kbap-pm-agent`·`kbap-pm-agent-web` 둘이 있다.
+- [ ] T014 [BE] `deploy/checks/check_g4.sh`: assert 항목은 다음과 같다. (G4 검사)
+  - 더미 env로 `docker compose -f deploy/docker-compose.kbap-pm-agent.yml config`가 성공하고 서비스가 `kbap-pm-agent` 하나뿐이다.
   - `ENV_FILE` 없이는 compose가 실패한다(필수화 확인).
   - `deploy/push-and-deploy.sh`를 인자 없이 실행하면 원격 접속 전에 종료 코드 1로 끝난다. 레포의 셸 스크립트에 `${1:-` 형태로 호스트·별칭 기본값을 두는 줄이 없다(ssh 별칭 검출).
   - `deploy/`·`.github/`·`backend/`·`frontend/`에 서버 사용자 경로(`/home/`)와 `deploy/README.md` 이전 버전에 있던 운영 도메인 문자열이 없다. 문자열은 스크립트에 쓰지 않는다. 비교 기준은 CI Variable `PUBLIC_BASE_URL`의 호스트이고, 로컬에서는 같은 이름의 환경변수다.
 - [ ] T015 [QA] G4 교차 검증: 다음을 확인하고 `check_g4.sh`를 실행한다. (G4 QA)
   - 비고: 운영 항목(배포 실행·홈서버 healthy·터널 불변)은 머지 후 첫 자동 배포에서 검증한다. 미머지 브랜치로 운영을 바꾸지 않는다(team-lead 결정).
   - 비고: verify job 분기(fb881c0) 로컬 확인 — `CF_ACCESS_CLIENT_ID`·`CF_ACCESS_CLIENT_SECRET` 중 하나라도 비면 경고 후 종료 0, 둘 다 있으면 check_b8 엄격 실행(실패 시 종료 1), 둘 다 있고 `PUBLIC_BASE_URL`이 비면 종료 1. 하나만 설정된 반쯤 설정 상태도 경고 후 통과하므로 T024 직후 첫 배포 로그에서 경고가 사라졌는지 확인한다. 실행 확인은 머지 후.
-  - `workflow_dispatch`로 배포를 실행해 두 이미지가 같은 태그로 푸시된다.
-  - 홈서버에서 두 컨테이너가 healthy이고 배포 스크립트 헬스(웹·nginx 경유 API)가 통과한다.
+  - `workflow_dispatch`로 배포를 실행해 이미지 하나가 커밋 태그로 푸시된다.
+  - 홈서버에서 컨테이너가 healthy이고 배포 스크립트 헬스(정적 `/`와 `/api/health`)가 통과한다.
   - 이 시점에는 터널이 아직 백엔드를 직접 가리키므로 운영 동작이 바뀌지 않아야 한다.
   - 운영 식별자 세 종류(서버 경로, 운영 도메인, ssh 별칭)가 `deploy/`·`.github/`에 남지 않았다.
 
-**Checkpoint**: 로컬은 같은 출처로 동작하고, 웹 컨테이너가 홈서버에 떠 있다(아직 비공개).
+**Checkpoint**: 로컬은 같은 출처로 동작하고, 정적 서빙을 포함한 이미지가 홈서버에 떠 있다. 아직 Access 전이며 공유 토큰이 API를 잠근다.
 
 ---
 
@@ -103,15 +106,15 @@ description: "접근 제한 구현 태스크"
   - `res.type === 'opaqueredirect'`
   - 401·403 중 본문이 계약 에러 JSON이 아닌 것
   - 상태 5xx가 아니면서 `content-type`이 `application/json`·`text/event-stream`이 아닌 응답
-  - 상태 5xx이면서 계약 JSON이 아닌 응답(nginx 502·504, Cloudflare 오류 페이지)은 `NETWORK_ERROR`다(계약 v1.2 문구 개정, frontend-dev 요청).
+  - 상태 5xx이면서 계약 JSON이 아닌 응답(터널·Cloudflare 오류 페이지)은 `NETWORK_ERROR`다(계약 v1.2 문구 개정, frontend-dev 요청).
   - 백엔드의 401 `UNAUTHORIZED` JSON은 기존대로 처리한다.
 - [x] T017 [US1] [FE] `frontend/src/Chat.tsx`·`SettingsPage.tsx`: `SESSION_EXPIRED`면 화면 상단에 "로그인이 만료되었습니다" 안내와 "다시 로그인" 버튼(`location.reload()`)을 둔다. 채팅 입력값은 지우지 않는다(spec 엣지 케이스). 스트림 도중 끊김은 기존 상세 재조회를 유지한다 (G2)
 - [x] T018 [US1] [FE] `frontend/checks/check-g2.ts`: 가짜 `Response` 여섯 종을 판정 함수에 넣는다. `opaqueredirect`, 401 `text/html`, 200 `text/html`은 `SESSION_EXPIRED`여야 한다. 401 계약 JSON `UNAUTHORIZED`는 `UNAUTHORIZED`, 502·504 `text/html`은 `NETWORK_ERROR`여야 한다 (G2 검사)
-- [x] T019 [US1] [QA] G2 교차 검증: `check-g2.ts`를 실행한다. 로컬 웹 컨테이너 nginx에 임시로 `/api/` 302·HTML 응답 규칙을 넣거나 브라우저 요청 가로채기로 세 응답을 흉내 내, 안내 표시와 입력 보존을 확인한다 (G2 QA)
+- [x] T019 [US1] [QA] G2 교차 검증: `check-g2.ts`를 실행한다. 브라우저 요청 가로채기(또는 로컬 프록시)로 세 응답을 흉내 내, 안내 표시와 입력 보존을 확인한다 (G2 QA)
 
 ### 사람 설정 (Cloudflare 대시보드)
 
-- [ ] T020 [US1] [USER] Zero Trust → Networks → Tunnels: 운영 호스트명의 공개 호스트 규칙 서비스를 백엔드에서 `http://kbap-pm-agent-web:80`으로 바꾼다. 백엔드를 직접 가리키는 규칙은 남기지 않는다. T015 이후에 한다
+- [ ] T020 [US1] [USER] Zero Trust → Networks → Tunnels: 운영 호스트명의 공개 호스트 규칙이 `http://kbap-pm-agent:8000` 그대로인지 확인만 한다. 정적 서빙은 같은 컨테이너라 규칙 변경이 없다 (2026-10-15 백엔드 정적 서빙으로 변경, 재작업)
 - [ ] T021 [US1] [USER] Zero Trust → Access → Applications: 다음과 같이 설정한다.
   - 운영 호스트명 전체(경로 비움)로 Self-hosted 애플리케이션을 만든다. Login method는 One-time PIN, 세션 길이는 24시간(PRD 열린 질문, 필요하면 조정)이다.
   - 정책 "Allow: Emails"에 허용 이메일 2개를 넣는다. 이메일은 레포·대화 어디에도 적지 않는다.
@@ -160,7 +163,7 @@ description: "접근 제한 구현 태스크"
 - [ ] T026 [US3] [BE] `backend/app/main.py`: `CORSMiddleware`와 `CORS_ORIGINS` 읽기를 지운다. 미들웨어 순서 주석(CORS 바깥 감싸기)을 정리한다. 레포 루트 `docker-compose.yml`, `.env.example`, `deploy/kbap-pm-agent.env.example`에서 `CORS_ORIGINS`를 지운다 (G3)
 - [ ] T027 [US3] [BE] 계약 v1.2 예시 값을 맞춘다. `backend/app/amplitude.py`의 fake connect 응답과 `backend/checks/examples.py`의 `authorizationUrl`을 계약 `08-amplitude.md` 예시와 글자 단위로 같게 한다(redirect_uri 호스트 `pm-agent.example.com`). fake 모드는 "예시를 그대로 응답"이다 (G3)
 - [ ] T028 [US3] [BE] `backend/checks/check_b1.py`: CORS preflight 기대를 반전해 `Origin: http://localhost:5173`과 임의 출처 모두 `access-control-allow-origin` 헤더가 없어야 한다. `check_b7.py`의 connect 예시 비교가 새 URL로 통과해야 한다 (G3 검사)
-- [ ] T029 [US3] [QA] G3 교차 검증: `check_b1.py`·`check_b7.py`를 순차 실행하고 계약 diff 0을 확인한다. 로컬 웹 컨테이너 경유 동작이 그대로여야 한다(같은 출처는 CORS가 필요 없다). quickstart 로컬 시나리오 3을 본다 (G3 QA)
+- [ ] T029 [US3] [QA] G3 교차 검증: `check_b1.py`·`check_b7.py`를 순차 실행하고 계약 diff 0을 확인한다. 로컬 `localhost:8000`(정적 서빙) 동작이 그대로여야 한다(같은 출처는 CORS가 필요 없다). quickstart 로컬 시나리오 3을 본다 (G3 QA)
 - [ ] T030 [US3] [USER] GitHub 레포 Settings → Pages에서 사이트를 내린다(Source를 None으로 또는 Unpublish). Settings → Variables에서 `VITE_API_BASE_URL`·`CORS_ORIGINS`를 삭제한다. T029 배포 후에 한다
 - [ ] T031 [US3] [QA] US3 운영 검증: 옛 Pages 주소가 404다(US3-1). 옛 Pages 출처로 운영 preflight를 보내면 허용되지 않는다(US3-2, `check_b8.py` preflight 항목) (US3 QA)
 
@@ -168,12 +171,12 @@ description: "접근 제한 구현 태스크"
 
 ## Phase 6: User Story 4 — 배포 한 번에 프론트와 백엔드가 함께 나간다 (Priority: P2)
 
-**Goal**: main 병합이 두 이미지를 배포하고, 배포 직후 운영 검사가 Access를 통과해 돈다. 배포 통합 자체는 G4(Phase 2)에서 했고, 여기서는 배포 후 검사를 붙인다.
+**Goal**: main 병합이 이미지 하나(백엔드+프론트)를 배포하고, 배포 직후 운영 검사가 Access를 통과해 돈다. 배포 통합 자체는 G4(Phase 2)에서 했고, 여기서는 배포 후 검사를 붙인다.
 
-**Independent Test**: 프론트만 바꾼 PR을 병합하면 배포 작업 하나가 웹 이미지를 새로 올리고 `check_b8` 단계가 통과한다.
+**Independent Test**: 프론트만 바꾼 PR을 병합하면 배포 작업 하나가 이미지를 새로 빌드해 올리고 `check_b8` 단계가 통과한다.
 
 - [x] T032 [US4] [BE] `.github/workflows/deploy.yml`에 `deploy` 이후 job `verify`를 추가한다. `ubuntu-latest`에서 `check_b8.py`를 실행하고, 환경변수 `PUBLIC_BASE_URL`(Variables)·`CF_ACCESS_CLIENT_ID`·`CF_ACCESS_CLIENT_SECRET`(Secrets)를 쓴다. SSE 장시간 항목은 real 모드라 건너뛰는 기존 분기를 쓴다. 로그에 운영 호스트명을 찍지 않는다(GitHub가 Variables를 마스킹하지 않으므로 스크립트가 출력하지 않는다) (G5)
-- [ ] T033 [US4] [QA] US4 검증: 프론트만 바꾼 작은 PR을 병합해 배포 작업이 웹 이미지를 새 태그로 교체하고(US4-1) `verify` job이 통과하는지(US4-2) 확인한다. 백엔드만 바꿨을 때도 두 이미지 태그가 같은 커밋으로 맞춰지는지 본다 (US4 QA)
+- [ ] T033 [US4] [QA] US4 검증: 프론트만 바꾼 작은 PR을 병합해 배포 작업이 프론트 변경을 포함한 이미지를 새 태그로 교체하고(US4-1, `frontend/**` 경로 트리거) `verify` job이 통과하는지(US4-2) 확인한다 (US4 QA)
 
 ---
 
@@ -224,7 +227,7 @@ description: "접근 제한 구현 태스크"
 
 - **선행 조건**(헌법 개정): 해소(79d45b9).
 - **Phase 2**: G1(T001~T008)과 G4(T009~T015)는 병렬이다. 다만 T013(pages.yml 삭제)은 G1과 같은 PR이다.
-- **Phase 3**: T020(터널)은 T015 이후다. T021(Access)은 T020과 같이 하거나 바로 뒤에 한다. G2(T016~T019)는 Phase 2 G1 이후 병렬이다. T022는 T019·T021 이후다.
+- **Phase 3**: T020(터널 규칙 확인)은 T015 이후다. T021(Access)은 T020과 같이 하거나 바로 뒤에 한다. G2(T016~T019)는 Phase 2 G1 이후 병렬이다. T022는 T019·T021 이후다.
 - **Phase 4**: T024는 T021 이후, T025는 T023·T024 이후다.
 - **Phase 5**: **T022 통과 후에만** 병합·배포한다(CORS를 먼저 지우면 아직 쓰는 옛 Pages가 깨진다). T030은 T029 배포 후, T031은 T030 이후다.
 - **Phase 6**: T032는 T023·T024 이후다.
@@ -234,13 +237,13 @@ description: "접근 제한 구현 태스크"
 
 ## Parallel Opportunities
 
-- T003·T004(Dockerfile, nginx.conf)를 동시에 진행한다.
+- T003(Dockerfile 프론트 빌드 단계)과 T004(정적 마운트·토큰 범위)는 같은 사람(backend-dev)이 이어서 한다. frontend-dev는 G2를 병렬로 진행한다.
 - frontend-dev는 G1 → G2, backend-dev는 G4 → G5(T023) → G3 순서로 병렬 진행한다.
 - 사람 설정 T020·T021·T024는 한 번에 대시보드에서 끝낼 수 있다(T015 이후).
 
 ## Implementation Strategy
 
-1. G1·G4를 한 PR로 낸다(pages.yml 삭제 포함). 병합 후 홈서버에 웹 컨테이너가 뜨지만 아직 비공개다.
+1. G1·G4를 한 PR로 낸다(pages.yml 삭제 포함). 병합 후 홈서버 컨테이너가 정적 프론트를 함께 제공한다. Access 전까지는 공유 토큰이 API를 잠근다.
 2. 사용자가 터널·Access를 설정하고(T020·T021), QA가 새 입구를 검증한다(T022). 같은 시기 G2를 병합한다.
 3. 서비스 토큰(T024)과 운영 검사(T023·T032)를 붙인다.
 4. 옛 경로를 닫는다(G3 병합 → T030 → T031).
