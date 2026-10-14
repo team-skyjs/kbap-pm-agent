@@ -17,7 +17,7 @@ from app.errors import ApiError
 log = logging.getLogger("app.amplitude")
 router = APIRouter(prefix="/api/integrations/amplitude")
 FAKE_AUTH_URL = ("https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri="
-                 "https%3A%2F%2Fpm-agent-api.simhani1.dev%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ"
+                 "https%3A%2F%2Fpm-agent.example.com%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ"
                  "&code_challenge=Q9v0aR3&code_challenge_method=S256")
 # ponytail: 진행 중 OAuth 하나를 프로세스 메모리에 보관(단일 워커, 사용자 2명). 다중 워커면 state를 DB에
 _pending: dict = {}
