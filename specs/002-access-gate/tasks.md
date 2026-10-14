@@ -96,15 +96,15 @@ description: "접근 제한 구현 태스크"
 
 ### G2 — 세션 만료 구분
 
-- [ ] T016 [US1] [FE] `frontend/src/api.ts` `rawFetch`·`sendMessage`: 모든 요청에 `X-Requested-With: XMLHttpRequest`를 붙이고 `redirect: 'manual'`을 쓴다. 다음 셋 중 하나면 `ApiError('SESSION_EXPIRED', ...)`를 던진다(계약 v1.2 접근 계층 응답, research R1). (G2)
+- [x] T016 [US1] [FE] `frontend/src/api.ts` `rawFetch`·`sendMessage`: 모든 요청에 `X-Requested-With: XMLHttpRequest`를 붙이고 `redirect: 'manual'`을 쓴다. 다음 셋 중 하나면 `ApiError('SESSION_EXPIRED', ...)`를 던진다(계약 v1.2 접근 계층 응답, research R1). (G2)
   - `res.type === 'opaqueredirect'`
   - 401·403 중 본문이 계약 에러 JSON이 아닌 것
   - 상태 5xx가 아니면서 `content-type`이 `application/json`·`text/event-stream`이 아닌 응답
   - 상태 5xx이면서 계약 JSON이 아닌 응답(nginx 502·504, Cloudflare 오류 페이지)은 `NETWORK_ERROR`다(계약 v1.2 문구 개정, frontend-dev 요청).
   - 백엔드의 401 `UNAUTHORIZED` JSON은 기존대로 처리한다.
-- [ ] T017 [US1] [FE] `frontend/src/Chat.tsx`·`SettingsPage.tsx`: `SESSION_EXPIRED`면 화면 상단에 "로그인이 만료되었습니다" 안내와 "다시 로그인" 버튼(`location.reload()`)을 둔다. 채팅 입력값은 지우지 않는다(spec 엣지 케이스). 스트림 도중 끊김은 기존 상세 재조회를 유지한다 (G2)
-- [ ] T018 [US1] [FE] `frontend/checks/check-g2.ts`: 가짜 `Response` 여섯 종을 판정 함수에 넣는다. `opaqueredirect`, 401 `text/html`, 200 `text/html`은 `SESSION_EXPIRED`여야 한다. 401 계약 JSON `UNAUTHORIZED`는 `UNAUTHORIZED`, 502·504 `text/html`은 `NETWORK_ERROR`여야 한다 (G2 검사)
-- [ ] T019 [US1] [QA] G2 교차 검증: `check-g2.ts`를 실행한다. 로컬 웹 컨테이너 nginx에 임시로 `/api/` 302·HTML 응답 규칙을 넣거나 브라우저 요청 가로채기로 세 응답을 흉내 내, 안내 표시와 입력 보존을 확인한다 (G2 QA)
+- [x] T017 [US1] [FE] `frontend/src/Chat.tsx`·`SettingsPage.tsx`: `SESSION_EXPIRED`면 화면 상단에 "로그인이 만료되었습니다" 안내와 "다시 로그인" 버튼(`location.reload()`)을 둔다. 채팅 입력값은 지우지 않는다(spec 엣지 케이스). 스트림 도중 끊김은 기존 상세 재조회를 유지한다 (G2)
+- [x] T018 [US1] [FE] `frontend/checks/check-g2.ts`: 가짜 `Response` 여섯 종을 판정 함수에 넣는다. `opaqueredirect`, 401 `text/html`, 200 `text/html`은 `SESSION_EXPIRED`여야 한다. 401 계약 JSON `UNAUTHORIZED`는 `UNAUTHORIZED`, 502·504 `text/html`은 `NETWORK_ERROR`여야 한다 (G2 검사)
+- [x] T019 [US1] [QA] G2 교차 검증: `check-g2.ts`를 실행한다. 로컬 웹 컨테이너 nginx에 임시로 `/api/` 302·HTML 응답 규칙을 넣거나 브라우저 요청 가로채기로 세 응답을 흉내 내, 안내 표시와 입력 보존을 확인한다 (G2 QA)
 
 ### 사람 설정 (Cloudflare 대시보드)
 
