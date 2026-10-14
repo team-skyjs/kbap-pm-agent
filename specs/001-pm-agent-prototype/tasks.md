@@ -66,18 +66,18 @@ description: "PM Agent 프로토타입 구현 태스크"
 
 ### B2 — 대화·제안 저장
 
-- [ ] T014 [P] [US1] [BE] `backend/app/schemas.py`: `contracts/02-objects.md`의 ConversationSummary, Message, ToolCall, Proposal, Settings Pydantic 모델(camelCase 별칭, null 규칙). 규칙을 모델에 그대로 넣는다.
+- [x] T014 [P] [US1] [BE] `backend/app/schemas.py`: `contracts/02-objects.md`의 ConversationSummary, Message, ToolCall, Proposal, Settings Pydantic 모델(camelCase 별칭, null 규칙). 규칙을 모델에 그대로 넣는다.
   - Evidence는 `kind` 판별 유니온(metric `{summary,value,source}` / code `{summary,file,function,line,snippet}` / taxonomy `{summary,eventName}`)이고, 다른 kind의 키는 직렬화하지 않는다.
   - FunnelStep은 `"status가 \"new\"면 location(file, function, line) 필수, \"existing\"이면 location: null"`, `order`가 1부터 연속, properties `type`이 `"string" | "number" | "boolean"`.
   - `funnel_design`이면 `funnel` 1개 이상, `evidence`·`steps`는 1개 이상.
   - 에이전트 최종 응답 모델 `AgentAnswer{content, proposals[]}`도 둔다. (B2)
-- [ ] T015 [US1] [BE] `backend/app/conversations.py`: 아래 세 엔드포인트, 응답은 `contracts/04-conversations.md`. (B2)
+- [x] T015 [US1] [BE] `backend/app/conversations.py`: 아래 세 엔드포인트, 응답은 `contracts/04-conversations.md`. (B2)
   - `GET /api/conversations`: `{"items":[...]}`, `updatedAt` 내림차순, `messageCount`·`proposalCount`·`adoptedCount` 조회 시 집계.
   - `POST /api/conversations`: 본문 `{}` 또는 `title` 1~200자, 201.
   - `GET /api/conversations/{conversationId}`: 메시지 `createdAt` 오름차순, toolCalls `seq` 오름차순, proposals 포함, `usage`는 `llm_usage` 합산, user 메시지 `usage: null`. 없으면 404 `CONVERSATION_NOT_FOUND`.
-- [ ] T016 [US1] [BE] `backend/app/conversations.py`에 `PATCH /api/proposals/{proposalId}`: `status` 필수(`pending|adopted|on_hold`), `note` 생략 시 유지·`null`이면 삭제·최대 1000자, status 변경마다 `decidedAt` 갱신·`pending`이면 `null`, 대화 `updated_at` 갱신, 없으면 404 `PROPOSAL_NOT_FOUND`. 응답은 Proposal 전체(`contracts/06-proposals.md`) (B2)
-- [ ] T017 [US1] [BE] `backend/checks/check_b2.py`: `contracts/02`·`04`·`06`의 예시 JSON이 `schemas.py` 모델을 통과하고 재직렬화 결과가 원문과 같은 키 구조. 시험 제안을 DB에 넣고 PATCH `adopted`→`pending`에서 `decidedAt`이 채워졌다가 `null`. 잘못된 status가 400 `VALIDATION_ERROR` (B2 검사)
-- [ ] T018 [US1] [QA] B2 교차 검증: 네 엔드포인트 응답을 계약 예시와 키 단위로 대조(null 규칙, `items` 감싸기, camelCase, 201), `check_b2.py` 실행 (B2 QA)
+- [x] T016 [US1] [BE] `backend/app/conversations.py`에 `PATCH /api/proposals/{proposalId}`: `status` 필수(`pending|adopted|on_hold`), `note` 생략 시 유지·`null`이면 삭제·최대 1000자, status 변경마다 `decidedAt` 갱신·`pending`이면 `null`, 대화 `updated_at` 갱신, 없으면 404 `PROPOSAL_NOT_FOUND`. 응답은 Proposal 전체(`contracts/06-proposals.md`) (B2)
+- [x] T017 [US1] [BE] `backend/checks/check_b2.py`: `contracts/02`·`04`·`06`의 예시 JSON이 `schemas.py` 모델을 통과하고 재직렬화 결과가 원문과 같은 키 구조. 시험 제안을 DB에 넣고 PATCH `adopted`→`pending`에서 `decidedAt`이 채워졌다가 `null`. 잘못된 status가 400 `VALIDATION_ERROR` (B2 검사)
+- [x] T018 [US1] [QA] B2 교차 검증: 네 엔드포인트 응답을 계약 예시와 키 단위로 대조(null 규칙, `items` 감싸기, camelCase, 201), `check_b2.py` 실행 (B2 QA)
 
 ### B3 — 메시지 전송 SSE (fake)
 
