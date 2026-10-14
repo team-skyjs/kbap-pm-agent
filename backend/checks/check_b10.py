@@ -75,9 +75,10 @@ for rule in ["사용자의 의도를 바꾸지 않는다.",
              "이미 구체적이면 거의 그대로 두고 요약에 그렇게 적는다.",
              "개선안은 한국어 두 문장 이내, 요약은 한 줄이다.",
              "질문의 대상 이벤트가 택사노미에 없으면 대상을 바꾸지 말고 원문 표현을 유지하며, 요약에 '택사노미에 없는 이벤트'라고 적는다.",
-             "기간·이벤트·지표·산출물이 이미 분명하면 문장을 거의 바꾸지 않고 요약에 '거의 그대로'라고 적는다. 없는 조건을 추가하지 않는다."]:
+             "기간·이벤트·지표·산출물이 이미 분명하면 문장을 거의 바꾸지 않고 요약에 '거의 그대로'라고 적는다. 없는 조건을 추가하지 않는다.",
+             "개선된 질문은 4,000자 이내로 쓴다."]:
     assert rule in REFINE_PROMPT, rule
-ok("REFINE_PROMPT: 규칙 문장 여덟 개")
+ok("REFINE_PROMPT: 규칙 문장 아홉 개")
 
 # --- 입력 조립
 p, truncated = build_prompt("질문입니다", None)
@@ -108,9 +109,16 @@ assert "event_0299_" not in names_line and names_line.split(", ")[-1].startswith
 r = c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})
 assert r.status_code == 200 and r.json()["summary"] == REFINE["summary"] + TRUNCATED_NOTE, r.json()["summary"]
 assert len(with_truncated_note("요" * 300)) == 300 and with_truncated_note("요" * 300).endswith(TRUNCATED_NOTE)
+# 관련 이름 우선: 맨 뒤 관련 이벤트가 잘리지 않고 앞으로
+big["events"].append({"name": "cart_checkout_special", "description": None, "category": None, "properties": []})
+assert c.put("/api/settings/taxonomy", json=big).status_code == 200
+p, truncated = build_prompt("cart 이탈 왜 많아?", None)
+names_line = p.split("## 택사노미 이벤트 이름\n")[1].split("\n")[0]
+assert truncated and names_line.startswith("cart_checkout_special, event_0000_") and len(names_line) <= NAMES_MAX_CHARS, names_line[:60]
+assert not build_prompt("관련 없는 질문", None)[0].split("## 택사노미 이벤트 이름\n")[1].startswith("cart_")
 c.put("/api/settings/taxonomy", json=TAXONOMY_BODY)
 assert build_prompt("질문", None)[1] is False
-ok("상한: 이름 4,000자 이하로 앞부분만·truncated, fake 요약 끝에 고정 문구, 긴 요약도 300자 이내, 작은 택사노미는 표시 없음")
+ok("상한: 이름 4,000자 이하·truncated, fake 요약 끝에 고정 문구, 긴 요약도 300자 이내, 질문 관련 이름이 맨 뒤여도 먼저, 작은 택사노미는 표시 없음")
 
 # --- 두 런타임 가짜 전송
 os.environ["AGENT_MODE"] = "real"
@@ -128,13 +136,14 @@ try:
         assert db.one("SELECT model FROM question_refinements ORDER BY id DESC LIMIT 1")["model"] == model
         u = db.one("SELECT model, input_tokens FROM llm_usage WHERE purpose = 'refine' ORDER BY id DESC LIMIT 1")
         assert u["model"] == model and u["input_tokens"] > 0, u
-        for step in ([("refusal",)] if provider == "anthropic" else []) + [("raw", "JSON 아님")]:
+        too_long = ("final", {"refined": "가" * 4001, "summary": "길이 초과"})  # 보낼 수 없는 개선안은 내보내지 않음
+        for step in ([("refusal",)] if provider == "anthropic" else []) + [("raw", "JSON 아님"), too_long]:
             before = refinements()
             script(provider, [step])
             r = c.post("/api/questions/refine", json={"conversationId": None, "question": "전환율"})
             assert r.status_code == 502 and r.json()["error"]["code"] == "UPSTREAM_ERROR", (provider, step, r.text)
             assert refinements() == before, "실패면 기록 행 없음"
-        ok(f"{provider}: RefineResult 반환·기록·usage 행, " + ("거절·" if provider == "anthropic" else "") + "잘못된 JSON 502 행 없음")
+        ok(f"{provider}: RefineResult 반환·기록·usage 행, " + ("거절·" if provider == "anthropic" else "") + "잘못된 JSON·4,001자 개선안 502 행 없음")
     os.environ.pop("REFINE_MODEL")
     script("anthropic", [("final", answer)])
     c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})

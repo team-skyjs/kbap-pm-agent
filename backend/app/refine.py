@@ -1,5 +1,6 @@
 """질문 다듬기 라우트: 보내기 전 질문을 한 번 다듬고, 사용자가 무엇을 골랐는지 기록."""
 import logging
+import re
 
 from fastapi import APIRouter
 
@@ -26,7 +27,8 @@ REFINE_PROMPT = """너는 PM이 분석 에이전트에게 보낼 질문을 보�
 5. 이미 구체적이면 거의 그대로 두고 요약에 그렇게 적는다.
 6. 개선안은 한국어 두 문장 이내, 요약은 한 줄이다.
 7. 질문의 대상 이벤트가 택사노미에 없으면 대상을 바꾸지 말고 원문 표현을 유지하며, 요약에 '택사노미에 없는 이벤트'라고 적는다.
-8. 기간·이벤트·지표·산출물이 이미 분명하면 문장을 거의 바꾸지 않고 요약에 '거의 그대로'라고 적는다. 없는 조건을 추가하지 않는다."""
+8. 기간·이벤트·지표·산출물이 이미 분명하면 문장을 거의 바꾸지 않고 요약에 '거의 그대로'라고 적는다. 없는 조건을 추가하지 않는다.
+9. 개선된 질문은 4,000자 이내로 쓴다."""
 
 
 def _history(conversation_id: int) -> list[dict]:
@@ -44,10 +46,15 @@ def taxonomy_names() -> list[str]:
     return [e["name"] for e in t["events"]] if t and t.get("events") else []
 
 
-def cap_names(names: list[str]) -> tuple[list[str], bool]:
-    """쉼표로 이은 이름 문자열이 4,000자 안에 드는 앞쪽 이름까지만. (넣은 이름, 잘렸는가)"""
+def cap_names(names: list[str], question: str = "") -> tuple[list[str], bool]:
+    """쉼표로 이은 이름 문자열이 4,000자 안에 드는 이름까지만. (넣은 이름, 잘렸는가).
+    질문의 2자 이상 토큰을 포함한 이름을 먼저 담고 남는 자리는 원래 순서로: 잘려도 관련 이벤트가 빠지지 않게"""
+    tokens = {t for t in re.split(r"[\W_]+", question.lower()) if len(t) >= 2}
+    related = [n for n in names if any(t in n.lower() for t in tokens)]
+    rest = set(related)
+    ordered = related + [n for n in names if n not in rest]
     kept, length = [], 0
-    for n in names:
+    for n in ordered:
         length += len(n) + (2 if kept else 0)
         if length > NAMES_MAX_CHARS:
             return kept, True
@@ -72,7 +79,7 @@ def render_prompt(question: str, names: list[str], rows: list[dict]) -> str:
 def build_prompt(question: str, conversation_id: int | None) -> tuple[str, bool]:
     """(프롬프트, 택사노미 이름이 잘렸는가)"""
     rows = _history(conversation_id) if conversation_id is not None else []
-    names, truncated = cap_names(taxonomy_names())
+    names, truncated = cap_names(taxonomy_names(), question)
     return render_prompt(question, names, rows), truncated
 
 
