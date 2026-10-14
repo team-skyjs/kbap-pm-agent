@@ -23,6 +23,9 @@ export const CREATED = obj(jsonBlock('04-conversations.md', 1))
 export const DETAIL = obj(jsonBlock('04-conversations.md', 2))
 export const PROPOSAL = obj(jsonBlock('02-objects.md', 2))
 export const SETTINGS = jsonBlock('02-objects.md', 3)
+// 08b: [1] 다듬기 응답, [3] 선택 응답
+export const REFINE = obj(jsonBlock('08b-questions.md', 1))
+export const REFINE_CHOICE = obj(jsonBlock('08b-questions.md', 3))
 
 const CHART_DIR = new URL('../../../specs/003-frontend-redesign/contracts/', import.meta.url)
 const CHART_EXAMPLES = blocks('chart-block.md', CHART_DIR).flatMap((b) => b.split('\n').filter((l) => l.startsWith('{')))
@@ -61,6 +64,11 @@ type Options = {
   completeAfterPoll?: boolean
   // 409 순서 재현: 첫 전송 뒤 재조회는 1초 늦게 완료로, 두 번째 전송은 409, 409 뒤 첫 재조회만 실행 중
   conflictRace?: boolean
+  // 질문 다듬기: ok(계약 08b 예시) | fail(502 UPSTREAM_ERROR), 응답 지연(ms, 진행 상태 확인용)
+  refine?: 'ok' | 'fail'
+  refineDelayMs?: number
+  // 선택 기록 500(전송은 계속되어야 함)
+  choiceFail?: boolean
 }
 
 // 대화 7(계약 상세 예시, 제안 두 개) + 전송 시나리오. 다른 대화는 빈 상태로 시작
@@ -94,6 +102,15 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
     const json = (status: number, body: unknown) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
 
     if (method === 'GET' && path === '/api/health') return json(200, HEALTH)
+    if (method === 'POST' && path === '/api/questions/refine') {
+      await new Promise((r) => setTimeout(r, opts.refineDelayMs ?? 300))
+      if (opts.refine === 'fail') return json(502, { error: { code: 'UPSTREAM_ERROR', message: '질문 다듬기 모델 응답 오류입니다.' } })
+      return json(200, REFINE)
+    }
+    if (method === 'POST' && /^\/api\/questions\/refine\/\d+\/choice$/.test(path)) {
+      if (opts.choiceFail) return json(500, { error: { code: 'INTERNAL_ERROR', message: '선택 기록 저장 실패' } })
+      return json(200, { ...REFINE_CHOICE, refinementId: Number(path.split('/')[4]), choice: obj(req.postDataJSON()).choice, chosenAt: now() })
+    }
     if (method === 'GET' && path === '/api/settings') return json(200, SETTINGS)
     if (method === 'GET' && path === '/api/conversations') return json(200, opts.list ? { items: opts.list } : LIST)
     if (method === 'POST' && path === '/api/conversations') return json(201, CREATED)
