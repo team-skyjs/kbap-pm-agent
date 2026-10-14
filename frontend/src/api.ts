@@ -479,3 +479,11 @@ export function errorText(code: string, message?: string): string {
 export function describe(e: unknown): string {
   return e instanceof ApiError ? errorText(e.code, e.message) : String(e)
 }
+
+// ---------- PATCH /api/proposals/{proposalId} ----------
+
+// note: 문자열이면 저장, null이면 지움. 키를 생략하면 기존 메모 유지(계약서). 화면은 항상 메모칸 값을 보낸다.
+export type ProposalUpdate = { status: DecisionStatus; note?: string | null }
+
+export const updateProposal = (id: number, body: ProposalUpdate) =>
+  request('PATCH', `/api/proposals/${id}`, (v) => parseProposal(v), body)

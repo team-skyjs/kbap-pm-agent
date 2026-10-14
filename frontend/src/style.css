@@ -15,3 +15,11 @@ main { padding: 16px; max-width: 960px; }
 .progress { margin-top: 6px; font-style: italic; }
 .composer { display: flex; gap: 8px; margin-top: 12px; }
 .composer textarea { flex: 1; font: inherit; }
+.card { border: 1px solid #ccc; border-radius: 6px; padding: 8px 12px; margin: 8px 0; background: #fff; }
+.card.adopted { border-color: #2e7d32; } .card.on_hold { border-color: #b8860b; }
+.card h4 { margin: 4px 0; } .card h5 { margin: 10px 0 4px; }
+.card pre { background: #f3f3f3; padding: 6px; overflow-x: auto; font-size: 12px; }
+.card table { border-collapse: collapse; font-size: 12px; } .card td, .card th { border: 1px solid #ddd; padding: 2px 6px; }
+.card tr.new { background: #fff6d6; font-weight: bold; }
+.decision { margin-top: 10px; border-top: 1px dashed #ccc; padding-top: 6px; }
+.decision input { flex: 1; }

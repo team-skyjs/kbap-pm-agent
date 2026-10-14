@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import Markdown from 'react-markdown'
 import {
   ApiError, describe, errorText, getConversation, sendMessage,
-  type ConversationDetail, type Message, type StreamEvent, type ToolCall,
+  type ConversationDetail, type Message, type Proposal, type StreamEvent, type ToolCall,
 } from './api.ts'
+import ProposalCard from './ProposalCard.tsx'
 
 const SOURCE_LABEL: Record<ToolCall['source'], string> = { amplitude: 'Amplitude', code: '코드', taxonomy: '택사노미' }
 
@@ -40,15 +41,15 @@ function Progress({ calls }: { calls: ToolCall[] }) {
   )
 }
 
-function MessageView({ m, streamError }: { m: Message; streamError?: string }) {
+function MessageView({ m, streamError, onProposal }: { m: Message; streamError?: string; onProposal: (p: Proposal) => void }) {
   return (
     <div className={`msg ${m.role}`}>
       <div className="muted">{m.role === 'user' ? '나' : '에이전트'} · {new Date(m.createdAt).toLocaleString()}</div>
       {m.content && <Markdown>{m.content}</Markdown>}
       <ToolCalls calls={m.toolCalls} />
       {m.status === 'running' && <Progress calls={m.toolCalls} />}
-      {m.proposals.length > 0 && <div className="muted">제안 {m.proposals.length}개</div>}
       {m.status === 'failed' && <div className="error">실행 실패: {streamError ?? errorText(m.errorCode ?? 'INTERNAL_ERROR')}</div>}
+      {m.proposals.map((p) => <ProposalCard key={p.id} p={p} onUpdated={onProposal} />)}
       {m.usage && (
         <div className="muted">
           {m.usage.model} · 입력 {m.usage.inputTokens} / 출력 {m.usage.outputTokens} 토큰 · ${m.usage.costUsd.toFixed(4)}
@@ -115,6 +116,11 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     }
   }
 
+  function onProposal(p: Proposal) {
+    patchMessage(p.messageId, (m) => ({ ...m, proposals: m.proposals.map((x) => (x.id === p.id ? p : x)) }))
+    onChanged()
+  }
+
   async function submit() {
     const content = input.trim()
     if (!content || streaming) return
@@ -144,7 +150,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     <div className="chat">
       <h3>{detail.title ?? '새 대화'}</h3>
       {detail.messages.length === 0 && <p className="muted">질문을 입력하세요. 예: 스캔 퍼널에서 가장 큰 이탈 지점 찾아서 개선안 제안해줘</p>}
-      {detail.messages.map((m) => <MessageView key={m.id} m={m} streamError={streamErrors[m.id]} />)}
+      {detail.messages.map((m) => <MessageView key={m.id} m={m} streamError={streamErrors[m.id]} onProposal={onProposal} />)}
       <div className="composer">
         <textarea
           value={input} rows={3} maxLength={4000} disabled={disabled}
