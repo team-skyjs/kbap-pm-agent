@@ -40,11 +40,16 @@ fake_amp = FastMCP("amplitude", stateless_http=True)
 
 
 @fake_amp.tool()
-def query_funnel(events: list[str]) -> str:
+def query_amplitude_data(events: list[str]) -> str:
     """Amplitude 퍼널 조회."""
     if events == ["boom"]:
         raise RuntimeError("Amplitude MCP 차단")
     return "scan_start 2,418명 → scan_complete 999명, 전환율 41.3%"
+
+
+# 허용 목록 밖 도구: 모델에 가면 안 되는 것들(실제 서버는 수십 개)
+for extra in ["get_amplitude_context", "create_chart", "save_chart_edits", "list_dashboards"]:
+    fake_amp.add_tool(lambda: "ok", name=extra, description=f"{extra} 시험용")
 
 
 server = uvicorn.Server(uvicorn.Config(fake_amp.streamable_http_app(), host="127.0.0.1", port=8766, log_level="warning"))
@@ -61,21 +66,40 @@ try:
         async with amplitude.anthropic_tools() as tools:
             return [t.name for t, _ in tools]
     import asyncio  # noqa: E402
-    assert asyncio.run(names()) == ["query_funnel"]
+    ALL = {"query_amplitude_data", "get_amplitude_context", "create_chart", "save_chart_edits", "list_dashboards"}
+    ALLOWED = {"get_amplitude_context", "query_amplitude_data"}
+    assert set(asyncio.run(names())) == ALLOWED  # 기본 허용 목록
+    os.environ["AMPLITUDE_TOOLS"] = ""
+    assert set(asyncio.run(names())) == ALL  # 빈 값이면 전부
+    os.environ.pop("AMPLITUDE_TOOLS")
     srv = amplitude.openai_server()
     assert isinstance(srv.params["auth"], OAuthClientProvider) and srv.params["url"] == os.environ["AMPLITUDE_MCP_URL"]
     ok("anthropic_tools()가 MCP 도구를 내고, openai_server()가 같은 OAuth provider를 params['auth']로 넘긴다")
 
+    from llm_mock import sent  # noqa: E402
+    for provider, model in [("anthropic", "anthropic:claude-sonnet-5-5"), ("openai", "openai:gpt-6-luna")]:
+        os.environ["AGENT_MODEL"] = model
+        for value, expect in [(None, ALLOWED), ("", ALL)]:
+            if value is not None:
+                os.environ["AMPLITUDE_TOOLS"] = value
+            script(provider, [("final", done)])
+            evs = sse(c, c.post("/api/conversations", json={}).json()["id"])
+            os.environ.pop("AMPLITUDE_TOOLS", None)
+            assert evs[-1][0] == "final", evs[-1]
+            given = {t["name"] for t in sent[0]["tools"]} & ALL  # 모델 요청에 실린 Amplitude 도구
+            assert given == expect, (provider, value, given)
+        ok(f"{provider}: 모델에는 허용 목록 2개만, AMPLITUDE_TOOLS 빈 값이면 5개 전부")
+
     for provider, model in [("anthropic", "anthropic:claude-sonnet-5-5"), ("openai", "openai:gpt-6-luna")]:
         os.environ["AGENT_MODEL"] = model
         cid = c.post("/api/conversations", json={}).json()["id"]
-        script(provider, [("tool", "query_funnel", {"events": ["scan_start"]}), ("final", done)])
+        script(provider, [("tool", "query_amplitude_data", {"events": ["scan_start"]}), ("final", done)])
         evs = sse(c, cid)
         assert [e for e, _ in evs] == ["message_created", "tool_call", "tool_result", "final"], evs
         assert evs[1][1]["source"] == "amplitude" and evs[2][1]["status"] == "succeeded"
         assert "41.3%" in evs[2][1]["resultSummary"]
         cid = c.post("/api/conversations", json={}).json()["id"]
-        script(provider, [("tool", "query_funnel", {"events": ["boom"]}), ("final", done)])
+        script(provider, [("tool", "query_amplitude_data", {"events": ["boom"]}), ("final", done)])
         evs = sse(c, cid)
         assert [e for e, _ in evs] == ["message_created", "tool_call", "tool_result", "final"], evs
         assert evs[1][1]["source"] == "amplitude" and evs[2][1]["status"] == "failed", evs[2]
@@ -91,7 +115,7 @@ try:
             raise ConnectionError("Amplitude 연결 끊김")
         ClientSession.call_tool = down
         try:
-            script(provider, [("tool", "query_funnel", {"events": ["scan_start"]}), ("final", done)])
+            script(provider, [("tool", "query_amplitude_data", {"events": ["scan_start"]}), ("final", done)])
             evs = sse(c, c.post("/api/conversations", json={}).json()["id"])
         finally:
             ClientSession.call_tool = orig_call

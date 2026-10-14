@@ -75,6 +75,18 @@ async def _no_browser(_url):  # 실행 중에는 재승인 불가
     raise RuntimeError("Amplitude 재승인이 필요합니다. 설정 화면에서 다시 연결해 주세요.")
 
 
+DEFAULT_TOOLS = "get_amplitude_context,query_amplitude_data"
+
+
+def keep(tools: list) -> list:
+    """AMPLITUDE_TOOLS 허용 목록으로 MCP 도구 거르기. 빈 값이면 전부 허용(디버그용).
+    서버가 내려주는 도구 전체를 매 턴 넘기면 입력 토큰·첫 응답 지연이 크게 늘어서 필요한 것만 전달."""
+    allow = {n.strip() for n in env("AMPLITUDE_TOOLS", DEFAULT_TOOLS).split(",") if n.strip()}
+    kept = [t for t in tools if not allow or t.name in allow]
+    log.info("amplitude tools: kept %d of %d", len(kept), len(tools))
+    return kept
+
+
 @contextlib.asynccontextmanager
 async def anthropic_tools():
     """Anthropic 런타임용: 실행 1회 동안 MCP 세션을 열고 (mcp Tool, ClientSession) 목록 제공. 미연결이면 [].
@@ -87,7 +99,7 @@ async def anthropic_tools():
     async with streamablehttp_client(server_url(), auth=oauth_provider(redirect_handler=_no_browser)) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
-            yield [(t, session) for t in (await session.list_tools()).tools]
+            yield [(t, session) for t in keep((await session.list_tools()).tools)]
 
 
 def openai_server(**kwargs):
@@ -95,7 +107,15 @@ def openai_server(**kwargs):
     if is_fake() or not connected():
         return None
     from agents.mcp import MCPServerStreamableHttp
-    return MCPServerStreamableHttp(name="amplitude", cache_tools_list=True,
+
+    class Allowlisted(MCPServerStreamableHttp):
+        async def list_tools(self, *args, **kw):  # SDK가 턴마다 호출, 허용 목록 적용 지점은 Anthropic과 같은 keep()
+            tools = await super().list_tools(*args, **kw)
+            if getattr(self, "_kept", None) is None:  # 로그는 실행당 한 번
+                self._kept = {t.name for t in keep(tools)}
+            return [t for t in tools if t.name in self._kept]
+
+    return Allowlisted(name="amplitude", cache_tools_list=True,
                                    params={"url": server_url(), "auth": oauth_provider(redirect_handler=_no_browser)},
                                    **kwargs)
 
