@@ -117,3 +117,22 @@ jobs:
       - name: remove env file
         if: always()
         run: rm -f deploy/.env.prod
+
+  release:
+    name: create GitHub release
+    needs: [build, deploy]   # 배포가 성공했을 때만
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: v0.1.${{ github.run_number }}
+    steps:
+      - name: create release with auto-generated notes
+        run: |
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "$TAG" \
+            --generate-notes \
+            --notes "배포 이미지: \`${{ env.IMAGE }}:${{ needs.build.outputs.tag }}\` · 커밋 ${{ github.sha }}"
