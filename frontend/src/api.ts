@@ -86,9 +86,6 @@ export function parseErrorBody(v: unknown): ErrorBody {
 
 // ---------- 공통: 요청 ----------
 
-// Node 검사(tsx)에는 import.meta.env가 없어 ?.로 방어
-export const API_BASE_URL: string = import.meta.env?.VITE_API_BASE_URL ?? ''
-
 const TOKEN_KEY = 'kbap-pm-agent.accessToken'
 export function getToken(): string {
   try { return localStorage.getItem(TOKEN_KEY) ?? '' } catch { return '' }
@@ -104,9 +101,9 @@ async function rawFetch(path: string, method: string, body?: string): Promise<Re
   if (t) headers['Authorization'] = `Bearer ${t}`
   const init: RequestInit = { method, headers, body }
   try {
-    return await fetch(API_BASE_URL + path, init)
+    return await fetch(path, init)
   } catch {
-    throw new ApiError('NETWORK_ERROR', `백엔드에 연결할 수 없습니다 (${API_BASE_URL || '주소 미설정'}).`)
+    throw new ApiError('NETWORK_ERROR', '백엔드에 연결할 수 없습니다.')
   }
 }
 
