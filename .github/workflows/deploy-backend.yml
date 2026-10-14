@@ -15,8 +15,8 @@ permissions:
   packages: write
 
 concurrency:
-  group: deploy-backend
-  cancel-in-progress: false   # 배포 중간에 끊지 않는다
+  group: deploy   # 백엔드·프론트 공통. 전역 동시성 1: 실행 중 1개 + 대기 1개(더 쌓이면 오래된 대기분이 취소되고 최신만 남는다)
+  cancel-in-progress: false   # 진행 중인 배포는 끊지 않는다
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}   # ghcr.io/team-skyjs/kbap-pm-agent
