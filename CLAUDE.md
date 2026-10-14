@@ -34,6 +34,7 @@ main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`
 **변경 이력:**
 | 날짜 | 변경 내용 | 대상 | 사유 |
 |------|----------|------|------|
+| 2026-10-15 | 프론트 재설계 003 완료(토큰·레이아웃·마크다운·차트·Playwright UI 검사), 접근 제한 PR #12 보류·브랜치 유지 | frontend/, specs/003-frontend-redesign, ADR-24~27 | PR #13 머지 |
 | 2026-10-15 | 운영 정보 비노출 규칙, 경로 지정 커밋 규칙 추가 | CLAUDE.md | 사용자 지시(홈서버 주소 노출 금지), 공유 인덱스 커밋 사고 2건 |
 | 2026-10-15 | 프론트 GitHub Pages 유지·API 공유 토큰 잠금 결정. 헌법 v1.3.0, 접근 제한 PRD 보류, feat/access-gate 미머지 보관 | constitution, PRD-access-gate, CLAUDE.md | 사용자 결정 |
 | 2026-10-15 | frontend-designer 에이전트 + design-system·chat-ui-design·ui-review 스킬 추가, 오케스트레이터·QA 연결 | agents/frontend-designer, skills 3개, orchestrator, qa-integrator | 사용자 요청: ChatGPT 레퍼런스 채팅 UI/UX 전문 에이전트 |
