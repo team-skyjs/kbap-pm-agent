@@ -51,6 +51,7 @@
   --composer-max-lines: 6;
   --header-h: 56px;
   --chart-h: 280px;
+  --input-grow-basis: 240px;
 
   --duration-fast: 150ms;
   --duration-base: 250ms;
@@ -222,18 +223,47 @@ button:disabled { cursor: default; opacity: 0.5; }
 .chat-input .btn { border-radius: var(--radius-lg); }
 .hint { margin: var(--space-1) var(--space-3) 0; min-height: calc(var(--text-sm) * var(--leading-body)); font-size: var(--text-sm); letter-spacing: 0; }
 
-/* 제안 카드·설정 (자체 재설계 전 기존 모양 유지) */
-.composer { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
-.composer textarea { flex: 1; }
-.card { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); margin: var(--space-2) 0; background: var(--color-bg); }
-.card.adopted { border-color: var(--color-ok); }
-.card.on_hold { border-color: var(--color-warn); }
-.card h4 { margin: var(--space-1) 0; }
-.card h5 { margin: var(--space-3) 0 var(--space-1); }
-.card table { border-collapse: collapse; font-size: var(--text-sm); }
-.card td, .card th { border: 1px solid var(--color-border); padding: var(--space-1) var(--space-2); }
-.card tr.new { background: color-mix(in srgb, var(--color-warn) var(--tint), var(--color-bg)); font-weight: 600; }
-.decision { margin-top: var(--space-3); border-top: 1px dashed var(--color-border); padding-top: var(--space-2); }
-.decision input { flex: 1; }
+/* 제안 카드: 답변과 같은 폭, 네 구역은 접기 */
+.card { margin: var(--space-4) 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+.card h4 { margin: var(--space-1) 0 var(--space-2); font-size: var(--text-base); font-weight: 600; line-height: var(--leading-tight); }
+.card-section { border-top: 1px solid var(--color-border); }
+.card-section > summary { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; cursor: pointer; list-style: none; border-radius: var(--radius-sm); }
+.card-section > summary::-webkit-details-marker { display: none; }
+.card-section > summary::before { content: "▸"; color: var(--color-text-muted); transition: transform var(--duration-fast) var(--ease); }
+.card-section[open] > summary::before { transform: rotate(90deg); }
+.card-section h5 { margin: 0; font-size: var(--text-sm); font-weight: 600; letter-spacing: 0; }
+.card-body { padding: 0 0 var(--space-3) var(--space-5); }
+.card-body > :first-child { margin-top: 0; }
+.card-body ul, .card-body ol { margin: 0; padding-left: var(--space-5); }
+.card-body li + li { margin-top: var(--space-2); }
+.card-body .evidence { list-style: none; padding-left: 0; }
+.card td code { white-space: nowrap; overflow-wrap: normal; }
+.card pre { margin: var(--space-2) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--color-surface); font-size: var(--text-sm); overflow-x: auto; }
+.metric { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-4); margin: 0 0 var(--space-3); }
+.metric dt { color: var(--color-text-muted); font-size: var(--text-sm); }
+.metric dd { margin: 0; }
+.card table { border-collapse: collapse; font-size: var(--text-sm); letter-spacing: 0; }
+.card th, .card td { padding: var(--space-1) var(--space-2); text-align: left; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+.card th { font-weight: 600; white-space: nowrap; }
+.card tr.new { background: color-mix(in srgb, var(--color-warn) var(--tint), var(--color-bg)); }
+
+/* 종류·상태 라벨: 색과 글자를 함께 써 색만으로 구분하지 않음 */
+.tag, .status { display: inline-block; padding: 0 var(--space-2); border-radius: var(--radius-sm); font-size: var(--text-sm); font-weight: 500; letter-spacing: 0; white-space: nowrap; background: var(--color-surface); }
+.tag.metric { background: color-mix(in srgb, var(--chart-1) var(--tint), var(--color-bg)); }
+.tag.code { background: color-mix(in srgb, var(--chart-4) var(--tint), var(--color-bg)); }
+.tag.taxonomy { background: color-mix(in srgb, var(--chart-3) var(--tint), var(--color-bg)); }
+.tag.new { background: color-mix(in srgb, var(--color-warn) calc(var(--tint) * 2), var(--color-bg)); }
+.status.adopted { background: color-mix(in srgb, var(--color-ok) var(--tint), var(--color-bg)); }
+.status.on_hold { background: color-mix(in srgb, var(--color-warn) var(--tint), var(--color-bg)); }
+.card.adopted { border-color: color-mix(in srgb, var(--color-ok) 40%, var(--color-border)); }
+.card.on_hold { border-color: color-mix(in srgb, var(--color-warn) 40%, var(--color-border)); }
+
+.decision { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
+.decision input { flex: 1 1 var(--input-grow-basis); min-width: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); }
+.decision-actions { display: flex; gap: var(--space-2); align-items: center; margin-left: auto; }
+.decision .error { flex-basis: 100%; font-size: var(--text-sm); }
+.decision .btn:not(.primary) { box-shadow: inset 0 0 0 1px var(--color-border); }
+
 .settings section { border-bottom: 1px solid var(--color-border); padding: var(--space-2) 0 var(--space-3); }
 .settings h4 { margin: var(--space-1) 0 var(--space-2); }
