@@ -4,7 +4,7 @@
 2. `cp deploy/kbap-pm-agent.env.example .env.prod` 후 값 입력
 3. 개발 PC에서 `./deploy/push-and-deploy.sh` (buildx 멀티아키 빌드·푸시 → 서버 전송 → pull·up·health)
 4. cloudflared ingress: `pm-agent-api.simhani1.dev` → `http://kbap-pm-agent:8000`
-5. 확인: `PUBLIC_BASE_URL=https://pm-agent-api.simhani1.dev uv run python checks/check_b8.py` (backend/에서)
+5. 확인: `PUBLIC_BASE_URL=https://pm-agent-api.simhani1.dev uv run python checks/check_b8.py` (backend/에서) — 개발 PC의 레포 안에서 실행한다. 기대 출처를 git remote에서 계산하므로 컨테이너 안에서는 `EXPECTED_ORIGIN=https://<owner>.github.io`를 직접 줘야 하고, 그 값이 틀리면 사본 오류를 못 잡는다
 
 ## research.md R4 확인 결과
 

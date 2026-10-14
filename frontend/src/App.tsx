@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createConversation, describe, getHealth, MOCK } from './api.ts'
+import { createConversation, describe, getHealth } from './api.ts'
 import Chat from './Chat.tsx'
 import ConversationList from './ConversationList.tsx'
 import SettingsPage from './SettingsPage.tsx'
@@ -50,7 +50,6 @@ export default function App() {
         <a href="#/"><b>K-Bap PM Agent</b></a>
         <a href="#/settings">설정</a>
         <HealthBadge />
-        {MOCK && <span className="badge degraded">mock 데이터</span>}
         <NewConversationButton onCreated={refreshList} />
       </header>
       <div className="layout">

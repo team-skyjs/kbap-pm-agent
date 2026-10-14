@@ -86,11 +86,8 @@ export function parseErrorBody(v: unknown): ErrorBody {
 
 // ---------- 공통: 요청 ----------
 
-// ponytail: VITE_MOCK=1이면 fetch 대신 mock.ts(계약서 예시 값). 백엔드 모듈이 다 붙으면 mock.ts째 삭제.
-// import.meta.env.X 형태 그대로 써야 Vite가 빌드 때 상수로 바꾸고 mock을 번들에서 뺀다.
 // Node 검사(tsx)에는 import.meta.env가 없어서 ?.로 막는다.
 export const API_BASE_URL: string = import.meta.env?.VITE_API_BASE_URL ?? ''
-export const MOCK: boolean = import.meta.env?.VITE_MOCK === '1'
 
 const TOKEN_KEY = 'kbap-pm-agent.accessToken'
 export function getToken(): string {
@@ -107,9 +104,7 @@ async function rawFetch(path: string, method: string, body?: string): Promise<Re
   if (t) headers['Authorization'] = `Bearer ${t}`
   const init: RequestInit = { method, headers, body }
   try {
-    // 동적 import라 운영 빌드(MOCK=false 상수)에서는 mock.ts가 번들에서 빠진다
-    // 조건을 import.meta.env 리터럴 비교로 둬야 rollup이 죽은 분기째 지운다
-    return import.meta.env?.VITE_MOCK === '1' ? await (await import('./mock.ts')).mockFetch(path, init) : await fetch(API_BASE_URL + path, init)
+    return await fetch(API_BASE_URL + path, init)
   } catch {
     throw new ApiError('NETWORK_ERROR', `백엔드에 연결할 수 없습니다 (${API_BASE_URL || '주소 미설정'}).`)
   }

@@ -2,6 +2,10 @@
 
 레포 구조: `frontend/` (GitHub Pages), `backend/` (홈서버 Docker), `docs/prd/` (PRD 문서), `specs/` (Spec Kit).
 
+## Git 워크플로우
+
+main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`, `docs/...`)에서 하고 PR로 main에 합친다. 하네스 에이전트도 같다: 리더가 빌드 시작 시 브랜치를 만들고, 팀원은 그 브랜치에 커밋하며, 완료 후 리더가 PR을 연다. PR 설명 끝에는 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`를 붙인다.
+
 ## PRD 문서 위치
 
 모든 PRD는 `docs/prd/`에 둔다. `create-prd`(pm-execution) 등 PRD 스킬로 문서를 생성·수정할 때 산출물 경로를 반드시 `docs/prd/PRD-<product-name>.md`로 지정한다. 루트에 PRD를 만들지 않는다. 현재 PRD: `docs/prd/PRD-kbap-pm-agent.md`.
@@ -19,5 +23,6 @@
 |------|----------|------|------|
 | 2026-10-15 | 초기 구성 (cto, frontend-dev, backend-dev, qa-integrator / 4 스킬) | 전체 | - |
 | 2026-10-15 | PRD를 `docs/prd/`로 이동, PRD 스킬 산출물 경로 규칙 추가 | CLAUDE.md, 참조 경로 전체 | 사용자 요청 |
+| 2026-10-15 | Git 워크플로우 규칙 추가: main 직접 커밋 금지, 브랜치 + PR | CLAUDE.md, orchestrator, implement-from-contract, integration-qa | 사용자 지시 "pr을 연다. 바로 커밋하지 않는다" |
 | 2026-10-15 | 첫 빌드 완료. 61 태스크 중 54 통과, 미검증 7(키·승인·배포 필요). 결함 4건 모두 경계면 아님(표시 1, 인덱스 범위 1, 운영 출처 2). ADR-17~19 추가 | 전체 | 하네스 첫 실행 결과 |
 | 2026-10-15 | Spec Kit 도입. 헌법 v1.0.0, specs/001-pm-agent-prototype. 오케스트레이터·implement 스킬이 tasks.md를 작업 목록으로 사용 | CLAUDE.md, orchestrator, implement-from-contract | 사용자 요청 "speckit으로 기술 명세서 작성 후 구현" |

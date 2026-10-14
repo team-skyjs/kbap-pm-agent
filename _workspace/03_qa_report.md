@@ -58,10 +58,13 @@ T061(최종)은 fake 부분(계약 diff 없음, check 13개, quickstart 1~10)을
 - **Amplitude 실제 연동 미검증.** 토큰 갱신·재시작 유지·MCP 도구 이름과 결과 크기는 실제 계정으로만 확인된다. 진행 중 OAuth는 프로세스 메모리에 하나만 있다(단일 워커 가정).
 - **이벤트 인덱스의 테스트 파일 매치.** kbap-fe 117곳 중 17곳이 `src/lib/__tests__/*` 안의 문자열(`'track(EVENTS.app_opened)'`) 매치다. ADR-19 범위 안이지만 에이전트가 테스트 파일을 코드 근거로 인용할 수 있다.
 - **함수명 추정은 정규식.** `enclosing_function`은 중괄호 균형 추정이라 일부 JSX 핸들러는 prop 이름(`onWrite` 등)으로 나온다.
-- **운영 출처 값이 여러 곳에 중복.** ADR, deploy env 예시, check_b8, 운영 `.env.prod`. 바꿀 때 한 곳을 빠뜨리면 QA-3·QA-4가 재발한다.
-- **프론트 mock 코드 잔존.** `frontend/src/mock.ts`와 `VITE_MOCK` 분기가 남아 있다. 운영 번들에는 빠지는 것을 F6 검사로 확인했지만, 주석의 삭제 조건(백엔드 모듈이 다 붙으면 삭제)은 이미 충족됐다.
+- **운영 출처 값 중복 → 검사로 통제됨.** 출처의 단일 기준은 git remote(67c6f3a)다. ADR·env 예시·운영 `.env.prod`는 사본이고, `check_b8.py`가 remote 소유자로 `https://<owner>.github.io`를 계산해 운영 preflight와 대조한다. 확인: 서버 `CORS_ORIGINS=https://simhani1.github.io`이면 check_b8 실패(preflight 400), `https://team-skyjs.github.io`이면 통과. git 저장소가 없는 곳(컨테이너)에서는 `EXPECTED_ORIGIN` 없이 명시적으로 실패한다. 남은 틈: `EXPECTED_ORIGIN`을 손으로 틀리게 주면 사본 오류를 다시 숨길 수 있으니 개발 PC(레포 안)에서 돌린다. 주의: 이 check_b8 변경은 QA 확인 시점에 backend-dev 작업 트리에만 있고 아직 커밋 전이다
 - **MySQL JSON 컬럼의 키 재정렬.** tool_call `input`은 키 순서가 바뀌어 나간다(값 동일, 계약은 순서를 규정하지 않음). 제안 evidence·measurement는 백엔드가 계약 순서로 되돌린다.
 - **타입 캐스팅 우회 없음.** 프론트는 `any`·`as` 없이 런타임 파서로 필드 단위 검증한다(키 누락도 BAD_RESPONSE). 백엔드 라우트는 dict를 직접 만들고 Pydantic 모델은 검사 스크립트·AgentAnswer에만 쓴다. 응답 shape 보증은 검사 스크립트와 이 QA 대조에 기대고 있다.
+
+## 갱신 이력
+
+- 2026-10-15: 프론트 mock 삭제(345f633·0b98411) 후 F1·F6 재검증 통과(check-f1~f6 OK, 운영 빌드 자산 `/kbap-pm-agent/`, 헬스 배지 ok, F3 SSE 화면 흐름 그대로). 출처 결함 구조 대응(67c6f3a) 확인, 남은 위험 갱신.
 
 ## 실행 방법 (사용자가 직접 재현)
 
@@ -79,9 +82,9 @@ for c in b1 b2 b3 b4 b5 b6 b7; do docker compose exec backend uv run python chec
 cd frontend && npm run check
 VITE_API_BASE_URL=https://pm-agent-api.simhani1.dev npm run build && VITE_API_BASE_URL=https://pm-agent-api.simhani1.dev npm run check -- f6
 
-# 4) B8 SSE 장시간 검사 (공용 컨테이너 대신 별도 포트, 약 105초)
+# 4) B8 검사 (레포 안에서 실행: 기대 출처를 git remote로 계산. SSE 105초 검사는 서버가 fake+FAKE_DELAY_SECONDS=21일 때만)
 docker compose run -d --rm --name b8 -e FAKE_DELAY_SECONDS=21 -e CORS_ORIGINS=https://team-skyjs.github.io -p 8006:8000 backend
-docker exec b8 uv run --no-sync python checks/check_b8.py && docker rm -f b8
+(cd backend && PUBLIC_BASE_URL=http://localhost:8006 uv run python checks/check_b8.py); docker rm -f b8
 
 # 5) 계약 동기화
 cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md   # 출력 없음
