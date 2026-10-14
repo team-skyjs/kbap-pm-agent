@@ -4,7 +4,7 @@
 
 ## Git 워크플로우
 
-main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`, `docs/...`)에서 하고 PR로 main에 합친다. 하네스 에이전트도 같다: 리더가 빌드 시작 시 브랜치를 만들고, 팀원은 그 브랜치에 커밋하며, 완료 후 리더가 PR을 연다. PR 설명 끝에는 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`를 붙인다. PR 제목과 본문은 읽는 사람이 바로 이해할 수 있는 한국어로 쓴다. 작업 중 만든 내부 식별자(ADR 번호, 태스크 번호, 모듈 코드, QA 번호 등)는 PR 제목·본문에 쓰지 않고, 무엇이 왜 바뀌었는지 말로 적는다.
+main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`, `docs/...`)에서 하고 PR로 main에 합친다. 하네스 에이전트도 같다: 리더가 빌드 시작 시 브랜치를 만들고, 팀원은 그 브랜치에 커밋하며, 완료 후 리더가 PR을 연다. PR 설명 끝에는 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`를 붙인다. PR 제목은 영어로, 본문은 한국어로 쓴다. 작업 중 만든 내부 식별자(ADR 번호, 태스크 번호, 모듈 코드, QA 번호 등)는 PR 제목·본문에 쓰지 않고, 무엇이 왜 바뀌었는지 말로 적는다.
 
 ## PRD 문서 위치
 
@@ -23,7 +23,7 @@ main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`
 |------|----------|------|------|
 | 2026-10-15 | 초기 구성 (cto, frontend-dev, backend-dev, qa-integrator / 4 스킬) | 전체 | - |
 | 2026-10-15 | PRD를 `docs/prd/`로 이동, PRD 스킬 산출물 경로 규칙 추가 | CLAUDE.md, 참조 경로 전체 | 사용자 요청 |
-| 2026-10-15 | PR 제목·본문은 한국어, 내부 식별자 금지 | CLAUDE.md | 사용자 지시 |
+| 2026-10-15 | PR 제목은 영어, 본문은 한국어, 내부 식별자 금지 | CLAUDE.md | 사용자 지시 (한국어 제목은 번역이 어색) |
 | 2026-10-15 | Git 워크플로우 규칙 추가: main 직접 커밋 금지, 브랜치 + PR | CLAUDE.md, orchestrator, implement-from-contract, integration-qa | 사용자 지시 "pr을 연다. 바로 커밋하지 않는다" |
 | 2026-10-15 | 첫 빌드 완료. 61 태스크 중 54 통과, 미검증 7(키·승인·배포 필요). 결함 4건 모두 경계면 아님(표시 1, 인덱스 범위 1, 운영 출처 2). ADR-17~19 추가 | 전체 | 하네스 첫 실행 결과 |
 | 2026-10-15 | Spec Kit 도입. 헌법 v1.0.0, specs/001-pm-agent-prototype. 오케스트레이터·implement 스킬이 tasks.md를 작업 목록으로 사용 | CLAUDE.md, orchestrator, implement-from-contract | 사용자 요청 "speckit으로 기술 명세서 작성 후 구현" |
