@@ -35,6 +35,7 @@
 | 2026-10-15 | 주석 정리 frontend (1430a07) | 통과 | 코드 변화 0: 바뀐 TS 15개 모두 esbuild 변환 결과 동일, style.css는 주석 1줄만. check-f1~f6 OK, 계약 diff 0. frontend 주석의 내부 식별자 8줄→0, 종결형 어미 32줄→0 |
 | 2026-10-15 | 주석 정리 backend (d24edde) | 통과, 결함 1(기존) | 코드 변화 0: 바뀐 .py 24개 docstring 제외 AST 동일, schema.sql·Dockerfile은 주석 줄만. 재빌드 컨테이너(= 커밋본) check_b1~b7 OK, 계약 diff 0. backend 주석 내부 식별자 24줄→0, 종결형 82줄→1(`backend/checks/check_b6.py:41` "돈다"; 정규식이 잡은 나머지 3줄은 명사 "필요" 오탐). 저장소 전체(주석 감사 대상 41개 파일): 식별자 32→0, 종결형 114→1. 도구 docstring 문구는 모델에 가는 도구 설명이라 문체만 바뀐 것 확인(의미 동일). 정리와 별개로 QA-7 발견 |
 | 2026-10-15 | QA-7 재검증 (dbf5428) | 확인됨 | 재빌드 컨테이너(= 커밋본)에서 두 런타임 도구 스키마의 매개변수 9개 모두 description, check_b1~b7 OK, backend/app docstring 외 코드 변화 0, 계약 diff 0. 저장소 주석 잔존: 식별자 0, 종결형 0(정규식 4줄은 명사 "필요" 오탐). T063 재체크. ADR-21은 c636aab로 되돌려져 T078 대상 아님 |
+| 2026-10-15 | 002 G1 웹 컨테이너 같은 출처 (0b8ff91, 검증 시 HEAD 52e9dc8) T008 | 통과 | 공용 스택은 다른 작업 중이라 재빌드하지 않고, 서빙 번들 해시가 HEAD 로컬 빌드와 같음을 확인(index-B8ym8NK3.js). check_g1.sh OK(첫 tool_call 0.70s, final), 잘못된 BASE면 exit 1. npm run check f1~f6 OK, 번들에 절대 API 주소·localhost:8000 없음, 소스에 API_BASE_URL·VITE_API_BASE_URL 0. index.html no-cache, 자산 max-age=31536000 immutable. headless Chrome localhost:8080: 요청 전부 같은 출처(다른 출처 0, /api 14건), 001 시나리오 3(첫 진행 0.78s, 카드 2장 4영역)·4(퍼널 기존/신규·위치)·5(채택 새로고침 유지, 목록 채택 1) 통과. T013(pages.yml 삭제)은 G4(T015)에서 |
 
 ## 결함
 

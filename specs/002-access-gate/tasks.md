@@ -46,19 +46,19 @@ description: "접근 제한 구현 태스크"
 
 ### G1 — 웹 컨테이너와 같은 출처
 
-- [ ] T001 [FE] `frontend/vite.config.ts`: `base: '/'`로 바꾼다. 개발 서버에 `server.proxy: { '/api': 'http://localhost:8000' }`를 둔다. 주석에서 Pages 언급을 지운다 (G1)
-- [ ] T002 [FE] `frontend/src/api.ts`: `API_BASE_URL`과 `VITE_API_BASE_URL` 참조를 지우고 상대 경로 `/api/...`로 호출한다(계약 v1.2 Base URL). `NETWORK_ERROR` 문구에서 주소 출력을 뺀다. 남은 `VITE_API_BASE_URL` 참조(`vite-env.d.ts` 등)도 지운다 (G1)
-- [ ] T003 [P] [FE] `frontend/Dockerfile`: 1단계 `node:22-alpine`에서 `npm ci && npm run build`, 2단계 `nginx:alpine`에 `dist/`와 `nginx.conf`를 복사한다. 빌드 단계에서 `npm run check -- f6`를 돌린다. 삭제되는 `pages.yml`이 하던 검사를 이어받는다 (G1)
-- [ ] T004 [P] [FE] `frontend/nginx.conf`: 다음 두 블록을 둔다. (G1)
+- [x] T001 [FE] `frontend/vite.config.ts`: `base: '/'`로 바꾼다. 개발 서버에 `server.proxy: { '/api': 'http://localhost:8000' }`를 둔다. 주석에서 Pages 언급을 지운다 (G1)
+- [x] T002 [FE] `frontend/src/api.ts`: `API_BASE_URL`과 `VITE_API_BASE_URL` 참조를 지우고 상대 경로 `/api/...`로 호출한다(계약 v1.2 Base URL). `NETWORK_ERROR` 문구에서 주소 출력을 뺀다. 남은 `VITE_API_BASE_URL` 참조(`vite-env.d.ts` 등)도 지운다 (G1)
+- [x] T003 [P] [FE] `frontend/Dockerfile`: 1단계 `node:22-alpine`에서 `npm ci && npm run build`, 2단계 `nginx:alpine`에 `dist/`와 `nginx.conf`를 복사한다. 빌드 단계에서 `npm run check -- f6`를 돌린다. 삭제되는 `pages.yml`이 하던 검사를 이어받는다 (G1)
+- [x] T004 [P] [FE] `frontend/nginx.conf`: 다음 두 블록을 둔다. (G1)
   - `location /`: 정적 파일. `index.html`은 `Cache-Control: no-cache`, `/assets/`는 장기 캐시. 해시 라우팅이라 SPA 대체 규칙은 필요 없다.
   - `location /api/`: `proxy_pass http://kbap-pm-agent:8000`. `proxy_http_version 1.1`, `proxy_buffering off`, `proxy_read_timeout 200s`, `proxy_set_header Host $host`를 둔다(SSE, research R3).
-- [ ] T005 [FE] 레포 루트 `docker-compose.yml`에 `web` 서비스를 추가한다. build `./frontend`, `8080:80`, `depends_on: backend`다. 백엔드 서비스에 네트워크 별칭 `kbap-pm-agent`를 주어 nginx 설정을 운영과 같게 쓴다(plan Structure Decision) (G1)
-- [ ] T006 [FE] `frontend/checks/check-f6.ts`의 기대값을 바꾼다. `dist/index.html` 자산 경로가 `/assets/`로 시작하고 번들에 `http://`·`https://` API 주소가 박혀 있지 않아야 한다 (G1)
-- [ ] T007 [FE] `deploy/checks/check_g1.sh`: 로컬 compose가 뜬 상태에서 curl로 다음을 assert한다. 실패하면 0이 아닌 종료다. (G1 검사)
+- [x] T005 [FE] 레포 루트 `docker-compose.yml`에 `web` 서비스를 추가한다. build `./frontend`, `8080:80`, `depends_on: backend`다. 백엔드 서비스에 네트워크 별칭 `kbap-pm-agent`를 주어 nginx 설정을 운영과 같게 쓴다(plan Structure Decision) (G1)
+- [x] T006 [FE] `frontend/checks/check-f6.ts`의 기대값을 바꾼다. `dist/index.html` 자산 경로가 `/assets/`로 시작하고 번들에 `http://`·`https://` API 주소가 박혀 있지 않아야 한다 (G1)
+- [x] T007 [FE] `deploy/checks/check_g1.sh`: 로컬 compose가 뜬 상태에서 curl로 다음을 assert한다. 실패하면 0이 아닌 종료다. (G1 검사)
   - `localhost:8080/`이 200 `text/html`이다.
   - `localhost:8080/api/health`가 `{"status":"ok","db":"ok","version":"0.1.0"}`다.
   - fake 모드 메시지 전송 SSE를 웹 컨테이너 경유로 받아 첫 `tool_call`이 5초 안에 오고 `final`로 끝난다.
-- [ ] T008 [QA] G1 교차 검증: `docker compose up -d --build` 후 `check_g1.sh`와 `npm run check -- f6`를 실행한다. 브라우저 `localhost:8080`에서 네트워크 요청이 전부 같은 출처 `/api/...`인지 본다. 001 quickstart 시나리오 3~5(질문→제안→채택)가 웹 컨테이너 경유로 동작해야 한다 (G1 QA)
+- [x] T008 [QA] G1 교차 검증: `docker compose up -d --build` 후 `check_g1.sh`와 `npm run check -- f6`를 실행한다. 브라우저 `localhost:8080`에서 네트워크 요청이 전부 같은 출처 `/api/...`인지 본다. 001 quickstart 시나리오 3~5(질문→제안→채택)가 웹 컨테이너 경유로 동작해야 한다 (G1 QA)
 
 ### G4 — 배포 통합
 
