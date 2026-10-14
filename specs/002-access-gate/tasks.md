@@ -66,13 +66,13 @@ description: "접근 제한 구현 태스크"
   - 트리거: `paths`에 `frontend/**`를 추가한다.
   - 빌드: `build` job이 백엔드(`context: backend`, `ghcr.io/<owner>/kbap-pm-agent`)와 웹(`context: frontend`, `ghcr.io/<owner>/kbap-pm-agent-web`) 이미지를 같은 커밋 태그로 빌드·푸시한다(matrix 또는 step 2개).
   - 정리: `CORS_ORIGINS` 관련 env 줄과 주석의 러너 이름·운영 식별자를 지운다.
-- [ ] T010 [BE] `deploy/docker-compose.kbap-pm-agent.yml`: `kbap-pm-agent-web` 서비스를 추가한다(이미지 `${IMAGE_WEB}:${IMAGE_TAG}`, `monitor-net`, `127.0.0.1:8002:80`, `restart: unless-stopped`, healthcheck `wget -qO- http://127.0.0.1/`). `env_file` 기본값의 서버 경로를 지우고 `${ENV_FILE:?}` 필수로 바꾼다 (G4)
-- [ ] T011 [BE] `deploy/deploy.kbap-pm-agent.sh`·`deploy/push-and-deploy.sh`: 서버 경로 기본값을 지우고 `COMPOSE_FILE`·`ENV_FILE`·원격 경로를 환경변수 필수로 바꾼다. `push-and-deploy.sh`의 ssh 별칭 기본값(`HOST="${1:-...}"`)도 지우고 첫 인자를 필수로 한다. 없으면 사용법을 출력하고 종료 코드 1이다(QA 지적). 헬스체크에 웹 컨테이너 `127.0.0.1:8002/`(HTML)와 `127.0.0.1:8002/api/health`(nginx 경유 백엔드)를 추가한다 (G4)
-- [ ] T012 [BE] `deploy/README.md`·`deploy/kbap-pm-agent.env.example`: 운영 도메인을 `pm-agent.example.com`이나 `<운영 호스트명>`으로 바꾼다. `CORS_ORIGINS`·`VITE_API_BASE_URL`·Pages 절차를 지운다. 다음을 적는다. (G4)
+- [x] T010 [BE] `deploy/docker-compose.kbap-pm-agent.yml`: `kbap-pm-agent-web` 서비스를 추가한다(이미지 `${IMAGE_WEB}:${IMAGE_TAG}`, `monitor-net`, `127.0.0.1:8002:80`, `restart: unless-stopped`, healthcheck `wget -qO- http://127.0.0.1/`). `env_file` 기본값의 서버 경로를 지우고 `${ENV_FILE:?}` 필수로 바꾼다 (G4)
+- [x] T011 [BE] `deploy/deploy.kbap-pm-agent.sh`·`deploy/push-and-deploy.sh`: 서버 경로 기본값을 지우고 `COMPOSE_FILE`·`ENV_FILE`·원격 경로를 환경변수 필수로 바꾼다. `push-and-deploy.sh`의 ssh 별칭 기본값(`HOST="${1:-...}"`)도 지우고 첫 인자를 필수로 한다. 없으면 사용법을 출력하고 종료 코드 1이다(QA 지적). 헬스체크에 웹 컨테이너 `127.0.0.1:8002/`(HTML)와 `127.0.0.1:8002/api/health`(nginx 경유 백엔드)를 추가한다 (G4)
+- [x] T012 [BE] `deploy/README.md`·`deploy/kbap-pm-agent.env.example`: 운영 도메인을 `pm-agent.example.com`이나 `<운영 호스트명>`으로 바꾼다. `CORS_ORIGINS`·`VITE_API_BASE_URL`·Pages 절차를 지운다. 다음을 적는다. (G4)
   - 터널 규칙: 운영 호스트명 → `http://kbap-pm-agent-web:80`, 백엔드 직접 규칙은 삭제.
   - Access 설정 절차: T020·T021·T024 요약.
   - 서비스 토큰 교체 절차: 만료 1년, 새 토큰 발급 → Secrets 교체 → 옛 토큰 폐기.
-- [ ] T013 [FE] `.github/workflows/pages.yml` 삭제(위 순서 주의) (G4)
+- [x] T013 [FE] `.github/workflows/pages.yml` 삭제(위 순서 주의) (G4)
 - [ ] T014 [BE] `deploy/checks/check_g4.sh`: assert 항목은 다음과 같다. (G4 검사)
   - 더미 env로 `docker compose -f deploy/docker-compose.kbap-pm-agent.yml config`가 성공하고 서비스 `kbap-pm-agent`·`kbap-pm-agent-web` 둘이 있다.
   - `ENV_FILE` 없이는 compose가 실패한다(필수화 확인).
