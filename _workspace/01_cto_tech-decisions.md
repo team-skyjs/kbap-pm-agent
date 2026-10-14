@@ -245,6 +245,44 @@
 - 바꾸면 영향: 형식 파일, 파서, 프롬프트 한 줄.
 - 상태: 가정 유지 — 모델이 블록을 안정적으로 내는지(spec SC-007: 실제 시계열 질문 5건 중 4건)는 실제 키 질문으로 아직 재지 않았다(2026-10-15 PR #13 머지 시점).
 
+### ADR-28: 질문 다듬기 모델은 `REFINE_MODEL`(비면 `CODE_SUMMARY_MODEL`), 샘플 10건 사람 채점으로 확정 (004 질문 마법사)
+- 결정:
+  - **모델과 호출**: `REFINE_MODEL` 문자열(ADR-20 접두사 규칙, 잘못된 접두사는 기동 실패)이고, 비면 `CODE_SUMMARY_MODEL`이다. 호출은 `agent.py`의 `refine()` seam 하나로 하고, 도구 없이 구조화 출력(`RefineResult{refined, summary}`), effort `low`, 1회다.
+  - **비교로 확정**: 샘플 10건을 `anthropic:claude-haiku-5-5`와 `anthropic:claude-sonnet-5-5`로 다듬어 나란히 놓는다(`backend/checks/compare_refine.py` → `_workspace/06_refine_model_comparison.md`). QA가 네 항목(의도 보존·실제 이벤트 이름·기간과 지표·자연스러움)을 각 0~2점으로 채점한다.
+  - **결정 규칙**: Sonnet 합계가 Haiku보다 8점(10%) 이상 높거나 Haiku가 의도 보존 0점을 2건 이상 받으면 Sonnet이고, 아니면 Haiku다.
+- 이유: PRD 6.3 사용자 결정(테스트로 정함). 추정 비용은 Haiku 약 $0.0003, Sonnet 약 $0.007/회라 둘 다 질문 1회의 1% 이하다. 품질 차이가 작으면 싼 쪽이 맞고, 의도 보존 실패는 기능 신뢰를 깨므로 별도 조건이다.
+- 버린 대안: Sonnet 고정(근거 없음), LLM 판정자 채점(사용자가 사람 채점 지정), 에이전트 모델(`AGENT_MODEL`) 재사용(비용·지연 과다).
+- 바꾸면 영향: 환경변수 값 하나(운영 Variables, env 예시).
+- 상태: 가정 — 비교 채점 전이다. 그동안 기본값(`CODE_SUMMARY_MODEL`, Haiku 5.5)으로 동작한다.
+
+### ADR-29: `llm_usage.purpose` ENUM 확장은 기동 시 조건부 `ALTER`로 한다 (004)
+- 결정: `schema.sql`의 `llm_usage.purpose`를 `ENUM('agent','code_summary','refine')`로 바꾼다(새 DB용). `db.init()`이 `schema.sql` 실행 직후 `information_schema.COLUMNS`의 `COLUMN_TYPE`에 `'refine'`이 없을 때만 `ALTER TABLE llm_usage MODIFY purpose ENUM('agent','code_summary','refine') NOT NULL`을 실행한다. 새 테이블 `question_refinements`는 `CREATE TABLE IF NOT EXISTS`로 만든다.
+- 이유: `CREATE TABLE IF NOT EXISTS`는 기존 테이블의 ENUM을 바꾸지 않는다(PRD 6.2). 앱은 `init()` 뒤에 요청을 받으므로 마이그레이션이 항상 새 코드보다 먼저다. 조건 검사라 몇 번 기동해도 안전하다(멱등). 운영 계정은 DB에 ALL 권한이 있다.
+- 버린 대안: Alembic(프로토타입에 과함), 배포 스크립트 수동 SQL(빠뜨리기 쉬움), `purpose`를 VARCHAR로(값 검증이 사라짐), 무조건 `ALTER`(기동마다 테이블 재작성 위험).
+- 바꾸면 영향: `db.init()` 한 블록. 이후 ENUM 값을 또 늘릴 때도 같은 블록에 조건 하나를 더한다(그때 마이그레이션 목록으로 정리 검토).
+- 상태: 확정
+
+### ADR-30: 다듬기 프롬프트 규칙과 입력 (004)
+- 결정:
+  - **입력**: 상수 `REFINE_PROMPT`(`backend/app/refine.py`)에 아래 다섯 묶음을 붙인다.
+    - 시스템 규칙.
+    - 택사노미 이벤트 이름 목록: `app_settings.taxonomy`의 `events[].name`만, 없으면 "택사노미 없음".
+    - 대화 이력: 해당 대화의 완료 메시지 중 최근 사용자 2개·에이전트 2개, 각 앞 500자, 오래된 순. `conversationId`가 null이면 없음.
+    - 사용자 질문.
+    - 출력 형식.
+  - **규칙**:
+    1. 사용자의 의도를 바꾸지 않는다.
+    2. 기간, 대상 이벤트(목록에 있는 실제 이름만), 보고 싶은 지표, 원하는 산출물(개선안인지 측정 설계인지)을 드러낸다.
+    3. 목록에 없는 이벤트 이름이나 원문에 없는 사실을 지어내지 않는다. 대상이 목록에 없으면 사용자의 말을 그대로 둔다.
+    4. 정보가 없으면 합리적 기본값(예: 최근 7일)을 쓰되 요약에 "(원문에 없음)"으로 밝힌다.
+    5. 이미 구체적이면 거의 그대로 두고 요약에 그렇게 적는다.
+    6. 개선안은 한국어 두 문장 이내, 요약은 한 줄이다.
+  - **검사**: `check_b10.py`가 규칙 문장들이 상수에 들어 있는지와 입력 조립(이름만, 4개 × 500자)을 확인한다.
+- 이유: PRD 6.2. 이름만 넣으면 45개에 약 400토큰으로 짧다. 이력을 넣어야 후속 질문("그걸 주 단위로")이 대상을 잃지 않는다. 기본값을 밝혀야 사용자가 개선안을 믿고 고를 수 있다.
+- 버린 대안: 이벤트 정의·속성까지 넣기(토큰 수배, 다듬기에는 이름이면 충분), 이력 20개(에이전트 실행과 같은 양, 다듬기에 과함), 문장 수 코드 검증(한국어 문장 분리가 불안정).
+- 바꾸면 영향: `refine.py` 상수와 입력 조립 함수.
+- 상태: 확정 (규칙 문구는 모델 비교표의 위반 사례로 다듬을 수 있다. 바뀌면 이 ADR에 기록)
+
 ## 위임 (구현자가 정하되 "설정으로 바꿀 수 있게"만 지킨다)
 
 - UI 라이브러리·스타일링 (PRD: 세련된 UI 비목표)
@@ -265,6 +303,7 @@
 | `AGENT_MODE` | `real` / `fake` | ADR-15 |
 | `AGENT_MODEL`, `CODE_SUMMARY_MODEL` | `anthropic:claude-sonnet-5-5`, `anthropic:claude-haiku-5-5` (OpenAI로 바꾸면 `openai:gpt-6-luna`) | ADR-20 |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | | 쓰는 쪽만 |
+| `REFINE_MODEL` | (비움 → `CODE_SUMMARY_MODEL`) | ADR-28 |
 | `AGENT_MAX_TURNS` | `10` | ADR-2 (2026-10-15 사용자 결정: 도구 20→도구 5→모델 턴 10. 비용은 모델 턴에서만 생긴다) |
 | `AGENT_TIMEOUT_SECONDS` | `170` | ADR-16 |
 | `LLM_BUDGET_USD` | `200` | ADR-9 |
