@@ -212,20 +212,20 @@ description: "프론트 재설계 구현 태스크"
   - 생명주기·크기: 언마운트 시 `destroy()`, x 라벨 자동 생략, 반응형 크기다.
   - 접근성: 캔버스 컨테이너에 `role="img"`·`aria-label={title}`을 두고, 시각적으로 숨긴 `<table>`을 같은 데이터로 렌더한다.
 - [x] T036 [US6] [FE] `Markdown.tsx`: 언어 `chart` 코드 블록을 `parseChartBlock`으로 검사한다. 성공이면 `ChartBlock`, 실패면 원문 코드 블록이다
-- [ ] T037 [US6] [DS] `style.css`: `--chart-1`~`4`·`--chart-grid` 토큰 라이트·다크 값(제안서 확정값), 차트 컨테이너(높이 예약·여백), 숨긴 표용 `.visually-hidden` 유틸리티
-- [ ] T038 [US6] [BE] `backend/app/agent.py` `SYSTEM_PROMPT`에 한 줄을 추가한다: "시계열 지표(날짜별 수치)를 답할 때는 본문에 chart 코드 블록을 함께 쓴다. 형식:"과 `contracts/chart-block.md`의 선 예시 JSON 한 줄. 모델명은 넣지 않는다. 다른 프롬프트 문장은 바꾸지 않는다
-- [ ] T039 [US6] [BE] `backend/checks/check_b9.py`: `SYSTEM_PROMPT`에 위 문장과 `specs/003-frontend-redesign/contracts/chart-block.md`의 선 예시 JSON이 글자 단위로 들어 있는지 assert한다 (US6 검사 2)
+- [x] T037 [US6] [DS] `style.css`: `--chart-1`~`4`·`--chart-grid` 토큰 라이트·다크 값(제안서 확정값), 차트 컨테이너(높이 예약·여백), 숨긴 표용 `.visually-hidden` 유틸리티
+- [x] T038 [US6] [BE] `backend/app/agent.py` `SYSTEM_PROMPT`에 한 줄을 추가한다: "시계열 지표(날짜별 수치)를 답할 때는 본문에 chart 코드 블록을 함께 쓴다. 형식:"과 `contracts/chart-block.md`의 선 예시 JSON 한 줄. 모델명은 넣지 않는다. 다른 프롬프트 문장은 바꾸지 않는다
+- [x] T039 [US6] [BE] `backend/checks/check_b9.py`: `SYSTEM_PROMPT`에 위 문장과 `specs/003-frontend-redesign/contracts/chart-block.md`의 선 예시 JSON이 글자 단위로 들어 있는지 assert한다 (US6 검사 2)
 - [x] T040 [US6] [FE] `frontend/checks/ui/us6.spec.ts`: (US6 검사 3)
   - 렌더링: 표본 답변에서 `canvas` 2개, 오류 예시는 `code.language-chart` 원문, 각 차트 컨테이너의 `aria-label`과 숨긴 표 행 수.
   - 다크: dark 프로젝트에서 차트가 그려진다(캔버스 비어 있지 않음, 픽셀 샘플).
   - 지연 로드: 차트 블록이 없는 대화를 열 때 `chart` 청크 요청이 없다(`page.on('request')`).
-- [ ] T041 [US6] [QA] us6·f7·b9 실행, `npm run build`의 청크 크기 기록(차트 청크 ≤ 200KB, 전체 증가 ≤ 300KB, research R1 측정과 대조), ui-review(차트 라이트·다크) (US6 QA)
+- [x] T041 [US6] [QA] us6·f7·b9 실행, `npm run build`의 청크 크기 기록(차트 청크 ≤ 200KB, 전체 증가 ≤ 300KB, research R1 측정과 대조), ui-review(차트 라이트·다크) (US6 QA)
 
 ---
 
 ## Phase 11: User Story 9 — 제안 카드 재설계 (P2)
 
-- [ ] T042 [US9] [DS] `ProposalCard.tsx`·`style.css`: 다음을 반영한다.
+- [x] T042 [US9] [DS] `ProposalCard.tsx`·`style.css`: 다음을 반영한다.
   - 배치: AI 메시지와 같은 폭이다.
   - 구역: 네 구역은 `<details>/<summary>` 또는 `aria-expanded` 버튼이다. 기본은 제안만 펼침이다.
   - 근거·퍼널: 근거 종류 라벨(지표·코드·택사노미), 코드 근거의 파일·함수·줄, 퍼널 단계 기존/신규 라벨.
@@ -240,7 +240,7 @@ description: "프론트 재설계 구현 태스크"
 
 ## Phase 12: User Story 11 — 접근성 (P2)
 
-- [ ] T045 [US11] [DS] 전 화면 접근성을 손본다: 포커스 순서와 시각 순서 일치, `:focus-visible` 윤곽선(`--color-focus`), 아이콘 버튼 `aria-label`, 진행 live region(T026) 확인, Drawer 포커스 가두기(T012) 확인
+- [x] T045 [US11] [DS] 전 화면 접근성을 손본다: 포커스 순서와 시각 순서 일치, `:focus-visible` 윤곽선(`--color-focus`), 아이콘 버튼 `aria-label`, 진행 live region(T026) 확인, Drawer 포커스 가두기(T012) 확인
 - [ ] T046 [US11] [FE] `frontend/checks/ui/us11.spec.ts`: (US11 검사)
   - 키보드 흐름: 마우스 없이 새 대화 → 입력 → Enter → 완료 고정 응답 → 제안 "채택" 버튼까지 Tab으로 도달해 Enter로 채택한다.
   - axe: 채팅·설정·Drawer 열림·제안 카드 펼침 화면에서 `expectNoSeriousA11y`.
@@ -250,7 +250,7 @@ description: "프론트 재설계 구현 태스크"
 
 ## Phase 13: User Story 10 — 설정 화면 재스타일 (P3)
 
-- [ ] T048 [US10] [DS] `SettingsPage.tsx`·`style.css`: 구역(저장소·택사노미·Amplitude·토큰·예산) 간격·타이포·폼 요소를 토큰으로 맞춘다. 상태는 라벨 텍스트와 색을 같이 쓴다(연결됨·미연결·마지막 동기화). 기능·API 호출은 바꾸지 않는다
+- [x] T048 [US10] [DS] `SettingsPage.tsx`·`style.css`: 구역(저장소·택사노미·Amplitude·토큰·예산) 간격·타이포·폼 요소를 토큰으로 맞춘다. 상태는 라벨 텍스트와 색을 같이 쓴다(연결됨·미연결·마지막 동기화). 기능·API 호출은 바꾸지 않는다
 - [ ] T049 [US10] [FE] `frontend/checks/ui/us10.spec.ts`: 설정 고정 응답에서 상태 라벨 텍스트("연결됨" 등), 폼 요소 포커스 윤곽선, 토큰 입력과 저장 동작이 기존과 같은지(`localStorage` 키), 375 가로 스크롤 없음을 assert한다 (US10 검사)
 - [ ] T050 [US10] [QA] us10 실행과 ui-review(설정 라이트·다크) (US10 QA)
 
