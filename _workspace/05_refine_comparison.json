@@ -1,0 +1,1506 @@
+{
+  "task": "T025",
+  "decision_rule": "Sonnet 합계가 Haiku보다 8점 이상 높거나 Haiku 의도 보존 0점이 2건 이상이면 Sonnet, 아니면 Haiku",
+  "scorer": "qa-integrator 1인 채점(각 0~2점)",
+  "taxonomy_source": "DB(택사노미 45개)",
+  "runs": [
+    {
+      "prompt_commit": "01050f7",
+      "items": [
+        {
+          "id": 1,
+          "type": "일상어 이탈",
+          "original": "요즘 스캔하다가 사람들이 많이 나가는 것 같은데 왜 그래?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 7일(원문에 없음) 동안 스캔 기능 사용 중 이탈이 많은 이유를 분석해 주세요. 스캔 관련 이벤트 흐름(scan_start, scan_complete 등)에서 단계별 이탈률과 이탈 지점을 확인하고, 원인 가설과 개선안을 제시해 주세요.",
+              "summary": "기간(최근 7일)은 원문에 없어 기본값을 적용했고, 대상 이벤트는 택사노미에 없는 이벤트 대신 스캔 관련 이벤트로 좁혔으며, 지표는 단계별 이탈률, 산출물은 개선안으로 정리함.",
+              "latency_ms": 2300,
+              "input_tokens": 1489,
+              "output_tokens": 245,
+              "cost_usd": 0.000271
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 7일 동안 스캔 시작(scan_start) 이후 스캔 완료(scan_complete)까지 가지 못하고 이탈하는 사용자 비율이 어느 정도인지, 어느 단계에서 이탈이 많은지 확인하고 그 원인을 분석해 개선안을 제안해 주세요.",
+              "summary": "기간 최근 7일(원문에 없음), 이벤트 scan_start→scan_complete 이탈률과 이탈 단계 지표, 산출물 원인 분석 및 개선안으로 구체화함.",
+              "latency_ms": 2360,
+              "input_tokens": 1489,
+              "output_tokens": 203,
+              "cost_usd": 0.005008
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "'왜'를 원인 가설·개선안 요청으로 유지"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "scan_start·scan_complete 실재"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일(원문에 없음)·단계별 이탈률"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장, 자연스러움. 단 요약의 '택사노미에 없는 이벤트 대신'은 사실과 다름"
+              },
+              "total": 8
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "이탈 비율·단계·원인 분석 유지"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "scan_start·scan_complete 실재"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·이탈 비율"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "한 문장으로 길지만 읽힘"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 2,
+          "type": "일상어 이탈",
+          "original": "주문까지 안 가고 중간에 그만두는 사람 많아?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 7일(원문에 없음) 동안 order_card_open 이벤트를 기록한 사용자 중 order_done 이벤트에 도달하지 못한 사용자의 비율이 얼마나 되는지 알려줘.",
+              "summary": "기간이 없어 최근 7일로 기본값을 썼고(원문에 없음), 중간 이탈 대상을 order_card_open→order_done으로 구체화했으며, 산출물은 현황 수치로 가정함(원문에 없음).",
+              "latency_ms": 4290,
+              "input_tokens": 1479,
+              "output_tokens": 733,
+              "cost_usd": 0.000514
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 7일간 스캔을 시작한 사용자(scan_start) 중 주문 완료(order_done)까지 이어지지 않고 중간에 이탈하는 비율이 얼마나 되나요? 퍼널 단계별(scan_start → scan_complete → order_card_open → order_done) 이탈 지점과 개선안도 함께 알려주세요.",
+              "summary": "기간 최근 7일(원문에 없음), 이벤트 scan_start~order_done 퍼널, 지표 단계별 이탈률, 산출물 개선안(원문에 없음)으로 구체화함.",
+              "latency_ms": 2750,
+              "input_tokens": 1479,
+              "output_tokens": 213,
+              "cost_usd": 0.005088
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 1,
+                "reason": "'중간에 그만둠'을 order_card_open 이후로만 좁혀 스캔 단계 이탈을 뺌"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "order_card_open·order_done 실재"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·비율"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "한 문장, 자연스러움"
+              },
+              "total": 7
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "scan_start~order_done 퍼널로 '중간' 전체를 덮음, 개선안은 (원문에 없음) 표시"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "퍼널 네 이벤트 모두 실재"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·단계별 이탈"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장, 자연스러움"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 3,
+          "type": "기간 없는 지표",
+          "original": "스캔 성공률 알려줘",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 7일 기간의 스캔 성공률을 알려줘. 스캔 성공률은 scan_start 대비 scan_complete 비율로 계산하고, 현황 수치를 보여줘.",
+              "summary": "기간이 원문에 없어 최근 7일(원문에 없음)로 기본값을 두고, 성공 기준을 scan_start 대비 scan_complete로 특정함.",
+              "latency_ms": 3940,
+              "input_tokens": 1466,
+              "output_tokens": 656,
+              "cost_usd": 0.000475
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 7일간 scan_start 대비 scan_complete 비율로 스캔 성공률을 알려줘. 일별 추이도 함께 보여줘.",
+              "summary": "기간 최근 7일(원문에 없음), 성공률을 scan_complete/scan_start 비율로 명시, 일별 추이 추가(원문에 없음), 산출물은 지표 조회.",
+              "latency_ms": 2420,
+              "input_tokens": 1466,
+              "output_tokens": 138,
+              "cost_usd": 0.004312
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "성공률 그대로"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름. 단 success=true 조건 없음(두 모델 공통)"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·산식 명시"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장, 다소 딱딱함"
+              },
+              "total": 8
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "성공률 그대로, 일별 추이는 (원문에 없음) 표시"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름. success=true 조건 없음"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·산식"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장, 간결"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 4,
+          "type": "기간 없는 지표",
+          "original": "리뷰 쓰는 사람 비율 어때?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 7일 기간 기준으로, 리뷰를 쓰는 사용자 비율을 알려주세요. 분모는 앱을 연 사용자(app_opened)이고, 분子는 리뷰 작성을 제출한 사용자(review_submit)로 계산해 주시면 됩니다. 산출물은 현황 수치 보고로 주세요.",
+              "summary": "기간(최근 7일)은 원문에 없음이라 기본값을 썼고, 리뷰 작성 비율을 review_submit과 app_opened 기준으로 구체화했으며 산출물은 현황 보고로 가정함.",
+              "latency_ms": 2530,
+              "input_tokens": 1473,
+              "output_tokens": 220,
+              "cost_usd": 0.000257
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 7일간 review_write_tap(리뷰 작성 진입)과 review_submit(리뷰 제출) 이벤트를 기준으로, 전체 사용자(app_opened) 대비 리뷰를 쓴 사용자 비율과 작성 진입 대비 제출 전환율을 보여주고, 현황 파악용 수치와 함께 측정 시 유의점을 알려줘.",
+              "summary": "기간 최근 7일(원문에 없음), 이벤트 review_write_tap·review_submit·app_opened, 지표 사용자 비율·진입 대비 제출 전환율로 구체화, 산출물은 현황 수치(원문에 없음).",
+              "latency_ms": 2860,
+              "input_tokens": 1473,
+              "output_tokens": 241,
+              "cost_usd": 0.005356
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "리뷰 작성 비율 그대로"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "app_opened·review_submit 실재"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "분모·분자·기간 명시"
+              },
+              "natural_korean": {
+                "score": 0,
+                "reason": "'분子' 한자 섞임, 세 문장(두 문장 규칙 위반)"
+              },
+              "total": 6
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 1,
+                "reason": "요청에 없는 '측정 시 유의점'을 산출물로 추가"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "review_write_tap·review_submit·app_opened 실재"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "두 비율·기간 명시"
+              },
+              "natural_korean": {
+                "score": 1,
+                "reason": "한 문장에 조건이 몰려 읽기 어려움"
+              },
+              "total": 6
+            }
+          }
+        },
+        {
+          "id": 5,
+          "type": "측정 설계",
+          "original": "장바구니 개선 효과를 보려면 뭘 재야 해?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "장바구니 개선 효과를 측정하려면 어떤 지표를 봐야 하는지 알려줘. 다만 원문에 기간과 대상 이벤트가 없어 기본값으로 최근 7일 기준을 가정하며, 장바구니 관련 이벤트는 택사노미에 명시된 scan_item_add, scan_item_remove, order_done 등을 참고할 수 있다. 원하는 산출물은 측정 설계안이다.",
+              "summary": "기간(최근 7일)은 원문에 없음이라 기본값을 씀; 대상 이벤트 미특정, 측정 설계 요청으로 해석; 장바구니 이벤트 이름은 택사노미에 없는 이벤트 여부 불명확.",
+              "latency_ms": 2150,
+              "input_tokens": 1479,
+              "output_tokens": 265,
+              "cost_usd": 0.00028
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "장바구니 개선 효과를 측정하려면 어떤 지표를 봐야 하는지 측정 설계를 제안해 주세요. 기간은 최근 7일로 보고, 장바구니 이벤트는 택사노미에 없어 원문 표현 그대로 두었습니다.",
+              "summary": "택사노미에 없는 이벤트('장바구니')라 원문 표현 유지, 산출물은 측정 설계로 명시, 기간 최근 7일 추가(원문에 없음).",
+              "latency_ms": 3240,
+              "input_tokens": 1479,
+              "output_tokens": 182,
+              "cost_usd": 0.004778
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "측정 설계 요청 유지"
+              },
+              "real_event_names": {
+                "score": 1,
+                "reason": "장바구니를 scan_item_add 등에 추측 대응, 요약은 '불명확'으로 규칙 7을 따르지 못함"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·측정 설계 산출물"
+              },
+              "natural_korean": {
+                "score": 0,
+                "reason": "'다만 … 가정하며 … 참고할 수 있다' 등 처리 메모가 질문 본문에 들어감, 세 문장"
+              },
+              "total": 5
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "장바구니 표현 유지, 측정 설계 요청"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "이름을 지어내지 않음(규칙 7 준수)"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·측정 설계"
+              },
+              "natural_korean": {
+                "score": 1,
+                "reason": "'택사노미에 없어 원문 표현 그대로 두었습니다'가 질문 본문에 들어감"
+              },
+              "total": 7
+            }
+          }
+        },
+        {
+          "id": 6,
+          "type": "측정 설계",
+          "original": "스캔 실패 화면에 재시도 버튼 넣으면 효과를 어떻게 측정해?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "스캔 실패 화면에 재시도 버튼을 넣었을 때 효과를 어떻게 측정하면 좋을지 측정 설계를 알려줘. 기간은 최근 7일을 기준으로 해줘.",
+              "summary": "기간은 최근 7일 기본값(원문에 없음), '스캔 실패 화면'은 택사노미에 없는 이벤트라 원문 표현을 유지하고 산출물은 측정 설계로 명시함.",
+              "latency_ms": 5180,
+              "input_tokens": 1491,
+              "output_tokens": 936,
+              "cost_usd": 0.000617
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "스캔 실패 화면에 재시도 버튼을 추가했을 때의 효과를 측정하는 설계를 알려줘. 최근 7일 기준으로 scan_start와 scan_complete를 이용해 스캔 실패 후 재시도 비율과 스캔 완료율 변화를 비교하는 방식으로 제안해줘.",
+              "summary": "산출물을 측정 설계로 명시하고 기간 최근 7일(원문에 없음), 이벤트 scan_start·scan_complete, 지표 재시도 비율·완료율을 드러냄. 스캔 실패 화면 자체는 택사노미에 없는 이벤트라 원문 표현 유지.",
+              "latency_ms": 3150,
+              "input_tokens": 1491,
+              "output_tokens": 244,
+              "cost_usd": 0.005422
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "측정 설계 요청 그대로"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실패 화면을 지어내지 않고 원문 유지"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·측정 설계(지표는 답변 몫)"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장, 자연스러움"
+              },
+              "total": 8
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "측정 설계 요청 유지, 비교 방식 제안"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "scan_start·scan_complete 실재, 실패 화면 원문 유지"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·재시도 비율·완료율"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장, 자연스러움"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 7,
+          "type": "후속",
+          "original": "그걸 주 단위로 쪼개서 보여줘",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": true,
+            "history": [
+              {
+                "role": "user",
+                "content": "지난 30일 scan_start → scan_complete(success=true) 전환율 알려줘"
+              },
+              {
+                "role": "assistant",
+                "content": "지난 30일 scan_start 2,418명 중 scan_complete(success=true) 999명으로 전환율은 41.3%입니다."
+              }
+            ]
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "지난 30일 scan_start → scan_complete(success=true) 전환율을 주 단위로 나누어 보여줘",
+              "summary": "직전 대화의 기간(지난 30일)과 이벤트(scan_start, scan_complete)를 이어받아 주 단위 분해를 추가했으며, 지표는 전환율이고 산출물 형태는 원문에 없음",
+              "latency_ms": 1490,
+              "input_tokens": 1560,
+              "output_tokens": 137,
+              "cost_usd": 0.000225
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "지난 30일 scan_start → scan_complete(success=true) 전환율을 주 단위로 나눠서 주별 추이를 보여줘.",
+              "summary": "직전 대화의 지표(scan_start→scan_complete success=true 전환율)와 기간(지난 30일)을 명시하고 주 단위 분해를 드러냄. 산출물은 주별 추이 수치(원문에 없음).",
+              "latency_ms": 2470,
+              "input_tokens": 1560,
+              "output_tokens": 147,
+              "cost_usd": 0.00459
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "'그걸'을 직전 지표로 정확히 풀이"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "직전 대화의 이름 그대로"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "지난 30일·주 단위"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "한 문장, 자연스러움"
+              },
+              "total": 8
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "'그걸'을 직전 지표로 정확히 풀이"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "직전 대화의 이름 그대로"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "지난 30일·주별 추이"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "한 문장, 자연스러움"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 8,
+          "type": "후속",
+          "original": "제일 낮은 데는 왜 그래?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": true,
+            "history": [
+              {
+                "role": "user",
+                "content": "국가별 스캔 완료율 비교해줘"
+              },
+              {
+                "role": "assistant",
+                "content": "최근 30일 스캔 완료율은 KR 41.3%, JP 38.0%, US 45.2%입니다."
+              }
+            ]
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "직전 대화 기준 최근 30일 국가별 스캔 완료율에서 가장 낮은 JP(38.0%)의 스캔 완료율이 낮은 이유를 분석해줘. scan_start부터 scan_complete까지 단계별 이탈 지점과 scan_permission, error_state_view 발생 차이를 KR·US와 비교해 원인 가설과 개선안을 제시해줘.",
+              "summary": "기간(최근 30일)과 대상(JP, 38.0%)을 직전 대화에서 가져와 명시했고, 산출물은 원문에 없어 원인 분석과 개선안으로 해석함(원문에 없음).",
+              "latency_ms": 5690,
+              "input_tokens": 1537,
+              "output_tokens": 1031,
+              "cost_usd": 0.000669
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 30일 기준 스캔 완료율이 가장 낮은 JP(38.0%)에서 완료율이 낮은 원인을 알고 싶습니다. scan_start 대비 scan_complete 전환율을 KR·US와 비교해, 이탈이 큰 구간과 개선안을 알려주세요.",
+              "summary": "'제일 낮은 데'를 직전 답변의 JP(38.0%)로 구체화하고, 기간 최근 30일은 직전 대화 기준, scan_start→scan_complete 전환 비교와 개선안 산출물을 명시함.",
+              "latency_ms": 2370,
+              "input_tokens": 1537,
+              "output_tokens": 211,
+              "cost_usd": 0.005184
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "'제일 낮은 데'를 JP로 특정, 원인 분석"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "scan_permission·error_state_view 등 실재"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 30일·KR·US 비교"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장, 자연스러움"
+              },
+              "total": 8
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "'제일 낮은 데'를 JP로 특정, 원인 분석"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "scan_start·scan_complete 실재"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 30일·전환율 비교"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장, 자연스러움"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 9,
+          "type": "이미 구체적",
+          "original": "최근 14일 scan_start 대비 scan_complete(success=true) 전환율을 일별로 보여주고, 가장 낮은 날의 실패 사유 분포도 같이 줘.",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 14일 동안 일별 scan_start 대비 scan_complete(success=true) 전환율을 보여주고, 전환율이 가장 낮은 날의 실패 사유 분포도 함께 알려줘.",
+              "summary": "기간(최근 14일), 이벤트(scan_start, scan_complete), 지표(일별 전환율), 추가 요청(최저 전환일 실패 사유 분포)이 이미 분명해 거의 그대로 두고 문장만 정리함.",
+              "latency_ms": 2110,
+              "input_tokens": 1520,
+              "output_tokens": 176,
+              "cost_usd": 0.00024
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 14일 동안 scan_start 대비 scan_complete(success=true) 전환율을 일별로 보여주고, 전환율이 가장 낮은 날의 실패 사유 분포도 함께 알려줘.",
+              "summary": "거의 그대로: 기간·이벤트·지표·산출물이 이미 분명해 조건을 추가하지 않고 문장만 매끄럽게 다듬음.",
+              "latency_ms": 2390,
+              "input_tokens": 1520,
+              "output_tokens": 149,
+              "cost_usd": 0.00453
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "거의 그대로, 조건 추가 없음"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "원문 이름 유지"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "원문 그대로"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "요약에 '거의 그대로' 표기"
+              },
+              "total": 8
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "거의 그대로, 조건 추가 없음"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "원문 이름 유지"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "원문 그대로"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "요약이 '거의 그대로:'로 시작"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 10,
+          "type": "목록 밖 대상",
+          "original": "결제 화면에서 이탈하는 사람 얼마나 돼?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 7일 기준으로, 결제 화면에서 이탈하는 사람이 얼마나 되는지 알려줘. 결제 화면 이탈은 택사노미에 없는 이벤트이므로 원문 표현을 유지한다.",
+              "summary": "기간을 최근 7일로 기본 설정(원문에 없음)했고, 대상 '결제 화면'은 택사노미에 없는 이벤트라 원문 표현을 유지했으며, 산출물과 지표는 원문에 없어 그대로 둠.",
+              "latency_ms": 3910,
+              "input_tokens": 1479,
+              "output_tokens": 605,
+              "cost_usd": 0.00045
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 7일 동안 결제 화면에서 이탈하는 사용자가 얼마나 되는지, 이탈률 기준으로 알려줘. 결제 화면 이벤트는 택사노미에 없어 원문 표현 그대로 두었고, 이탈 수준을 확인하는 분석 결과를 원해.",
+              "summary": "택사노미에 없는 이벤트('결제 화면')라 원문 표현을 유지, 기간 최근 7일과 지표 이탈률을 보강함 (기간·지표는 원문에 없음)",
+              "latency_ms": 2800,
+              "input_tokens": 1479,
+              "output_tokens": 199,
+              "cost_usd": 0.004948
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "결제 화면 원문 유지, 대상 바꾸지 않음"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "이름을 지어내지 않음(규칙 7 준수)"
+              },
+              "period_and_metric": {
+                "score": 1,
+                "reason": "기간만 추가, 지표 미정"
+              },
+              "natural_korean": {
+                "score": 1,
+                "reason": "'택사노미에 없는 이벤트이므로 원문 표현을 유지한다'가 질문 본문에 들어감"
+              },
+              "total": 6
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "결제 화면 원문 유지"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "이름을 지어내지 않음(규칙 7 준수)"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·이탈률"
+              },
+              "natural_korean": {
+                "score": 1,
+                "reason": "'택사노미에 없어 원문 표현 그대로 두었고'가 질문 본문에 들어감"
+              },
+              "total": 7
+            }
+          }
+        }
+      ],
+      "summary": {
+        "anthropic:claude-haiku-5-5": {
+          "total_score": 72,
+          "intent_zero_count": 0,
+          "latency_median_ms": 3220.0,
+          "latency_max_ms": 5690,
+          "cost_mean_usd": 0.0004,
+          "cost_sum_usd": 0.003998,
+          "output_tokens_range": [
+            137,
+            1031
+          ]
+        },
+        "anthropic:claude-sonnet-5-5": {
+          "total_score": 76,
+          "intent_zero_count": 0,
+          "latency_median_ms": 2610.0,
+          "latency_max_ms": 3240,
+          "cost_mean_usd": 0.004922,
+          "cost_sum_usd": 0.049216,
+          "output_tokens_range": [
+            138,
+            244
+          ]
+        }
+      }
+    },
+    {
+      "prompt_commit": "c51a5ea",
+      "items": [
+        {
+          "id": 1,
+          "type": "일상어 이탈",
+          "original": "요즘 스캔하다가 사람들이 많이 나가는 것 같은데 왜 그래?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 7일 동안 스캔 흐름에서 사용자가 이탈하는 지점을 찾고 싶습니다. scan_start, scan_complete, scan_result_item_tap, scan_item_add, scan_item_remove, error_state_view 이벤트를 기준으로 단계별 이탈률과 이탈 직전 이벤트를 분석해 주세요. 이탈 원인을 설명하고, 개선안을 제안해 주세요.",
+              "summary": "대상 이벤트와 지표, 산출물(개선안)을 드러냈고 기간은 원문에 없어 최근 7일로 설정함(원문에 없음).",
+              "latency_ms": 2650,
+              "input_tokens": 1330,
+              "output_tokens": 229,
+              "cost_usd": 0.000247
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 7일 동안 scan_start 이후 scan_complete까지 이어지지 못하고 이탈하는 비율은 얼마이며, 어느 단계에서 이탈이 많은지 보고 싶습니다. 이탈 원인을 추정할 수 있는 개선안도 함께 제안해 주세요.",
+              "summary": "기간을 최근 7일로 두고(원문에 없음), 스캔 이탈을 scan_start→scan_complete 전환율과 단계별 이탈 지표로 구체화하고 개선안을 요청함.",
+              "latency_ms": 3140,
+              "input_tokens": 1330,
+              "output_tokens": 199,
+              "cost_usd": 0.00465
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "원인 설명 요청 유지"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "여섯 이벤트 모두 실재"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·단계별 이탈률"
+              },
+              "natural_korean": {
+                "score": 1,
+                "reason": "세 문장, 이벤트 나열이 김"
+              },
+              "total": 7
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 1,
+                "reason": "'왜'가 '원인을 추정할 수 있는 개선안'으로 흐려짐"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·이탈 비율"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장"
+              },
+              "total": 7
+            }
+          }
+        },
+        {
+          "id": 2,
+          "type": "일상어 이탈",
+          "original": "주문까지 안 가고 중간에 그만두는 사람 많아?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 7일(원문에 없음) 동안 order_card_open 이벤트를 발생시킨 사용자 중 order_done에 도달하지 않고 이탈한 사용자의 비율은 얼마인가? 이 비율이 높다면 이탈이 가장 많이 일어나는 지점은 어디인가?",
+              "summary": "기간(최근 7일)은 원문에 없어 기본값으로 채웠고, 대상 이벤트를 order_card_open과 order_done으로 특정하고 이탈 비율 측정 질문으로 구체화했다.",
+              "latency_ms": 3240,
+              "input_tokens": 1320,
+              "output_tokens": 513,
+              "cost_usd": 0.000389
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 7일 동안 스캔을 시작(scan_start)한 사용자 중 주문 완료(order_done)까지 가지 못하고 중간에 이탈하는 비율은 얼마이고, 어느 단계(scan_complete, scan_result_item_tap, order_card_open 등)에서 가장 많이 이탈하는지 퍼널로 보여주세요. 결과는 이탈 지점별 전환율과 함께 개선안 형태로 정리해 주세요.",
+              "summary": "기간을 최근 7일로 가정(원문에 없음), 시작·종료 이벤트를 scan_start→order_done 퍼널로 구체화하고 이탈률·단계별 전환율과 개선안 산출물을 명시함.",
+              "latency_ms": 2920,
+              "input_tokens": 1320,
+              "output_tokens": 262,
+              "cost_usd": 0.00526
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 1,
+                "reason": "order_card_open 이후로만 좁힘"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·비율"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장"
+              },
+              "total": 7
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "scan_start~order_done 퍼널"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·단계별 전환율"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 3,
+          "type": "기간 없는 지표",
+          "original": "스캔 성공률 알려줘",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 7일 동안 스캔 시작(scan_start) 대비 스캔 완료(scan_complete) 비율을 기준으로 스캔 성공률을 알려줘. 성공률 추이와 함께 스캔 결과 항목 탭(scan_result_item_tap)이 있는지 같이 보고, 개선안이 필요한지 판단할 수 있게 정리해줘.",
+              "summary": "기간(최근 7일, 원문에 없음)과 성공률 산식(scan_start 대비 scan_complete), 보고 지표를 추가했고 원하는 산출물은 원문에 없어 개선 판단용 요약으로 설정함.",
+              "latency_ms": 2130,
+              "input_tokens": 1307,
+              "output_tokens": 234,
+              "cost_usd": 0.000248
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 7일간 스캔 성공률을 알려줘. scan_start 대비 scan_complete 비율로 보고, 일별 추이도 함께 보여줘. 산출물은 현황 수치 중심이고 개선안은 필요 없어.",
+              "summary": "기간 최근 7일(원문에 없음), 이벤트 scan_start→scan_complete 전환율, 일별 추이 지표, 산출물은 현황 수치로 구체화함(원문에 없음).",
+              "latency_ms": 2780,
+              "input_tokens": 1307,
+              "output_tokens": 173,
+              "cost_usd": 0.004344
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 1,
+                "reason": "scan_result_item_tap 확인·개선 판단 등 요청에 없는 조건 추가"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·산식"
+              },
+              "natural_korean": {
+                "score": 1,
+                "reason": "'탭이 있는지 같이 보고' 어색"
+              },
+              "total": 6
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "성공률 유지, '개선안 필요 없어'는 무해한 추가"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·산식·일별"
+              },
+              "natural_korean": {
+                "score": 1,
+                "reason": "세 문장, '산출물은 … 필요 없어' 기계적"
+              },
+              "total": 7
+            }
+          }
+        },
+        {
+          "id": 4,
+          "type": "기간 없는 지표",
+          "original": "리뷰 쓰는 사람 비율 어때?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 7일 동안 리뷰를 작성한 사용자 비율은 어떻게 되나요? 분모는 앱을 연 사용자(app_opened)로, 분자는 리뷰를 제출한 사용자(review_submit)로 보고, 리뷰 작성 시작(review_write_tap) 대비 제출 전환율도 함께 보여 주세요. 결과는 현황 측정 지표로 정리해 주세요.",
+              "summary": "기간(최근 7일, 원문에 없음), 분모·분자 이벤트, 보조 지표(review_write_tap 대비 전환), 산출물 형태를 추가했다.",
+              "latency_ms": 2620,
+              "input_tokens": 1314,
+              "output_tokens": 228,
+              "cost_usd": 0.000245
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 7일간 food_detail_view를 한 사용자 중 review_write_tap을 하고 review_submit까지 완료한 사용자의 비율을 알려주세요. 단계별 전환율(food_detail_view → review_write_tap → review_submit)과 개선이 필요한 구간도 함께 정리해 주세요.",
+              "summary": "기간 최근 7일(원문에 없음), 이벤트 food_detail_view·review_write_tap·review_submit, 지표 단계별 전환율, 산출물 개선 구간 정리를 명시함(원문에 없음).",
+              "latency_ms": 2630,
+              "input_tokens": 1314,
+              "output_tokens": 207,
+              "cost_usd": 0.004698
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "비율 유지"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "분모·분자 명시"
+              },
+              "natural_korean": {
+                "score": 1,
+                "reason": "세 문장"
+              },
+              "total": 7
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "비율을 퍼널로 구체화"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·단계별 전환율"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 5,
+          "type": "측정 설계",
+          "original": "장바구니 개선 효과를 보려면 뭘 재야 해?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "장바구니 개선 효과를 확인하려면 어떤 지표를 측정해야 하는지 알려줘. 기간은 최근 7일(원문에 없음)로 보고, 대상 이벤트는 장바구니 관련 목록에 해당하는 scan_item_add, scan_item_remove, order_done을 중심으로 검토해줘. 산출물은 측정 설계 제안으로 받고 싶어.",
+              "summary": "기간은 최근 7일(원문에 없음)로 기본값을 두고, 장바구니 관련 이벤트 3개와 측정 설계 산출물을 명시했다.",
+              "latency_ms": 2340,
+              "input_tokens": 1320,
+              "output_tokens": 220,
+              "cost_usd": 0.000242
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 7일 기준으로, 장바구니 개선 효과를 확인하려면 어떤 지표를 어떻게 측정해야 하는지 측정 설계를 알려주세요. 장바구니에 해당하는 이벤트가 목록에 확실하지 않으니 관련 이벤트가 있다면 함께 짚어주세요.",
+              "summary": "기간 최근 7일(원문에 없음), 산출물을 측정 설계로 명시. '장바구니'는 목록에 정확히 대응하는 이벤트가 없어 원문 표현을 유지.",
+              "latency_ms": 2350,
+              "input_tokens": 1320,
+              "output_tokens": 205,
+              "cost_usd": 0.00469
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 1,
+                "reason": "장바구니를 scan_item_add 등으로 추측 대응"
+              },
+              "real_event_names": {
+                "score": 1,
+                "reason": "실재 이름이나 대응 근거 없음"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·측정 설계"
+              },
+              "natural_korean": {
+                "score": 1,
+                "reason": "'장바구니 관련 목록에 해당하는' 어색, 세 문장"
+              },
+              "total": 5
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "장바구니 표현 유지"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "이름을 지어내지 않음"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·측정 설계"
+              },
+              "natural_korean": {
+                "score": 1,
+                "reason": "'목록에 확실하지 않으니' 내부 표현이 본문에 들어감"
+              },
+              "total": 7
+            }
+          }
+        },
+        {
+          "id": 6,
+          "type": "측정 설계",
+          "original": "스캔 실패 화면에 재시도 버튼 넣으면 효과를 어떻게 측정해?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 7일(원문에 없음) 기준으로, 스캔 실패 화면(error_state_view 노출)에 재시도 버튼을 넣었을 때 효과를 어떻게 측정할지 측정 설계 관점에서 알려줘. 재시도 후 scan_start에서 scan_complete로 이어지는 전환율 변화를 주요 지표로 보고 싶다.",
+              "summary": "기간은 최근 7일(원문에 없음), 대상은 error_state_view로 특정하고 측정 설계를 원한다는 점을 명시했으며, 지표는 원문에 없어 scan_start→scan_complete 전환율로 제안했다.",
+              "latency_ms": 5760,
+              "input_tokens": 1332,
+              "output_tokens": 759,
+              "cost_usd": 0.000513
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "스캔 실패 화면에 재시도 버튼을 추가했을 때 효과를 측정하는 설계를 알려줘. 최근 7일 기준으로 scan_start 대비 scan_complete 전환율과 실패 후 재시도 비율을 볼 수 있는지, 그리고 버튼 도입 전후를 어떻게 비교할지 제안해줘.",
+              "summary": "산출물을 측정 설계로 명시하고 scan_start, scan_complete 전환율과 재시도 비율 지표 및 전후 비교를 드러냄. 기간 최근 7일은 (원문에 없음). 실패 화면 전용 이벤트는 목록에 없어 지어내지 않음.",
+              "latency_ms": 2970,
+              "input_tokens": 1332,
+              "output_tokens": 251,
+              "cost_usd": 0.005174
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "측정 설계 유지"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "error_state_view 실재"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·전환율"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장"
+              },
+              "total": 8
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "측정 설계·전후 비교"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·재시도 비율"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 7,
+          "type": "후속",
+          "original": "그걸 주 단위로 쪼개서 보여줘",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": true,
+            "history": [
+              {
+                "role": "user",
+                "content": "지난 30일 scan_start → scan_complete(success=true) 전환율 알려줘"
+              },
+              {
+                "role": "assistant",
+                "content": "지난 30일 scan_start 2,418명 중 scan_complete(success=true) 999명으로 전환율은 41.3%입니다."
+              }
+            ]
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "지난 30일 scan_start → scan_complete(success=true) 전환율을 주 단위로 나누어 보여줘. 각 주의 scan_start 사용자 수, scan_complete(success=true) 사용자 수, 전환율을 함께 알려줘.",
+              "summary": "기간은 직전 질문의 지난 30일을 그대로 쓰고, 주 단위 분해 대상 지표(사용자 수와 전환율)를 명시했다. 산출물 형태는 원문에 없음.",
+              "latency_ms": 2190,
+              "input_tokens": 1401,
+              "output_tokens": 180,
+              "cost_usd": 0.00023
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "지난 30일 동안 scan_start 대비 scan_complete(success=true) 전환율을 주 단위로 나눠서, 주별 scan_start 사용자 수, scan_complete 사용자 수, 전환율을 보여줘.",
+              "summary": "'그걸'을 직전 대화의 scan_start → scan_complete(success=true) 전환율(지난 30일)로 구체화하고 주 단위 지표(시작·완료 사용자 수, 전환율)를 명시함.",
+              "latency_ms": 2220,
+              "input_tokens": 1401,
+              "output_tokens": 175,
+              "cost_usd": 0.004552
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "직전 지표 정확히 풀이"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "직전 이름 유지"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "지난 30일·주 단위"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "자연스러움"
+              },
+              "total": 8
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "직전 지표 정확히 풀이"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "직전 이름 유지"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "지난 30일·주 단위"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "자연스러움"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 8,
+          "type": "후속",
+          "original": "제일 낮은 데는 왜 그래?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": true,
+            "history": [
+              {
+                "role": "user",
+                "content": "국가별 스캔 완료율 비교해줘"
+              },
+              {
+                "role": "assistant",
+                "content": "최근 30일 스캔 완료율은 KR 41.3%, JP 38.0%, US 45.2%입니다."
+              }
+            ]
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 30일 기준 국가별 스캔 완료율(KR 41.3%, JP 38.0%, US 45.2%)에서 가장 낮은 JP의 스캔 완료율이 낮은 원인을 분석해 주세요. 스캔 시작(scan_start)부터 스캔 완료(scan_complete)까지의 단계별 이탈 지점과 국가별 차이를 중심으로 확인하고, 개선안을 제시해 주세요.",
+              "summary": "기간(최근 30일)과 대상 국가(JP), 지표(스캔 완료율), 산출물(원인 분석 및 개선안)을 명시했으며 기간은 직전 대화에서 가져온 값입니다.",
+              "latency_ms": 1940,
+              "input_tokens": 1378,
+              "output_tokens": 252,
+              "cost_usd": 0.000264
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 30일 기준 국가별 스캔 완료율(scan_complete)이 가장 낮은 JP(38.0%)에서 완료율이 낮은 원인을 KR·US와 비교해 분석해 주세요. 스캔 시작(scan_start)부터 완료(scan_complete)까지 어느 단계에서 이탈이 큰지 보고, 그에 따른 개선안을 제시해 주세요.",
+              "summary": "'제일 낮은 데'를 직전 답변의 JP(38.0%, 최근 30일)로 특정하고, scan_start→scan_complete 이탈 비교와 개선안 산출물을 명시함 (산출물 유형은 원문에 없음)",
+              "latency_ms": 3150,
+              "input_tokens": 1378,
+              "output_tokens": 250,
+              "cost_usd": 0.005256
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "JP 특정·원인 분석"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 30일"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장"
+              },
+              "total": 8
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "JP 특정·원인 분석"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "실재 이름"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 30일"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 9,
+          "type": "이미 구체적",
+          "original": "최근 14일 scan_start 대비 scan_complete(success=true) 전환율을 일별로 보여주고, 가장 낮은 날의 실패 사유 분포도 같이 줘.",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 14일 동안 scan_start 대비 scan_complete(success=true) 전환율을 일별로 보여주고, 전환율이 가장 낮은 날의 실패 사유 분포를 함께 알려줘.",
+              "summary": "기간(최근 14일)과 이벤트명, 지표(일별 전환율), 최저일 실패 사유 분포 요청을 명시했고 원문이 이미 구체적이라 의도는 거의 그대로 둠 (실패 사유 필드명은 원문에 없음).",
+              "latency_ms": 2120,
+              "input_tokens": 1361,
+              "output_tokens": 188,
+              "cost_usd": 0.00023
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "최근 14일간 scan_start 대비 scan_complete(success=true)의 전환율을 일별로 보여주세요. 그중 전환율이 가장 낮은 날의 실패 사유 분포도 함께 알려주세요.",
+              "summary": "이미 기간·이벤트·지표·산출물이 구체적이라 의미 변경 없이 두 문장으로만 정리함.",
+              "latency_ms": 2430,
+              "input_tokens": 1361,
+              "output_tokens": 140,
+              "cost_usd": 0.004122
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "거의 그대로"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "원문 이름 유지"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "원문 그대로"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "자연스러움"
+              },
+              "total": 8
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "거의 그대로"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "원문 이름 유지"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "원문 그대로"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "자연스러움"
+              },
+              "total": 8
+            }
+          }
+        },
+        {
+          "id": 10,
+          "type": "목록 밖 대상",
+          "original": "결제 화면에서 이탈하는 사람 얼마나 돼?",
+          "context": {
+            "taxonomy_event_count": 45,
+            "has_history": false,
+            "history": []
+          },
+          "results": [
+            {
+              "model": "anthropic:claude-haiku-5-5",
+              "refined": "최근 7일 동안 결제 화면에서 이탈하는 사람이 얼마나 되는지 알려줘.",
+              "summary": "기간을 최근 7일로 기본 지정(원문에 없음)했고, 결제 화면은 택사노미에 해당 이벤트가 없어 원문 표현을 그대로 유지함",
+              "latency_ms": 4360,
+              "input_tokens": 1320,
+              "output_tokens": 601,
+              "cost_usd": 0.000432
+            },
+            {
+              "model": "anthropic:claude-sonnet-5-5",
+              "refined": "결제 화면에서 이탈하는 사용자가 얼마나 되는지 알고 싶습니다. 최근 7일 기준으로 결제 화면 진입 대비 이탈 비율을 보여주고, 이탈을 줄이기 위한 개선안도 함께 제안해 주세요.",
+              "summary": "기간 최근 7일(원문에 없음), 지표 결제 화면 이탈률(원문에 없음), 산출물 개선안(원문에 없음)을 명시함. 결제 화면에 해당하는 이벤트가 목록에 없어 '결제 화면'은 원문 표현 그대로 둠.",
+              "latency_ms": 2890,
+              "input_tokens": 1320,
+              "output_tokens": 226,
+              "cost_usd": 0.0049
+            }
+          ],
+          "scores": {
+            "anthropic:claude-haiku-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "결제 화면 원문 유지(T013에서는 order 이벤트로 바꿨던 같은 질문)"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "이름을 지어내지 않음"
+              },
+              "period_and_metric": {
+                "score": 1,
+                "reason": "기간만 추가"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "한 문장"
+              },
+              "total": 7
+            },
+            "anthropic:claude-sonnet-5-5": {
+              "intent_preserved": {
+                "score": 2,
+                "reason": "결제 화면 원문 유지, 추가분은 (원문에 없음) 표시"
+              },
+              "real_event_names": {
+                "score": 2,
+                "reason": "이름을 지어내지 않음"
+              },
+              "period_and_metric": {
+                "score": 2,
+                "reason": "최근 7일·이탈 비율"
+              },
+              "natural_korean": {
+                "score": 2,
+                "reason": "두 문장"
+              },
+              "total": 8
+            }
+          }
+        }
+      ],
+      "summary": {
+        "anthropic:claude-haiku-5-5": {
+          "total_score": 71,
+          "intent_zero_count": 0,
+          "latency_median_ms": 2480.0,
+          "latency_max_ms": 5760,
+          "cost_mean_usd": 0.000304,
+          "cost_sum_usd": 0.00304,
+          "output_tokens_range": [
+            180,
+            759
+          ]
+        },
+        "anthropic:claude-sonnet-5-5": {
+          "total_score": 77,
+          "intent_zero_count": 0,
+          "latency_median_ms": 2835.0,
+          "latency_max_ms": 3150,
+          "cost_mean_usd": 0.004765,
+          "cost_sum_usd": 0.047646,
+          "output_tokens_range": [
+            140,
+            262
+          ]
+        }
+      }
+    }
+  ]
+}

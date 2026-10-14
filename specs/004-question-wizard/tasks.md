@@ -152,7 +152,7 @@ description: "질문 마법사 구현 태스크"
   - 입력: 택사노미 이름은 DB 값이 있으면 그것을, 없으면 고정 목록을 쓴다.
   - 실행: 같은 `build_prompt` 결과를 `anthropic:claude-haiku-5-5`와 `anthropic:claude-sonnet-5-5`로 `agent` 런타임을 통해 다듬는다.
   - 출력: `_workspace/06_refine_model_comparison.md`에 샘플별 원문, 두 모델의 개선안·요약·지연(초)·비용, 빈 채점 칸(항목 4 × 0~2)을 표로 쓴다. 비용은 `llm_usage`에 `refine`으로 남는다.
-- [ ] T025 [US4] [QA] 실제 키(로컬 `.env`)로 `compare_refine.py`를 실행한다. (US4 QA)
+- [x] T025 [US4] [QA] 실제 키(로컬 `.env`)로 `compare_refine.py`를 실행한다. (US4 QA)
   - 채점: 네 항목을 채점하고 합계를 낸다.
   - 결정: ADR-28 규칙(Sonnet이 8점 이상 높거나, Haiku 의도 보존 0점이 2건 이상이면 Sonnet)을 적용해 결정과 근거를 비교표 끝에 쓴다.
   - 보고: CTO에 결과를 보낸다(CTO가 ADR-28 상태를 갱신).
