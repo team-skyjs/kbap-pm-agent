@@ -4,12 +4,14 @@ import { blocks, jsonBlock } from '../contract.ts'
 
 export const LIVE = process.env.CHECK_UI_LIVE === '1'
 
-export type Scenario = 'sent' | 'progress' | 'done' | 'partial' | 'error' | 'expired'
+// hang: 응답을 보내지 않고 요청을 열어 둠(스트림 진행 중 화면)
+export type Scenario = 'sent' | 'progress' | 'done' | 'partial' | 'error' | 'expired' | 'hang'
 
 type Json = Record<string, unknown>
 const clone = <T>(v: T): T => structuredClone(v)
 const obj = (v: unknown): Json => (typeof v === 'object' && v !== null && !Array.isArray(v) ? Object.fromEntries(Object.entries(v)) : {})
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
+const isJson = (v: unknown): v is Json => typeof v === 'object' && v !== null && !Array.isArray(v)
 
 // 계약 예시
 export const HEALTH = jsonBlock('03-health.md', 0)
@@ -47,18 +49,34 @@ const exampleEvent = (name: string) => clone(SSE_EXAMPLE.find(([e]) => e === nam
 
 export const PARTIAL_PREFIX = '모델 호출 상한(10턴)에 도달해 여기까지의 조회 결과로 답합니다.'
 
-type Options = { scenario?: Scenario; assistantContent?: string }
+type Options = {
+  scenario?: Scenario
+  assistantContent?: string
+  // 대화 목록 대체 (기본: 계약 예시 두 개)
+  list?: Json[]
+  // 진행 시나리오에서 첫 상세 재조회 뒤 완료로 전환
+  completeAfterPoll?: boolean
+}
 
-// 대화 7(계약 상세 예시) + 전송 시나리오. 전송 후 상세는 시나리오의 저장 상태를 돌려줌
+// 대화 7(계약 상세 예시, 제안 두 개) + 전송 시나리오. 다른 대화는 빈 상태로 시작
+// 전송·제안 결정은 상세에 저장되어 새로고침 뒤에도 유지
 export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
   if (LIVE) return
   const scenario = opts.scenario ?? 'done'
   const detail = clone(DETAIL)
-  const messages = arr(detail.messages).map(obj)
-  if (opts.assistantContent !== undefined) {
-    const a = messages.find((m) => m.role === 'assistant')
-    if (a) a.content = opts.assistantContent
+  const seeded = arr(detail.messages).map(obj)
+  const seededAssistant = seeded.find((m) => m.role === 'assistant')
+  if (seededAssistant) {
+    if (opts.assistantContent !== undefined) seededAssistant.content = opts.assistantContent
+    // 계약 상세 예시의 개선 제안에 Proposal 예시(측정 설계, 근거 3종)를 더하고 결정은 미결정으로 시작
+    const funnel = { ...clone(PROPOSAL), id: 15, seq: 2, messageId: seededAssistant.id, decision: { status: 'pending', note: null, decidedAt: null } }
+    seededAssistant.proposals = [...arr(seededAssistant.proposals), funnel]
   }
+  const threads = new Map<number, Json[]>([[7, seeded]])
+  const thread = (id: number) => threads.get(id) ?? threads.set(id, []).get(id) ?? []
+  // 저장 상태를 바꿔야 해서 복사 없이 원본 객체를 찾음
+  const allProposals = () => [...threads.values()].flat().flatMap((m) => arr(m.proposals).filter(isJson))
+  let readsAfterSend = -1
   let nextId = 900
 
   await page.route('**/api/**', async (route: Route) => {
@@ -70,22 +88,32 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
 
     if (method === 'GET' && path === '/api/health') return json(200, HEALTH)
     if (method === 'GET' && path === '/api/settings') return json(200, SETTINGS)
-    if (method === 'GET' && path === '/api/conversations') return json(200, LIST)
+    if (method === 'GET' && path === '/api/conversations') return json(200, opts.list ? { items: opts.list } : LIST)
     if (method === 'POST' && path === '/api/conversations') return json(201, CREATED)
     if (method === 'GET' && /^\/api\/conversations\/\d+$/.test(path)) {
-      return json(200, { ...detail, id: Number(path.split('/').pop()), messages })
+      const id = Number(path.split('/').pop())
+      const msgs = thread(id)
+      // 전송 직후 재조회(스트림 종료 시)는 진행 상태로, 그 다음 주기 재조회부터 완료
+      if (opts.completeAfterPoll && readsAfterSend >= 0 && ++readsAfterSend > 1) {
+        for (const m of msgs) if (m.status === 'running') Object.assign(m, { status: 'completed', content: String(exampleEvent('final').content), toolCalls: arr(m.toolCalls).map((t) => ({ ...obj(t), status: 'succeeded', durationMs: 8, resultSummary: '완료' })) })
+      }
+      return json(200, { ...detail, id, title: id === 7 ? detail.title : null, messages: msgs })
     }
     if (method === 'PATCH' && /^\/api\/proposals\/\d+$/.test(path)) {
       const body = obj(req.postDataJSON())
       const status = body.status
-      const prev = obj(PROPOSAL.decision)
-      return json(200, {
-        ...PROPOSAL, id: Number(path.split('/').pop()),
-        decision: { status, note: 'note' in body ? body.note : prev.note, decidedAt: status === 'pending' ? null : now() },
-      })
+      const id = Number(path.split('/').pop())
+      const target = allProposals().find((p) => p.id === id)
+      if (!target) return json(404, { error: { code: 'PROPOSAL_NOT_FOUND', message: `제안 ${id}을 찾을 수 없습니다.` } })
+      const prev = obj(target.decision)
+      target.decision = { status, note: 'note' in body ? body.note : prev.note, decidedAt: status === 'pending' ? null : now() }
+      return json(200, target)
     }
     if (method === 'POST' && /^\/api\/conversations\/\d+\/messages$/.test(path)) {
-      if (scenario === 'expired') return route.fulfill({ status: 401, contentType: 'text/html', body: '<html><body>로그인</body></html>' })
+      // 세션 만료: 접근 제한 병합 전 화면은 백엔드 401 계약 JSON(UNAUTHORIZED)으로 안내, 병합 뒤 HTML 401 사례 추가
+      if (scenario === 'hang') return new Promise<void>(() => {})
+      readsAfterSend = 0
+      if (scenario === 'expired') return json(401, { error: { code: 'UNAUTHORIZED', message: '접근 토큰이 없거나 틀렸습니다.' } })
       const convId = Number(path.split('/')[3])
       const content = String(obj(req.postDataJSON()).content ?? '')
       const user = { ...obj(exampleEvent('message_created').userMessage), id: nextId++, conversationId: convId, content, createdAt: now() }
@@ -109,7 +137,7 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
         events.push(['tool_call', call(1, 'running')], ['tool_result', call(1, 'succeeded')])
         const final = exampleEvent('final')
         const proposals = scenario === 'done'
-          ? [obj(arr(messages.find((m) => m.role === 'assistant')?.proposals)[0]), PROPOSAL].map((p, i) => ({ ...clone(p), id: 700 + i, seq: i + 1, conversationId: convId, messageId: aid }))
+          ? [obj(arr(seededAssistant?.proposals)[0]), PROPOSAL].map((p, i) => ({ ...clone(p), id: 700 + i, seq: i + 1, conversationId: convId, messageId: aid }))
           : []
         saved = {
           ...final, ...base, status: 'completed', toolCalls: [call(1, 'succeeded')], proposals, usage: final.usage,
@@ -117,7 +145,7 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
         }
         events.push(['final', saved])
       }
-      messages.push(user, saved)
+      thread(convId).push(user, saved)
       return route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(events) })
     }
     return json(404, { error: { code: 'NOT_FOUND', message: `고정 응답 없음: ${method} ${path}` } })
