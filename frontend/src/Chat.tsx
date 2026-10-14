@@ -129,10 +129,9 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     try {
       const end = await sendMessage(id, content, onEvent)
       setInput('')
-      if (end === 'disconnected') {
-        setNotice('스트림이 끊겨 저장된 상태를 다시 불러왔습니다.')
-        load()
-      }
+      if (end === 'disconnected') setNotice('스트림이 끊겨 저장된 상태를 다시 불러왔습니다.')
+      // 끝나면 항상 상세를 다시 읽는다: 서버가 채운 제목(첫 메시지 앞 40자)과 저장 상태를 그대로 반영 (QA-1)
+      load()
     } catch (e) {
       // 스트림 전 에러(409 RUN_IN_PROGRESS, 403 BUDGET_EXCEEDED, 400, 404, 401)는 입력창 아래에 안내
       setNotice(describe(e))
