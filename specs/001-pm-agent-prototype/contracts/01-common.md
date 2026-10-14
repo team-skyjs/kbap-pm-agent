@@ -1,4 +1,4 @@
-# 01 CTO — API 계약서 v1.1
+# 01 CTO — API 계약서 v1.2
 
 작성일: 2026-10-15 · 이 문서가 FE·BE·QA의 유일한 경계 기준이다. 변경은 CTO만 하고, 바뀌면 상단 변경 이력에 남긴다.
 
@@ -8,10 +8,19 @@
 | 2026-10-15 | v1.1 | 명세(spec.md)·헌법 정합: 코드 근거에 `function` 추가(FR-003), 저장소 `lastError` 추가(엣지 케이스 비공개 저장소), 실행 시간 상한·소스 실패 시 동작 명시(FR-010, 엣지 케이스), 택사노미 검증 실패 메시지 규칙(US4-4), `AGENT_MODE=fake`가 저장소·Amplitude까지 대체(헌법 원칙 III, FR-011), 실행 중 메시지 필드 규칙 |
 | 2026-10-15 | v1.1 (문구) | 메시지 전송 상한 비고: 도구 호출 수 → 모델 호출 턴 수 `AGENT_MAX_TURNS`(기본 10). shape 변경 없음 |
 | 2026-10-15 | v1.1 (예시) | 예시 운영 호스트를 `pm-agent.example.com`으로 바꿨다(Base URL 예시, connect 예시 redirect_uri). 운영 정보 비노출. 값·shape 의미 변경 없음 |
+| 2026-10-15 | v1.2 | 접근 제한(ADR-22, specs/002-access-gate). Base URL이 같은 출처 상대 경로로 바뀌었다. 접근 계층 응답 규칙과 `X-Requested-With` 헤더를 추가하고 CORS를 제거했다. 예시 호스트는 `pm-agent.example.com`이다(운영 정보 비노출). 응답 shape 변경 없음 |
+| 2026-10-15 | v1.2 (문구) | 접근 계층 응답에서 5xx HTML(nginx·Cloudflare 오류 페이지)을 제외했다. 프론트는 이를 연결 실패로 다룬다(frontend-dev 요청). shape 변경 없음 |
 
 ## 공통
 
-- **Base URL:** 프론트 빌드 환경변수 `VITE_API_BASE_URL` (예: 로컬 `http://localhost:8000`, 운영 `https://pm-agent.example.com`). 모든 경로는 `/api`로 시작한다.
+- **Base URL:** 없음. 프론트와 API는 같은 출처이고, 프론트는 상대 경로(`/api/...`)로 호출한다. 모든 경로는 `/api`로 시작한다. 운영은 Cloudflare Access 뒤의 한 호스트명이고, 로컬은 `http://localhost:8080`(웹 컨테이너) 또는 `http://localhost:5173`(Vite dev 프록시)이다. 문서의 예시 호스트는 `https://pm-agent.example.com`이다.
+- **요청 헤더:** 프론트는 모든 요청에 `X-Requested-With: XMLHttpRequest`를 보낸다. 백엔드는 이 헤더를 해석하지 않는다. Access가 만료 세션에 302 대신 401을 주게 하는 용도다.
+- **접근 계층 응답:** Access를 통과하지 못한 요청은 백엔드에 닿지 않아 이 문서의 에러 형식이 아니다. 다음 셋이 해당한다.
+  - 이 문서의 JSON 에러 형식이 아닌 401·403
+  - 리다이렉트(`fetch`의 `redirect: "manual"`에서 `opaqueredirect`)
+  - 상태 5xx가 아닌 `text/html` 응답
+  - 프론트는 이를 세션 만료로 다루고 백엔드 에러 코드와 섞지 않는다. 백엔드의 401 `UNAUTHORIZED`(`ACCESS_TOKEN`)는 JSON 에러 형식이라 구분된다.
+  - 상태 5xx이면서 계약 JSON이 아닌 응답(웹 컨테이너 nginx의 502·504, 터널·Cloudflare 오류 페이지)은 세션 만료가 아니다. 프론트는 연결 실패(`NETWORK_ERROR`, 프론트 내부 코드)로 다룬다. Access는 5xx로 거부하지 않는다.
 - **인증:** 백엔드에 `ACCESS_TOKEN`이 설정되어 있으면 `GET /api/health`와 `GET /api/integrations/amplitude/callback`을 제외한 모든 요청에 `Authorization: Bearer <토큰>` 헤더가 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
 - **형식:** 요청·응답 본문은 `application/json; charset=utf-8`. 메시지 전송 응답만 `text/event-stream`.
 - **필드 이름:** camelCase 고정. DB의 snake_case를 그대로 노출하지 않는다.

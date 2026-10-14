@@ -39,6 +39,7 @@ main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`
 | 2026-10-15 | frontend-designer 에이전트 + design-system·chat-ui-design·ui-review 스킬 추가, 오케스트레이터·QA 연결 | agents/frontend-designer, skills 3개, orchestrator, qa-integrator | 사용자 요청: ChatGPT 레퍼런스 채팅 UI/UX 전문 에이전트 |
 | 2026-10-15 | 초기 구성 (cto, frontend-dev, backend-dev, qa-integrator / 4 스킬) | 전체 | - |
 | 2026-10-15 | PRD를 `docs/prd/`로 이동, PRD 스킬 산출물 경로 규칙 추가 | CLAUDE.md, 참조 경로 전체 | 사용자 요청 |
+| 2026-10-15 | 운영 정보 비노출 규칙 추가 | CLAUDE.md | 사용자 지시 (홈서버 주소 노출 금지) |
 | 2026-10-15 | 코드 주석 규칙 6개 추가 | CLAUDE.md, implement-from-contract | 사용자 지시 |
 | 2026-10-15 | PR 제목은 영어, 본문은 한국어, 내부 식별자 금지 | CLAUDE.md | 사용자 지시 (한국어 제목은 번역이 어색) |
 | 2026-10-15 | Git 워크플로우 규칙 추가: main 직접 커밋 금지, 브랜치 + PR | CLAUDE.md, orchestrator, implement-from-contract, integration-qa | 사용자 지시 "pr을 연다. 바로 커밋하지 않는다" |

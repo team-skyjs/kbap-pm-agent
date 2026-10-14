@@ -1,14 +1,16 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.0 → 1.3.0   (개정 2026-10-15)
-Bump rationale (MINOR): 기술 제약의 FE↔BE 줄과 비목표 줄에 API 접근 통제(공유 접근 토큰)를 명시.
-  사유: 사용자 결정 — 프론트는 GitHub Pages를 유지하고, API는 환경변수 ACCESS_TOKEN으로 잠근다.
-  v1.2.0(프론트 홈서버 이전·Cloudflare Access)은 feat/access-gate에만 있고 main에 들어온 적 없어 결번 처리.
+Version change: 1.3.0 → 1.4.0   (개정 2026-10-15)
+Bump rationale (MINOR): "기술 제약"의 프론트 배포·FE↔BE 연결 줄을 접근 제한 설계(ADR-22·23)로 실질 변경.
+  사유: 사용자 결정(2026-10-15 재개) — 프론트를 홈서버 nginx 컨테이너로 옮기고 같은 호스트명·같은 출처를
+  Cloudflare Access 뒤에 둔다. GitHub Pages 프로젝트 사이트는 조직 공용 출처라 브라우저 저장소의 공유 토큰이
+  다른 Pages 프로젝트에 노출될 수 있고, 공유 토큰은 사용자 구분·만료가 없다.
+  v1.3.0(Pages 유지 + 공유 접근 토큰)은 전환 기간의 임시 상태로 남는다.
 Modified principles: 없음.
-Modified sections: 기술 제약 — FE↔BE 줄, 비목표 줄.
-Templates reviewed: ✅ 변경 불필요.
-Follow-up: docs/prd/PRD-access-gate.md 상태를 보류로.
+Modified sections: 기술 제약 — 프론트 줄, FE↔BE 줄, 비목표 줄.
+Templates reviewed: ✅ plan/spec/tasks 템플릿 — 변경 불필요.
+Follow-up: specs/002-access-gate/tasks.md 재개 단계 반영, docs/prd/PRD-access-gate.md 상태를 진행으로.
 -->
 
 # K-Bap PM Agent Constitution
@@ -18,7 +20,8 @@ Follow-up: docs/prd/PRD-access-gate.md 상태를 보류로.
 ### I. 계약이 경계다
 
 프론트와 백엔드가 만나는 지점은 API 계약서 하나다(`_workspace/01_cto_api-contract.md`,
-Spec Kit 단계에서는 `specs/<feature>/contracts/`로 복제·동기화한다).
+Spec Kit 단계에서는 `specs/<feature>/contracts/`로 복제·동기화한다. 분할본은 제품당 하나이며 현재는
+`specs/001-pm-agent-prototype/contracts/`다. 다른 기능 디렉토리는 정본을 가리키는 안내만 둔다).
 
 - 응답 JSON의 필드명·중첩·감싸기 구조·에러 형식은 계약서와 글자 단위로 일치해야 한다(MUST).
 - 계약은 언어 중립이다. 백엔드 언어를 바꿔도 계약서·프론트·DB 스키마는 그대로여야 한다(MUST).
@@ -86,14 +89,14 @@ PRD 5·7.3·8절과 CTO ADR(`_workspace/01_cto_tech-decisions.md`)에서 확정�
 - 백엔드: Python 3.12, FastAPI, MySQL. 패키지는 uv. LLM 호출은 공급자 공식 SDK로 한다(Claude는 `anthropic` SDK의
   tool runner, GPT는 `openai-agents`). LangChain 계열은 쓰지 않는다. 공급자 선택은 모델 문자열 접두사(`anthropic:`/`openai:`)로 한다(ADR-20). 홈서버 Docker 컨테이너로 운영.
   로컬은 `docker compose up` 한 번으로 백엔드+MySQL이 떠야 한다.
-- 프론트: TypeScript, React, Vite 정적 SPA. GitHub Pages 프로젝트 페이지(`/kbap-pm-agent/`)에
-  배포하므로 해시 라우팅을 쓰고 백엔드 주소는 빌드 시 환경변수로 받는다.
-- FE↔BE: HTTPS 공개 엔드포인트(터널). 에이전트 응답은 POST 응답 자체를 SSE 스트림으로 보낸다. API 접근 통제는
-  공유 접근 토큰(환경변수 ACCESS_TOKEN, 헬스·Amplitude 콜백 제외 전 경로에 Bearer 요구)으로 한다. 값은 Secret에만
-  두고 프론트는 설정 화면 입력값을 브라우저 저장소에만 보관한다.
+- 프론트: TypeScript, React, Vite 정적 SPA. 홈서버 nginx 정적 컨테이너로 배포하고 백엔드와 같은 호스트명·같은
+  출처에서 제공한다. 해시 라우팅을 쓰고 API는 상대 경로 `/api`로 호출한다. 빌드 시 백엔드 주소 환경변수는 없다.
+- FE↔BE: 같은 호스트명 아래 Cloudflare Access 뒤의 터널. 웹 컨테이너 nginx가 `/api`를 백엔드로 프록시한다(CORS
+  없음). 에이전트 응답은 POST 응답 자체를 SSE 스트림으로 보낸다.
 - Amplitude: 공식 원격 MCP(조회 전용). 이벤트 전송·택사노미 자동 수정은 하지 않는다.
-- 비목표(v1): 앱 안의 사용자 인증·권한·멀티테넌시, 백엔드 코드 분석, 코드 자동 수정·PR 생성,
-  능동 모드(먼저 제안). 공유 접근 토큰은 운영에서 켜 두며(2026-10-15), 비워 두면 꺼진다.
+- 비목표(v1): 앱 안의 사용자 인증·권한·멀티테넌시(접근 제한은 인프라인 Cloudflare Access가 한다), 백엔드 코드 분석,
+  코드 자동 수정·PR 생성,
+  능동 모드(먼저 제안). 공유 접근 토큰(ADR-7)은 Access 운영 검증이 끝나기 전까지 켜 두는 전환 장치이며, 검증 후 Secret을 비워 끈다.
 
 ## 개발 워크플로우
 
@@ -116,4 +119,4 @@ PRD 5·7.3·8절과 CTO ADR(`_workspace/01_cto_tech-decisions.md`)에서 확정�
 - plan.md의 Constitution Check는 원칙 I~V 각각에 대해 준수 여부와, 위반 시 정당화를 적어야 한다.
 - 복잡도(추상화, 새 의존성, 새 테이블)는 plan.md의 Complexity Tracking에 이유를 적어야 한다.
 
-**Version**: 1.3.0 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-15
+**Version**: 1.4.0 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-15

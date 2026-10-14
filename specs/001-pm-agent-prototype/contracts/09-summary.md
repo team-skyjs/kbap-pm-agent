@@ -15,4 +15,4 @@
 | POST | `/api/integrations/amplitude/connect` | 필요 | JSON |
 | GET | `/api/integrations/amplitude/callback` | 불필요 | HTML |
 
-CORS: 백엔드는 `CORS_ORIGINS`의 출처에 대해 위 메서드 전부와 `Authorization`, `Content-Type` 헤더의 preflight를 허용한다.
+CORS: 없음. 프론트와 같은 출처에서만 호출한다. 백엔드는 CORS 헤더를 보내지 않으며, 다른 출처의 preflight는 허용되지 않는다.

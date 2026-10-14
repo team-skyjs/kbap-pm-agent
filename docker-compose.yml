@@ -1,7 +1,19 @@
-# 로컬 개발: docker compose up -d --build  →  backend :8000, mysql :3307
+# 로컬 개발: docker compose up -d --build  →  web :8080 (같은 출처 /api), backend :8000, mysql :3307
 services:
+  web:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
   backend:
     build: ./backend
+    networks:
+      default:
+        aliases:
+          - kbap-pm-agent   # nginx.conf가 운영과 같은 이름으로 프록시
     ports:
       - "8000:8000"
     env_file:
