@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app import db
+from app import conversations, db
 from app.config import env
 from app.errors import ApiError, err
 
@@ -61,8 +61,10 @@ async def _api_error(_: Request, e: ApiError):
 @app.exception_handler(RequestValidationError)
 async def _validation(_: Request, e: RequestValidationError):
     first = e.errors()[0] if e.errors() else {}
-    loc = ".".join(str(p) for p in first.get("loc", []) if p != "body") or "body"
-    return err(400, "VALIDATION_ERROR", f"{loc}: {first.get('msg', '요청 형식이 올바르지 않습니다.')}")
+    if first.get("type") == "json_invalid":
+        return err(400, "VALIDATION_ERROR", "본문 JSON 형식이 올바르지 않습니다.")
+    loc = ".".join(str(p) for p in first.get("loc", []) if p != "body") or "본문"
+    return err(400, "VALIDATION_ERROR", f"{loc} 값이 올바르지 않습니다. ({first.get('msg', '')})")
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -84,3 +86,6 @@ def health():
         return {"status": "ok", "db": "ok", "version": VERSION}
     except Exception:
         return {"status": "degraded", "db": "error", "version": VERSION}
+
+
+app.include_router(conversations.router)
