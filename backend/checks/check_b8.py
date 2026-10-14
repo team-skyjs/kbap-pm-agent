@@ -9,7 +9,7 @@ import httpx
 
 base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
 auth = {"Authorization": f"Bearer {os.environ['ACCESS_TOKEN']}"} if os.environ.get("ACCESS_TOKEN") else {}
-origin = "https://simhani1.github.io"
+origin = "https://team-skyjs.github.io"
 
 r = httpx.get(f"{base}/api/health", timeout=10)
 assert r.status_code == 200 and r.json() == {"status": "ok", "db": "ok", "version": "0.1.0"}, r.text

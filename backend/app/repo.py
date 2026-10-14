@@ -78,9 +78,20 @@ def _head(d: pathlib.Path) -> str:
     return _git("rev-parse", "--short=7", "HEAD", cwd=d)
 
 
+def code_files(d: pathlib.Path, glob: str | None = None) -> list[str]:
+    """CODE_GLOB(기본 *.{ts,tsx,js,jsx}) 범위의 파일 목록 (ADR-19). glob을 주면 그 교집합.
+    rg의 -g 여러 개는 OR라서 목록을 따로 구해 교집합한다."""
+    def ls(g: str) -> set[str]:
+        out = subprocess.run(["rg", "--files", "-g", g], cwd=d, capture_output=True, text=True, timeout=60).stdout
+        return {l.removeprefix("./") for l in out.splitlines()}
+    files = ls(env("CODE_GLOB", "*.{ts,tsx,js,jsx}"))
+    return sorted(files & ls(glob) if glob else files)
+
+
 def build_index(d: pathlib.Path) -> tuple[dict, int]:
     """이벤트명 → [{file, line, function}] (rg, LLM 0원) 과 화면 수. 인덱스는 REPOS_DIR/index.json에 둔다."""
-    p = subprocess.run(["rg", "--no-heading", "-n", "-o", "-r", "$1", "--color", "never", "-e",
+    p = subprocess.run(["rg", "--no-heading", "--with-filename", "-n", "-o", "-r", "$1", "--color", "never",
+                        "-g", env("CODE_GLOB", "*.{ts,tsx,js,jsx}"), "-e",
                         env("TRACK_CALL_PATTERN", r"track\(EVENTS\.(\w+)"), "."],
                        cwd=d, capture_output=True, text=True, timeout=120)
     index: dict[str, list] = {}

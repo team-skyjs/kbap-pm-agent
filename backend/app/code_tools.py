@@ -28,8 +28,8 @@ def _cache() -> dict:
 def _safe_path(path: str) -> pathlib.Path:
     base = repo.clone_dir().resolve()
     p = (base / path).resolve()
-    if not p.is_relative_to(base) or not p.is_file():
-        raise ValueError(f"저장소 안의 파일이 아닙니다: {path}")
+    if not p.is_relative_to(base) or not p.is_file() or str(p.relative_to(base)) not in repo.code_files(base):
+        raise ValueError(f"저장소 안의 코드 파일(CODE_GLOB)이 아닙니다: {path}")
     return p
 
 
@@ -45,7 +45,10 @@ def find_event_calls(eventName: str) -> str:
 
 def search_code(regex: str, glob: str | None = None) -> str:
     """저장소에서 정규식으로 코드 줄을 찾는다(최대 30건). glob 예: 'src/app/**/*.tsx'."""
-    cmd = ["rg", "--no-heading", "-n", "--color", "never", "-e", regex, *(["-g", glob] if glob else []), "."]
+    files = repo.code_files(repo.clone_dir(), glob)  # CODE_GLOB 범위만 (ADR-19)
+    if not files:
+        return f"0건: /{regex}/ (대상 코드 파일 없음)"
+    cmd = ["rg", "--no-heading", "--with-filename", "-n", "--color", "never", "-e", regex, "--", *files]
     p = subprocess.run(cmd, cwd=repo.clone_dir(), capture_output=True, text=True, timeout=60)
     if p.returncode > 1:
         raise ValueError(p.stderr.strip()[:300])

@@ -32,6 +32,7 @@ def git(*a):
   return <Button onPress={() => track(EVENTS.a)} />;
 }
 """)
+(src / "docs.md").write_text("문서 예시: track(EVENTS.a)\n")  # CODE_GLOB 밖 → 세지 않는다 (QA-2, ADR-19)
 git("init", "-b", "main")
 git("add", ".")
 git("commit", "-m", "init")

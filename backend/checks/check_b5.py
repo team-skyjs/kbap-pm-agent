@@ -22,6 +22,7 @@ def git(*a):
 
 (src / "src/app/long.tsx").write_text("".join(f"const x{i} = {i}; // needle\n" for i in range(1, 251)))
 (src / "src/app/b.tsx").write_text("export default function B() { track(EVENTS.b); }\n")
+(src / "notes.md").write_text("needle\n" * 5)  # CODE_GLOB 밖
 git("init", "-b", "main")
 git("add", ".")
 git("commit", "-m", "init")
@@ -59,10 +60,17 @@ try:
         raise AssertionError("저장소 밖 경로가 거부되지 않음")
     except ValueError:
         pass
-    ok("read_code 201줄 요청 → 200줄, 저장소 밖 경로 거부")
+    try:
+        code_tools.read_code("notes.md", 1, 5)
+        raise AssertionError("CODE_GLOB 밖 파일이 거부되지 않음")
+    except ValueError:
+        pass
+    ok("read_code 201줄 요청 → 200줄, 저장소 밖·CODE_GLOB 밖 경로 거부")
 
     out = code_tools.search_code("needle")
     assert len(out.splitlines()) == 1 + 30 and out.startswith("250건 중 30건"), out.splitlines()[0]
+    assert code_tools.search_code("needle", "src/app/**").startswith("250건 중 30건")
+    assert code_tools.search_code("needle", "notes.md").startswith("0건")
     assert code_tools.find_event_calls("b").startswith("1곳: src/app/b.tsx:1 (B)")
     assert "요약" in code_tools.get_screen_summary("src/app/b.tsx")
     ok("search_code 250건 → 30건, find_event_calls, get_screen_summary 캐시")
