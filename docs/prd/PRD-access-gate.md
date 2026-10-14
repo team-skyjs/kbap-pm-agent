@@ -1,6 +1,6 @@
 # PRD: 접근 제한 (Cloudflare Access 뒤로 서비스 이동)
 
-작성일: 2026-10-15 · 상태: 초안 · 상위 PRD: `PRD-kbap-pm-agent.md`
+작성일: 2026-10-15 · 상태: **보류** (2026-10-15 사용자 결정: 프론트는 GitHub Pages 유지, API는 공유 접근 토큰으로 잠금. 아래 설계는 Cloudflare Access가 필요해질 때 재검토) · 상위 PRD: `PRD-kbap-pm-agent.md`
 
 ## 1. 요약
 

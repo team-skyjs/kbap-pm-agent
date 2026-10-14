@@ -30,6 +30,7 @@ main에 직접 커밋하지 않는다. 작업은 브랜치(`feat/...`, `fix/...`
 **변경 이력:**
 | 날짜 | 변경 내용 | 대상 | 사유 |
 |------|----------|------|------|
+| 2026-10-15 | 프론트 GitHub Pages 유지·API 공유 토큰 잠금 결정. 헌법 v1.3.0, 접근 제한 PRD 보류, feat/access-gate 미머지 보관 | constitution, PRD-access-gate, CLAUDE.md | 사용자 결정 |
 | 2026-10-15 | frontend-designer 에이전트 + design-system·chat-ui-design·ui-review 스킬 추가, 오케스트레이터·QA 연결 | agents/frontend-designer, skills 3개, orchestrator, qa-integrator | 사용자 요청: ChatGPT 레퍼런스 채팅 UI/UX 전문 에이전트 |
 | 2026-10-15 | 초기 구성 (cto, frontend-dev, backend-dev, qa-integrator / 4 스킬) | 전체 | - |
 | 2026-10-15 | PRD를 `docs/prd/`로 이동, PRD 스킬 산출물 경로 규칙 추가 | CLAUDE.md, 참조 경로 전체 | 사용자 요청 |
