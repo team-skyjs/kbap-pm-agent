@@ -33,7 +33,8 @@
 - 이유: PRD가 요구하는 것은 "도구 여러 번 호출 + 중간 결과 보고 다음 조회 결정"이고, 기본 ReAct 루프가 정확히 그것이다. 제안 4필드를 본문 문자열이 아닌 구조로 받는 것도 `response_format` 한 줄로 끝난다.
 - 버린 대안: kbap-amplitude식 9노드 StateGraph. 품질 튜닝 단계에서는 유효하나 v1에서 "채택할 만한가"를 검증하기 전에 짓기엔 과하다. 필요해지면 같은 LangGraph 위에서 노드를 추가한다.
 - 바꾸면 영향: `backend/app/agent/` 내부만. SSE 이벤트 형식은 계약이므로 유지.
-- 가드: 질문당 도구 호출 상한 `AGENT_MAX_TOOL_CALLS`(기본 5). 초과 시 그때까지의 결과로 최종 응답을 강제한다.
+- 가드: 질문당 모델 호출 턴 상한 `AGENT_MAX_TURNS`(기본 10). 도구 호출은 세지 않는다(한 턴의 병렬 도구 호출은 1턴). 초과 시 추가 모델 호출 없이 그때까지의 결과로 부분 `final`을 보낸다.
+- 변경 사유: 2026-10-15 사용자 결정. 상한의 목적은 LLM 비용 통제이고, 질문 경로의 도구(grep·캐시·DB·MCP 조회)는 비용이 0이라 비용은 모델 턴에서만 생긴다(도구 20 → 도구 5 → 모델 턴 10).
 - 상태: 대체됨(→ADR-20) — LangChain `create_agent` 대신 공급자별 공식 SDK 런타임
 
 ### ADR-3: Amplitude는 `langchain-mcp-adapters` + MCP Python SDK OAuth, 서버가 토큰 보관
@@ -143,7 +144,7 @@
 - 상태: 확정 (2026-10-15 영향 범위 갱신: fake 분기는 `agent.py`에서 런타임 선택 전에 탄다. 두 런타임은 fake 모드에서 호출되지 않는다. 키 없는 런타임 검증은 각 SDK 클라이언트에 `httpx.MockTransport`를 주입하는 검사 스크립트로 한다(ADR-20). 운영 코드에 가짜 런타임은 두지 않는다)
 
 ### ADR-16: 에이전트 실행 시간 상한 `AGENT_TIMEOUT_SECONDS`(기본 170초)
-- 결정: 도구 호출 상한(ADR-2)에 더해 실행 시간 상한을 둔다. 둘 중 하나에 닿으면 그때까지의 조회 결과로 `final`을 보내고 `content` 첫 문장에 중단 사유를 적는다. 개별 도구 실패는 실행을 멈추지 않는다.
+- 결정: 모델 호출 턴 상한(ADR-2)에 더해 실행 시간 상한을 둔다. 둘 중 하나에 닿으면 그때까지의 조회 결과로 `final`을 보내고 `content` 첫 문장에 중단 사유를 적는다. 개별 도구 실패는 실행을 멈추지 않는다.
 - 이유: 명세 SC-004(완성 제안 3분 이내)와 엣지 케이스(상한 시간 초과 시 부분 답변). 170초면 저장·전송 여유를 두고 3분 안에 끝난다.
 - 버린 대안: 상한 없음(SC-004 위반), 상한 초과 시 `error`(이미 모은 근거를 버림).
 - 바꾸면 영향: 에이전트 실행 함수 한 곳.
@@ -188,7 +189,7 @@
   - **공통**
     - 도구: 코드·택사노미 도구는 `code_tools.py`의 같은 Python 함수이고, 각 런타임은 데코레이터로 얇게 감싸기만 한다.
     - 이벤트·실패: `tool_call`/`tool_result` 이벤트와 도구 예외 처리(실패 결과를 모델에 돌려주고 실행 계속, ADR-16)는 `agent.py`의 공통 래퍼 하나가 맡는다.
-    - 상한·사용량: 170초 상한(`asyncio.timeout`), 도구 호출 상한, 부분 `final`, 사용량 기록, 예산 검사는 `agent.py`에 남는다.
+    - 상한·사용량: 170초 상한(`asyncio.timeout`), 모델 호출 턴 상한(`AGENT_MAX_TURNS`), 부분 `final`, 사용량 기록, 예산 검사는 `agent.py`에 남는다.
     - 사후 검증: JSON 스키마로 못 쓰는 교차 규칙(신규 단계 `location` 필수, `order` 연속)은 응답 후 `AgentAnswer` Pydantic 검증으로 강제한다. ADR-17의 재시도 없음 규칙을 이어받는다.
 - 이유:
   - 사용자 지시(2026-10-15): 공식 SDK를 쓰고, 공급자 교체는 OpenAI SDK로 갈아끼울 수 있으면 된다.
@@ -226,7 +227,7 @@
 | `AGENT_MODE` | `real` / `fake` | ADR-15 |
 | `AGENT_MODEL`, `CODE_SUMMARY_MODEL` | `anthropic:claude-sonnet-5-5`, `anthropic:claude-haiku-5-5` (OpenAI로 바꾸면 `openai:gpt-6-luna`) | ADR-20 |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | | 쓰는 쪽만 |
-| `AGENT_MAX_TOOL_CALLS` | `5` | ADR-2 (2026-10-15 사용자 결정: 20→5) |
+| `AGENT_MAX_TURNS` | `10` | ADR-2 (2026-10-15 사용자 결정: 도구 20→도구 5→모델 턴 10. 비용은 모델 턴에서만 생긴다) |
 | `AGENT_TIMEOUT_SECONDS` | `170` | ADR-16 |
 | `LLM_BUDGET_USD` | `200` | ADR-9 |
 | `AMPLITUDE_MCP_URL` | `https://mcp.amplitude.com/mcp` | EU면 `https://mcp.eu.amplitude.com/mcp` |

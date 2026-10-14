@@ -161,7 +161,7 @@ description: "PM Agent 프로토타입 구현 태스크"
 - [x] T039 [US2] [BE] `backend/app/agent.py` real 분기. (B6)
   - 구성: `init_chat_model(AGENT_MODEL)`과 `create_agent(model, tools=code_tools+taxonomy_tools, system_prompt, response_format=AgentAnswer)`를 쓴다.
   - 스트리밍: `astream(stream_mode="updates")`를 `tool_call`/`tool_result`/`final`로 변환한다.
-  - 상한: `AGENT_MAX_TOOL_CALLS`(5) 또는 `AGENT_TIMEOUT_SECONDS`(170)에 닿으면 그때까지의 결과로 `final`을 보낸다. `status: "completed"`이고 `content` 첫 문장에 중단 사유를 적는다(ADR-16).
+  - 상한: 모델 호출 턴 `AGENT_MAX_TURNS`(10) 또는 `AGENT_TIMEOUT_SECONDS`(170)에 닿으면 그때까지의 결과로 `final`을 보낸다. `status: "completed"`이고 `content` 첫 문장에 중단 사유를 적는다(ADR-16).
   - 실패 처리: 도구가 실패하면 `tool_result` `failed`로 보내고 실행은 계속한다. 모델 호출 자체가 실패하면 `error` `UPSTREAM_ERROR`다.
   - 사용량: 매 호출을 `budget.record`로 기록한다.
 - [x] T040 [US2] [BE] `backend/app/agent.py` 시스템 프롬프트(코드에 모델명 금지). 담을 지시는 다음과 같다. (B6)
@@ -253,7 +253,7 @@ description: "PM Agent 프로토타입 구현 태스크"
 - [x] T064 [BE] `backend/app/agent.py`: seam 재구성. (B9)
   - 런타임 선택: `AGENT_MODEL`·`CODE_SUMMARY_MODEL`을 `provider:model`로 파싱한다. `{"anthropic": agent_anthropic, "openai": agent_openai}` dict로 고르고, 다른 접두사는 기동 시 실패시킨다.
   - 공통 도구 래퍼: `tool_call` 이벤트 → 실행 → `tool_result` 이벤트 순서다. 예외가 나면 `failed`와 오류 문장을 모델에 돌려주고 실행을 계속한다(ADR-16, FR-010). `source`는 `code`/`taxonomy`/`amplitude`.
-  - 상한: `asyncio.timeout(AGENT_TIMEOUT_SECONDS)`와 도구 호출 수 상한이다. 도달하면 기존 `partial_content()`로 부분 `final`을 낸다.
+  - 상한: `asyncio.timeout(AGENT_TIMEOUT_SECONDS)`와 모델 호출 턴 상한(`AGENT_MAX_TURNS`)이다. 도달하면 기존 `partial_content()`로 부분 `final`을 낸다.
   - 사용량·검증: 반복마다 사용량을 `budget.record`에 넘기고, `AgentAnswer` 사후 검증 실패는 `error` `UPSTREAM_ERROR`다(재시도 없음 `ponytail:` 주석 유지).
   - fake 분기: 런타임 선택보다 먼저 타며 변경하지 않는다.
   - `summarize()`: 같은 접두사 규칙으로 런타임별 단발 호출을 한다.
@@ -286,6 +286,13 @@ description: "PM Agent 프로토타입 구현 태스크"
   - 프론트: 변경 없이 F3·F4 화면이 동작해야 한다.
 - [x] T072 [QA] 헌법 정합 확인: 헌법 "기술 제약"의 백엔드 스택 문구가 ADR-20과 일치하는지 본다(team-lead 개정 후). 일치하지 않으면 CTO에 보고한다 (B9 QA)
 - [ ] T073 [QA] 실제 키 확보 시: `AGENT_MODEL`을 `anthropic:`과 `openai:`로 각각 두고 T042 시나리오(US1·US2 질문, SC-004 시간 측정)를 다시 실행한다. Anthropic 구조화 출력이 `AgentAnswer` 스키마 제약을 거부하는지 확인한다(research.md R8). 키가 없으면 "미검증"으로 리포트한다 (B9 QA)
+
+- [ ] T074 [BE] 모델 호출 턴 상한으로 전환(ADR-2 갱신, 2026-10-15 사용자 결정). (B9)
+  - 변수 교체: `AGENT_MAX_TOOL_CALLS`를 `AGENT_MAX_TURNS`(기본 10)로 바꾼다(`backend/app/config.py`·`agent.py`, `.env.example`, `deploy/kbap-pm-agent.env.example`, `docker-compose.yml`). 도구 호출 수 카운트는 제거한다.
+  - 런타임: Anthropic은 `tool_runner(max_iterations=AGENT_MAX_TURNS)`, OpenAI는 `Runner.run_streamed(max_turns=AGENT_MAX_TURNS)`. 한 턴의 병렬 도구 호출은 1턴이다.
+  - 부분 final: 상한에 닿으면 추가 모델 호출 없이 `partial_content()`로 부분 `final`을 낸다. `content` 첫 문장은 "모델 호출 상한(10턴)에 도달해 여기까지의 조회 결과로 답합니다."이고 `status: "completed"`(계약 05-messages 비고). OpenAI의 `MaxTurnsExceeded`는 잡아서 같은 경로로 보낸다.
+  - 검사: `backend/checks/check_b6.py`의 상한 시나리오를 바꾼다. 두 런타임 각각에서 가짜 전송이 계속 도구 호출만 돌려줄 때 `AGENT_MAX_TURNS=3`이면 모델 요청이 정확히 3회이고 부분 `final` 문장이 맞는지, 한 턴에 도구 2개를 병렬 호출해도 1턴으로 세는지 assert한다.
+- [ ] T075 [QA] T074 재검증: `check_b6.py`를 실행한다(순차 실행, quickstart 안내). `rg -n "AGENT_MAX_TOOL_CALLS" backend deploy .env.example docker-compose.yml` 결과가 없어야 한다. 두 런타임의 턴 상한 부분 `final`이 계약 05-messages 비고 문구와 일치하는지 본다. `cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md` 출력이 없어야 한다 (B9 QA)
 
 ---
 
