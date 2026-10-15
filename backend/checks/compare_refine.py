@@ -50,21 +50,42 @@ def load_keys() -> None:
             os.environ[k.strip()] = v.strip()
 
 
+def record(model: str, i: int, o: int) -> float:
+    from app import budget
+    try:
+        return budget.record("refine", model, i, o, None)
+    except Exception:  # DB가 없어도 비교는 계속, 비용은 단가표로 계산해 표에 기록
+        return budget.cost(model, i, o)
+
+
+def check_budget() -> None:
+    """유료 호출 직전마다 예산 확인: 비교 도중 상한에 닿으면 나머지 호출을 하지 않음"""
+    from app import budget
+    from app.errors import ApiError
+    try:
+        budget.check()
+    except ApiError:
+        raise
+    except Exception:  # DB가 없으면 확인 불가, 비교는 계속
+        pass
+
+
 async def run_one(model: str, prompt: str) -> dict:
-    from app import agent, budget
+    from app import agent
     mod, name = agent.runtime(model)
+    check_budget()
     t0 = time.monotonic()
     try:
         result, i, o = await mod.refine(name, prompt)
+    except agent.UsageError as e:  # 거절·형식 오류도 쓴 토큰은 비용 합계에 포함
+        i, o = e.usage or (0, 0)
+        return {"model": model, "error": f"{type(e).__name__}: {str(e)[:200]}", "latency_s": round(time.monotonic() - t0, 2),
+                "input_tokens": i, "output_tokens": o, "cost_usd": record(model, i, o) if e.usage else 0.0}
     except Exception as e:
         return {"model": model, "error": f"{type(e).__name__}: {str(e)[:200]}", "latency_s": round(time.monotonic() - t0, 2)}
     latency = round(time.monotonic() - t0, 2)
-    try:
-        cost = budget.record("refine", model, i, o, None)
-    except Exception:  # DB가 없어도 비교는 계속, 비용은 단가표로 계산해 표에 기록
-        cost = budget.cost(model, i, o)
     return {"model": model, "refined": result.refined, "summary": result.summary, "latency_s": latency,
-            "input_tokens": i, "output_tokens": o, "cost_usd": cost}
+            "input_tokens": i, "output_tokens": o, "cost_usd": record(model, i, o)}
 
 
 def sentences(text: str) -> str:
@@ -88,7 +109,8 @@ def write_md(rows: list[dict], names_source: str) -> str:
         out += ["", "| 모델 | 개선안 | 문장 수 | 요약 | 지연(초) | 토큰(입력/출력) | 비용(USD) |", "|---|---|---|---|---|---|---|"]
         for res in r["results"]:
             if "error" in res:
-                out.append(f"| {res['model']} | 오류: {cell(res['error'])} | | | {res['latency_s']} | | |")
+                tokens = f"{res['input_tokens']}/{res['output_tokens']}" if "input_tokens" in res else ""
+                out.append(f"| {res['model']} | 오류: {cell(res['error'])} | | | {res['latency_s']} | {tokens} | {res.get('cost_usd', '')} |")
             else:
                 out.append(f"| {res['model']} | {cell(res['refined'])} | {sentences(res['refined'])} | {cell(res['summary'])} | {res['latency_s']} | "
                            f"{res['input_tokens']}/{res['output_tokens']} | {res['cost_usd']} |")
@@ -104,14 +126,11 @@ def write_md(rows: list[dict], names_source: str) -> str:
 
 
 async def main(out_dir: pathlib.Path = ROOT / "_workspace") -> list[dict]:
-    from app import budget, refine
+    from app import refine
     load_keys()
     try:
         names, source = refine.taxonomy_names(), "DB"
-        budget.check()
-    except Exception as e:
-        if getattr(e, "code", "") == "BUDGET_EXCEEDED":
-            raise
+    except Exception:
         names, source = [], "고정 목록(DB 없음)"
     if not names:
         names, source = FALLBACK_NAMES, source if source != "DB" else "고정 목록(DB에 택사노미 없음)"
