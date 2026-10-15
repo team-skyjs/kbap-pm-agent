@@ -36,8 +36,13 @@ export function useRefine({ conversationId, setInput, send, input }: Deps) {
     pending.current = null
   }
 
-  // 대화를 떠나거나 화면이 닫히면 보내지 않은 개선안은 취소
-  useEffect(() => () => { run.current++; settle('cancelled') }, [conversationId])
+  // 대화를 떠나거나 화면이 닫히면 보내지 않은 개선안과 열린 카드는 취소(다듬는 중이면 기록 없음)
+  useEffect(() => () => {
+    run.current++
+    settle('cancelled')
+    if (openCard.current !== null) record(openCard.current, 'cancelled')
+    openCard.current = null
+  }, [conversationId])
   useEffect(() => { if (input !== undefined && !input.trim()) settle('cancelled') }, [input])
 
   const start = useCallback(async (question: string) => {

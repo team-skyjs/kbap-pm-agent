@@ -131,6 +131,15 @@ test('닫기와 ESC: 카드만 닫히고 원문 유지, 선택 cancelled', async
   expect(rec.sent).toEqual([])
 })
 
+test('카드를 연 채 다른 대화로 옮기면 cancelled', async ({ page }) => {
+  const rec = capture(page)
+  await openCard(page)
+  await page.goto('./#/conversations/7')
+  await expect(page.locator('article.card').first()).toBeVisible()
+  await expect.poll(() => rec.choices).toEqual(['cancelled'])
+  expect(rec.sent).toEqual([])
+})
+
 test('카드를 연 채 입력창 Enter: 원문 전송으로 기록하고 카드 닫힘, 이후 카드 선택 없음', async ({ page }) => {
   const rec = capture(page)
   await openCard(page, { scenario: 'hang' })
