@@ -72,6 +72,7 @@
 | 2026-10-15 | PR #16 Codex 다듬기 시간 상한 (1feba63) | 통과 | REFINE_TIMEOUT_SECONDS(기본 20초) 초과 시 502 UPSTREAM_ERROR·행 없음, 계약 08b "모델 호출 실패 502"와 일치. 프론트에는 별도 요청 시간 상한이 없어 서버 상한과 충돌 없음. 커밋본 check_b1~b7·b9·b10 OK, 계약 diff 0. 실제 키 엔드포인트 2건 200(2.96·1.66초), 응답 키 refinementId·refined·summary, usage 행 2 |
 | 2026-10-15 | PR #16 Codex 재리뷰 2건 (50f7871, 선택 기록을 message_created 뒤로) | 통과 | 커밋본: check 8 OK, check:ui 424 통과·71 건너뜀·실패 0. 실제 fake 왕복: 시연 1~8 실패 0(채택 비율 40.0·shown 5), 선택 POST 순서 동일, 카드 연 채 Enter는 서버 확인(약 200ms) 뒤 카드 닫힘·original, 넣기 뒤 새 다듬기·다른 대화 이동 cancelled, SC-005 흐름 유지. 실제 409: 카드 연 채 Enter가 409면 카드 유지·기록 NULL·안내 표시, 실행 끝난 뒤 원문으로 보내기 original |
 | 2026-10-15 | 마지막 회귀 (b83894e = 62d36b2 포함) | 통과 | 커밋본: check 8 OK, check:ui 424 통과·71 건너뜀·실패 0. 실제 fake 왕복: 시연 1~8 실패 0, 넣기 뒤 새 다듬기·이동 cancelled, SC-005 흐름 유지. 전송 실패 실측(별도 DB에 예산 초과 행을 잠시 넣어 403 유도): 409 중 개선안으로 보내기 → 기록 없음·개선안이 입력창에 남음·다시 보내면 refined, 예산 초과 중 원문으로 보내기 → 기록 없음·이후 무관한 전송에도 기록 없음, 넣기 뒤 예산 실패 → 기록 없음·입력창 유지·다시 보내면 refined. 열린 결함 0 |
+| 2026-10-15 | 최종 회귀 (3a75c5f = ac9181f 카드 재오픈·b551a53 compare_refine·3a75c5f busy 중 닫기 무시) | 통과, 결함 1(낮음, 다음 사이클) | 커밋본: check 8 OK, check:ui 433 통과·71 건너뜀·실패 0, check_b1~b7·b9·b10 OK, 계약 diff 0, compare_refine 구문 OK. 실제 fake 왕복: 시연 1~8 실패 0, 넣기 뒤 새 다듬기·이동 cancelled, SC-005 유지. 전송 실패: 409 중 개선안으로 보내기 → 같은 카드 재오픈·기록 없음·입력창 원문 → 재시도 refined 1건(선택 POST ["refined"]). 예산 실패 원문으로 보내기 → 카드 재오픈·기록 없음 → 재시도 original. 넣기 뒤 예산 실패 → 입력창 유지 → 재시도 refined. 응답 지연 중 Enter 직후 ESC → 닫기 비활성·카드 유지·기록 없음, 서버 확인 뒤 original 1건. 결함 UI-5 |
 
 ## 결함
 
@@ -203,3 +204,12 @@
 - 수정 방향: 백엔드. 원응답을 받은 뒤 검증하는 경로(예: `messages.create` 후 `RefineResult.model_validate_json`)로 바꾸거나, 검증 예외에 usage를 실어 Refused와 같은 방식으로 기록한다. 빈도·금액이 작아(Haiku 1회 약 $0.0004) 다음 사이클로 미뤄도 된다
 - 수신: backend-dev
 - 상태: 확인됨 (69fe1b1: Anthropic은 messages.create + RefineResult 직접 검증, OpenAI는 RunHooks.on_llm_end로 usage 누적, 거절·형식 오류는 usage를 실은 예외로 기록 후 502. 커밋본 check_b1~b7·b9·b10 OK, 계약 diff 0. 실제 키 Haiku 10건: 오류 0, usage 행 +10, 지연 중앙값 1.94초, 규칙 문구·처리 메모 유입 0)
+
+### UI-5: 409로 카드가 다시 열리면 키보드 포커스가 페이지 본문으로 떨어진다
+- 모듈: frontend / 004 (refine.ts 카드 재오픈, RefineCard 첫 포커스)
+- 경계면: 화면 접근성 (전송 실패 후 상태)
+- 기대: ac9181f 설명대로 재오픈 시 포커스가 "개선안으로 보내기"에 간다. 예산 403에서는 그렇게 된다
+- 실제: 다른 클라이언트 실행 중 카드에서 "개선안으로 보내기"나 "원문으로 보내기" → 409 → 카드는 다시 열리지만 document.activeElement가 body다(두 버튼 모두 재현, 403은 정상). 409 뒤 상세 재조회로 실행 중 상태가 되어 카드 버튼·입력창이 모두 비활성이라 포커스를 둘 곳이 없는 것으로 보인다. 스크린 리더 사용자는 카드가 다시 열린 것과 위치를 알기 어렵다
+- 수정 방향: 프론트. 실행 중에도 포커스 가능한 요소(카드 닫기는 busy라 비활성이므로 카드 제목에 tabIndex=-1을 주고 포커스, 또는 #chat-hint 안내로 포커스)를 정하고, 실행이 끝나 버튼이 살아나면 개선안으로 보내기로 옮긴다. us12에 409 재오픈 포커스 케이스를 추가한다
+- 수신: frontend-dev, frontend-designer
+- 상태: 열림 (낮음, 다음 사이클. 프론트 동결)
