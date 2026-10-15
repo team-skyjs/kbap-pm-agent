@@ -65,6 +65,7 @@
 | 2026-10-15 | 규칙 문구 유입 수정 (87641b4) Haiku 10건 재실행 | 확인됨 | 규칙 문구·처리 메모 유입 0, 세 문장 0, 한자 0. 2번은 "주문 흐름 단계별 이탈 수와 비율"로 규칙 문구 없음. 지연 중앙값 2.10초, 출력 토큰 133~239 |
 | 2026-10-15 | REFINE_THINKING 환경변수화 (d349085) | 정적 통과 | 워크플로우 기본 disabled, env 예시 둘 다 disabled, 코드 기본 adaptive(미설정 시 thinking 미전송). 요청 형태는 1ce6b6d와 같아 재실행 생략. 위험: REFINE_MODEL을 Sonnet 등으로 바꾸고 REFINE_THINKING=disabled를 두면 다듬기가 모두 502. deploy/README에 명시됨 |
 | 2026-10-15 | thinking disabled 거부 시 재시도 (56c5d82) | 통과 | disabled 요청이 400이면 경고 로그 후 thinking 없이 1회 재시도, 다시 실패하면 502. 워크플로우 기본 adaptive(운영은 Variable disabled). 커밋본 check_b6·b10 OK. 위 d349085의 Sonnet+disabled 502 위험 해소. 참고: 모든 400에 재시도하므로 다른 원인의 400도 1회 더 호출(400은 과금 없음) |
+| 2026-10-15 | PR #16 Codex 2건 (943a915) | 통과, 결함 1(낮음) | Anthropic 거절 시 usage 기록(502·행 없음), 공백만 refined·summary 502·행 없음. 커밋본 check_b1~b7·b9·b10 OK. 같은 원칙으로 남은 경로 QA-13 |
 
 ## 결함
 
@@ -187,3 +188,12 @@
 - 수정 방향: 디자이너. `.scroll`에 `tabIndex={0}`과 접근 이름("대화 내용")을 준다. 또는 좁은 화면에서 카드 높이에 상한을 두고 카드 안을 스크롤한다. us12에 빈 대화 375 axe 케이스를 추가한다
 - 수신: frontend-designer
 - 상태: 확인됨 (34001a6: `.scroll`에 tabIndex·region·"대화 내용", 카드 높이를 화면 절반으로 제한하고 카드 안 스크롤. 커밋본 재검증: 라이트·다크 × 1280·375 axe critical·serious 0, 375×667 메시지 영역 127px, 375×560 입력창 화면 안·문서 스크롤 없음)
+
+### QA-13: 형식이 틀린 다듬기 응답과 OpenAI 거절은 과금되지만 사용량에 기록되지 않는다
+- 모듈: backend / 004 (agent.refine, agent_anthropic.refine, agent_openai.refine)
+- 경계면: LLM 응답 ↔ 예산 기록
+- 기대: 943a915가 세운 원칙 "거절도 과금되므로 예산에 기록", FR-008 사용량·예산
+- 실제: Anthropic `messages.parse`가 구조화 출력 검증(잘못된 JSON, 4,001자 이상 refined, 공백만 refined·summary)에서 예외를 내면 응답 usage를 읽기 전에 빠져나가 llm_usage 행이 없다. 모델은 출력 토큰을 이미 썼다. OpenAI 런타임 `Runner.run`의 거절·검증 실패도 기록 경로가 없다(현재 OpenAI 키 없음). 모두 502·다듬기 행 없음은 맞다
+- 수정 방향: 백엔드. 원응답을 받은 뒤 검증하는 경로(예: `messages.create` 후 `RefineResult.model_validate_json`)로 바꾸거나, 검증 예외에 usage를 실어 Refused와 같은 방식으로 기록한다. 빈도·금액이 작아(Haiku 1회 약 $0.0004) 다음 사이클로 미뤄도 된다
+- 수신: backend-dev
+- 상태: 열림
