@@ -131,6 +131,19 @@ test('닫기와 ESC: 카드만 닫히고 원문 유지, 선택 cancelled', async
   expect(rec.sent).toEqual([])
 })
 
+test('카드를 연 채 Enter 뒤 전송 확인 전 ESC·닫기는 무시, 확인 뒤 original 1건', async ({ page }) => {
+  const rec = capture(page)
+  await openCard(page, { sendDelayMs: 1500 })
+  await box(page).press('Enter')
+  await page.keyboard.press('Escape')
+  await expect(card(page).getByRole('button', { name: '닫기' })).toBeDisabled()
+  await expect(card(page)).toBeVisible()
+  expect(rec.choices).toEqual([])
+  await expect(card(page)).toHaveCount(0)
+  await expect.poll(() => rec.choices).toEqual(['original'])
+  expect(rec.sent).toEqual([ORIGINAL])
+})
+
 test('카드를 연 채 다른 대화로 옮기면 cancelled', async ({ page }) => {
   const rec = capture(page)
   await openCard(page)

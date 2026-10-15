@@ -20,17 +20,18 @@ export default function RefineCard({ original, refined, summary, onSendRefined, 
   // 포커스가 입력창으로 옮겨가도 ESC로 닫힘, Drawer가 열려 있으면 Drawer가 먼저
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !document.querySelector('[role="dialog"]')) onClose()
+      // 전송 확인을 기다리는 동안(busy) 닫으면 뒤이은 원문 전송 기록을 막으므로 무시
+      if (e.key === 'Escape' && !busy && !document.querySelector('[role="dialog"]')) onClose()
     }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, busy])
 
   return (
     <section className="refine-card" role="region" aria-labelledby={titleId}>
       <div className="refine-head">
         <h2 id={titleId}>질문 다듬기 결과</h2>
-        <button type="button" className="icon-btn" aria-label="닫기" onClick={onClose}><span aria-hidden="true">✕</span></button>
+        <button type="button" className="icon-btn" aria-label="닫기" disabled={busy} onClick={onClose}><span aria-hidden="true">✕</span></button>
       </div>
       <div className="refine-compare">
         <div className="refine-pane original">

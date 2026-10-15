@@ -71,6 +71,8 @@ type Options = {
   choiceFail?: boolean
   // 첫 메시지 전송만 스트림 전 403 BUDGET_EXCEEDED(전송 실패 시 다듬기 선택 미기록 확인)
   sendFailFirst?: boolean
+  // 메시지 전송 응답 지연(ms), 전송 확인 전 구간 확인용
+  sendDelayMs?: number
 }
 
 // 대화 7(계약 상세 예시, 제안 두 개) + 전송 시나리오. 다른 대화는 빈 상태로 시작
@@ -150,6 +152,7 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
     }
     if (method === 'POST' && /^\/api\/conversations\/\d+\/messages$/.test(path)) {
       if (scenario === 'hang') return new Promise<void>(() => {})
+      if (opts.sendDelayMs) await new Promise((r) => setTimeout(r, opts.sendDelayMs))
       if (opts.sendFailFirst && !sendFailed) { sendFailed = true; return json(403, { error: { code: 'BUDGET_EXCEEDED', message: 'LLM 예산 상한에 도달했습니다.' } }) }
       if (opts.conflictRace && ++posts >= 2) return json(409, { error: { code: 'RUN_IN_PROGRESS', message: '이 대화에서 이미 에이전트가 실행 중입니다.' } })
       readsAfterSend = 0
