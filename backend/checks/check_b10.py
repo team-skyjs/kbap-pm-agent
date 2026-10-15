@@ -148,13 +148,21 @@ try:
         u = db.one("SELECT model, input_tokens FROM llm_usage WHERE purpose = 'refine' ORDER BY id DESC LIMIT 1")
         assert u["model"] == model and u["input_tokens"] > 0, u
         too_long = ("final", {"refined": "가" * 4001, "summary": "길이 초과"})  # 보낼 수 없는 개선안은 내보내지 않음
-        for step in ([("refusal",)] if provider == "anthropic" else []) + [("raw", "JSON 아님"), too_long]:
+        blank = ("final", {"refined": "  \n\t ", "summary": "공백만"})
+        for step in ([("refusal",)] if provider == "anthropic" else []) + [("raw", "JSON 아님"), too_long, blank]:
             before = refinements()
             script(provider, [step])
             r = c.post("/api/questions/refine", json={"conversationId": None, "question": "전환율"})
             assert r.status_code == 502 and r.json()["error"]["code"] == "UPSTREAM_ERROR", (provider, step, r.text)
             assert refinements() == before, "실패면 기록 행 없음"
-        ok(f"{provider}: RefineResult 반환·기록·usage 행, " + ("거절·" if provider == "anthropic" else "") + "잘못된 JSON·4,001자 개선안 502 행 없음")
+        if provider == "anthropic":  # 거절도 과금: 다듬기 행은 없지만 사용량 행은 남음
+            before_usage = refine_usage()
+            script(provider, [("refusal",)])
+            assert c.post("/api/questions/refine", json={"conversationId": None, "question": "x"}).status_code == 502
+            u = db.one("SELECT model, input_tokens, output_tokens FROM llm_usage WHERE purpose = 'refine' ORDER BY id DESC LIMIT 1")
+            assert refine_usage() == before_usage + 1 and u == {"model": model, "input_tokens": 100, "output_tokens": 10}, u
+        ok(f"{provider}: RefineResult 반환·기록·usage 행, " + ("거절(사용량 기록)·" if provider == "anthropic" else "")
+           + "잘못된 JSON·4,001자·공백만 개선안 502 행 없음")
     os.environ.pop("REFINE_MODEL")
     script("anthropic", [("final", answer)])
     c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})

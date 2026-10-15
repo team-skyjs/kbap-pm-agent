@@ -236,6 +236,13 @@ class RefineResult(M):
                          description="에이전트에게 그대로 보낼 질문 문장만. 처리 메모·설명은 넣지 않음")
     summary: str = Field(min_length=1, max_length=300, description="무엇이 달라졌는지와 처리 메모 한 줄")
 
+    @field_validator("refined", "summary")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:  # 공백·개행만이면 보낼 수 없는 개선안 → 검증 실패(502, 행 없음)
+        if not v.strip():
+            raise ValueError("공백만 있음")
+        return v
+
 
 class RefineIn(M):
     conversation_id: StrictInt | None = None  # ID는 JSON number만. 문자열 "7"을 정수로 바꿔 받지 않음

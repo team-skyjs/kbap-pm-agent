@@ -93,7 +93,7 @@ async def refine(model: str, prompt: str):
     else:
         resp = await call()
     if resp.stop_reason == "refusal":  # 본문을 읽기 전에 확인
-        raise Refused()
+        raise Refused(_usage(resp.usage))
     if resp.parsed_output is None:
         raise ValueError("구조화 출력 없음")
     return resp.parsed_output, *_usage(resp.usage)

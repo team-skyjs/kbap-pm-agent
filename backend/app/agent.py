@@ -123,7 +123,11 @@ def check_models() -> None:
 
 
 class Refused(Exception):
-    """모델의 stop_reason refusal 거절."""
+    """모델의 stop_reason refusal 거절. usage = (입력, 출력) 토큰: 거절도 과금되므로 예산에 기록"""
+
+    def __init__(self, usage: tuple[int, int] | None = None):
+        super().__init__("refusal")
+        self.usage = usage
 
 
 class TurnLimit(Exception):
@@ -307,6 +311,11 @@ async def refine(prompt: str):
         return RefineResult(refined=FAKE_REFINED, summary=FAKE_REFINE_SUMMARY), "fake"
     model_str = refine_model()
     mod, name = runtime(model_str)
-    result, input_tokens, output_tokens = await mod.refine(name, prompt)
+    try:
+        result, input_tokens, output_tokens = await mod.refine(name, prompt)
+    except Refused as e:  # 거절 응답도 토큰을 쓰므로 예산에서 빠지지 않게 기록 후 다시 올림
+        if e.usage:
+            budget.record("refine", model_str, *e.usage, None)
+        raise
     budget.record("refine", model_str, input_tokens, output_tokens, None)
     return result, model_str
