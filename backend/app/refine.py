@@ -1,10 +1,12 @@
 """질문 다듬기 라우트: 보내기 전 질문을 한 번 다듬고, 사용자가 무엇을 골랐는지 기록."""
+import asyncio
 import logging
 import re
 
 from fastapi import APIRouter
 
 from app import agent, budget, db
+from app.config import num
 from app.db import iso
 from app.errors import ApiError
 from app.schemas import RefineChoiceIn, RefineIn
@@ -94,7 +96,8 @@ async def refine_question(body: RefineIn):
     budget.check()  # 유료 호출 전에 거절
     prompt, truncated = build_prompt(body.question, body.conversation_id)
     try:
-        result, model = await agent.refine(prompt)
+        # 공급자가 응답 없이 멈춰도 화면이 다듬는 중으로 묶이지 않게 앱 수준 상한. 초과면 받은 usage가 없어 기록 없음
+        result, model = await asyncio.wait_for(agent.refine(prompt), num("REFINE_TIMEOUT_SECONDS", 20))
     except Exception as e:
         log.warning("refine failed: %s", type(e).__name__)
         raise ApiError(502, "UPSTREAM_ERROR", "질문 다듬기 모델 호출에 실패했습니다. 원문으로 보내거나 다시 시도해 주세요.")

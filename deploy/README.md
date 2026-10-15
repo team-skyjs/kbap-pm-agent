@@ -30,6 +30,7 @@ main에 병합되면 자동 배포된다.
    | `AGENT_MODEL`, `CODE_SUMMARY_MODEL`, `LLM_BUDGET_USD` | 생략 시 기본값(anthropic:claude-sonnet-5-5 / claude-haiku-5-5 / 200) |
    | `REFINE_MODEL` | 질문 다듬기 모델. 생략 시 배포 워크플로우 기본값 `anthropic:claude-haiku-5-5`(샘플 비교로 확정). 앱은 비어 있으면 `CODE_SUMMARY_MODEL`로 폴백 |
    | `REFINE_THINKING` | 다듬기 호출 사고(`adaptive` \| `disabled`, 생략 시 `adaptive`). 운영은 Haiku와 짝으로 `disabled`(지연 절감). 모델이 disabled를 거부(400)하면 앱이 adaptive로 1회 재시도하고 경고 로그 |
+   | `REFINE_TIMEOUT_SECONDS` | 다듬기 모델 호출 상한(초). 생략 시 `20`. 넘으면 502, 화면은 원문 유지 안내 |
    | `VITE_API_BASE_URL` | 프론트 빌드용. `PUBLIC_BASE_URL`과 같은 값 |
 4. **cloudflared ingress**: `<운영 API 호스트명>` → `http://kbap-pm-agent:8000` (같은 `monitor-net`)
 5. **GitHub Pages**: 레포 Settings → Pages → Source "GitHub Actions". Settings → Variables → `VITE_API_BASE_URL=https://<운영 API 주소>`

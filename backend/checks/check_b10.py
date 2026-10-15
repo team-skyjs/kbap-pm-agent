@@ -187,6 +187,17 @@ try:
     assert "thinking" not in sent[0]
     os.environ.pop("REFINE_THINKING")
     ok("REFINE_MODEL 비면 CODE_SUMMARY_MODEL 사용, REFINE_THINKING=disabled일 때만 thinking disabled 전송, 400이면 adaptive 1회 재시도(재실패 502)")
+    # 공급자가 멈춤: REFINE_TIMEOUT_SECONDS를 넘으면 502, 다듬기 행·사용량 행 없음
+    os.environ["REFINE_TIMEOUT_SECONDS"] = "0.3"
+    before, before_usage = refinements(), refine_usage()
+    script("anthropic", [("final", answer)], delay=1.0)
+    t0 = time.monotonic()
+    r = c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})
+    took = time.monotonic() - t0
+    os.environ.pop("REFINE_TIMEOUT_SECONDS")
+    assert r.status_code == 502 and r.json()["error"]["code"] == "UPSTREAM_ERROR" and took < 0.9, (r.text, took)
+    assert refinements() == before and refine_usage() == before_usage
+    ok("REFINE_TIMEOUT_SECONDS 초과 → 502, 행·사용량 없음(상한 시간 안에 응답)")
     os.environ["REFINE_MODEL"] = "foo:bar"
     from app import agent
     try:
