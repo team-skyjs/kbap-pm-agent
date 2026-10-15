@@ -23,9 +23,10 @@ export function useRefine({ conversationId, setInput, send, input }: Deps) {
   const [state, setState] = useState<RefineState>({ phase: 'idle' })
   // 다듬는 사이 대화가 바뀌거나 화면이 닫히면 늦게 온 결과를 버리기 위한 순번
   const run = useRef(0)
-  // 서버가 메시지를 받은(message_created) 뒤에 기록할 선택. insert는 입력창에 넣기라 전송 실패에도 유지,
-  // 카드의 두 보내기 버튼은 그 한 번의 전송에만 묶여 실패하면 버림
-  const pending = useRef<{ id: number; choice: RefineChoice; insert: boolean; text: string } | null>(null)
+  // 서버가 메시지를 받은(message_created) 뒤에 기록할 선택. 입력창에 넣기는 전송 실패에도 유지,
+  // 카드의 두 보내기 버튼은 실패하면 그 카드를 다시 열기 위해 카드 내용을 함께 보관
+  type Card = Extract<RefineState, { phase: 'card' }>
+  const pending = useRef<{ id: number; choice: RefineChoice; reopen: Card | null } | null>(null)
   // 열린 카드. 호출자의 전송 함수는 이전 렌더의 상태를 볼 수 있어 상태 대신 ref로 판단(중복 기록 방지)
   const openCard = useRef<number | null>(null)
 
@@ -34,7 +35,7 @@ export function useRefine({ conversationId, setInput, send, input }: Deps) {
   // 넣어 둔 개선안을 보내지 않고 비우거나 떠나거나 다시 다듬으면 취소
   const cancelInsert = () => {
     const p = pending.current
-    if (!p?.insert) return
+    if (!p || p.reopen) return
     record(p.id, 'cancelled')
     pending.current = null
   }
@@ -70,10 +71,11 @@ export function useRefine({ conversationId, setInput, send, input }: Deps) {
   }, [conversationId])
 
   // 카드 닫기. 닫기는 바로 기록, 나머지는 전송 확인 뒤 기록하도록 보류
-  const finish = (choice: RefineChoice, defer: { insert: boolean; text: string } | null) => {
+  // defer: null이면 바로 기록(닫기), 아니면 전송 확인까지 보류. reopen이면 전송 실패 시 카드를 다시 염
+  const finish = (choice: RefineChoice, defer: { reopen: boolean } | null) => {
     if (state.phase !== 'card' || openCard.current === null) return null
     openCard.current = null
-    if (defer) pending.current = { id: state.result.refinementId, choice, insert: defer.insert, text: defer.text }
+    if (defer) pending.current = { id: state.result.refinementId, choice, reopen: defer.reopen ? state : null }
     else record(state.result.refinementId, choice)
     setState({ phase: 'idle' })
     return state
@@ -82,10 +84,10 @@ export function useRefine({ conversationId, setInput, send, input }: Deps) {
   return {
     state,
     start,
-    sendRefined: () => { const s = state.phase === 'card' && finish('refined', { insert: false, text: state.result.refined }); if (s) send(s.result.refined) },
-    sendOriginal: () => { const s = state.phase === 'card' && finish('original', { insert: false, text: state.original }); if (s) send(s.original) },
+    sendRefined: () => { const s = finish('refined', { reopen: true }); if (s) send(s.result.refined) },
+    sendOriginal: () => { const s = finish('original', { reopen: true }); if (s) send(s.original) },
     // 편집 후 전송도 개선안 채택으로 셈
-    insertRefined: () => { const s = state.phase === 'card' && finish('refined', { insert: true, text: state.result.refined }); if (s) setInput(s.result.refined) },
+    insertRefined: () => { const s = finish('refined', { reopen: false }); if (s) setInput(s.result.refined) },
     close: () => { finish('cancelled', null) },
     // 오류 상태일 때만 닫음(열린 카드를 기록 없이 닫지 않도록)
     dismissError: () => setState((s) => (s.phase === 'error' ? { phase: 'idle' } : s)),
@@ -103,14 +105,13 @@ export function useRefine({ conversationId, setInput, send, input }: Deps) {
       }
     },
     // 전송이 서버에 닿지 못함(예산 초과·409·인증·네트워크·이미 실행 중). 넣기는 유지,
-    // 개선안 보내기는 개선안을 입력창에 넣은 상태로 전환(다시 보내면 채택), 원문 보내기는 버림
+    // 카드의 보내기 버튼이면 기록 없이 같은 카드를 다시 열어 한 번에 재시도하게 함(열리면 개선안 보내기에 포커스)
     sendFailed: () => {
       const p = pending.current
-      if (!p || p.insert) return
-      if (p.choice === 'refined') {
-        pending.current = { ...p, insert: true }
-        setInput(p.text)
-      } else pending.current = null
+      if (!p?.reopen) return
+      pending.current = null
+      openCard.current = p.id
+      setState(p.reopen)
     },
   }
 }

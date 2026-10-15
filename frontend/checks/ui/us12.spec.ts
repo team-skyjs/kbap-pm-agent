@@ -180,15 +180,19 @@ test('입력창에 넣기 후 전송 실패: 채택 미기록, 다시 보내 성
   await expect.poll(() => rec.choices).toEqual(['refined'])
 })
 
-test('개선안으로 보내기가 전송 실패: 기록 없이 개선안이 입력창에 남고, 다시 보내면 refined', async ({ page }) => {
+test('개선안으로 보내기가 전송 실패: 기록 없이 같은 카드가 다시 열리고, Enter 재시도 성공 시 refined 1건', async ({ page }) => {
   const rec = capture(page)
   await openCard(page, { sendFailFirst: true })
   await card(page).getByRole('button', { name: '개선안으로 보내기' }).click()
   await expect(page.locator('#chat-hint')).toContainText('예산')
-  await expect(box(page)).toHaveValue(REFINED)
+  await expect(card(page)).toBeVisible()
+  await expect(card(page)).toContainText(REFINED)
+  await expect(card(page).getByRole('button', { name: '개선안으로 보내기' })).toBeFocused()
+  await expect(box(page)).toHaveValue(ORIGINAL)
   expect(rec.choices).toEqual([])
-  await box(page).press('Enter')
+  await page.keyboard.press('Enter')
   await expect(page.locator('.msg.user').last()).toContainText(REFINED)
+  await expect(card(page)).toHaveCount(0)
   await expect.poll(() => rec.choices).toEqual(['refined'])
   expect(rec.sent).toEqual([REFINED, REFINED])
 })
