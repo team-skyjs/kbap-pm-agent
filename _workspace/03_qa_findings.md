@@ -68,6 +68,7 @@
 | 2026-10-15 | PR #16 Codex 2건 (943a915) | 통과, 결함 1(낮음) | Anthropic 거절 시 usage 기록(502·행 없음), 공백만 refined·summary 502·행 없음. 커밋본 check_b1~b7·b9·b10 OK. 같은 원칙으로 남은 경로 QA-13 |
 | 2026-10-15 | 최종 회귀 (ab2137f = 943a915·1778aca 포함) | 통과 | 커밋본: check 8 OK, check:ui 388 통과·71 건너뜀·실패 0, check_b1~b7·b9·b10 OK(b8 운영), 계약 diff 0. 실제 fake 왕복: 시연 1~8 실패 0, 카드 연 채 Enter original, 넣기 뒤 새 다듬기 cancelled, 카드 연 채 다른 대화로 이동 cancelled·전송 없음. 열린 결함 QA-13(낮음)뿐 |
 | 2026-10-15 | QA-13 재검증 (69fe1b1) | 확인됨 | parse → create 전환 후 실제 경로 정상(10/10), 실패 응답 usage 기록은 check_b10 두 런타임 × 세 형식 오류 + 거절. 열린 결함 0 |
+| 2026-10-15 | QA-13 되돌림·재적용 (b23076b → 4b1828c) | 확인됨 | 69fe1b1을 b23076b로 되돌렸다가 team-lead 결정으로 4b1828c에서 다시 적용. b23076b는 ab2137f와 backend 동일·check_b10 OK, 4b1828c는 69fe1b1과 코드 동일·check_b10 OK. 69fe1b1 실제 키 검증이 현재 상태에 유효 |
 
 ## 결함
 
