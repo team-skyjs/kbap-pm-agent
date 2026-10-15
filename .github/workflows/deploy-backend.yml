@@ -79,7 +79,7 @@ jobs:
           AGENT_MODEL: ${{ vars.AGENT_MODEL }}
           CODE_SUMMARY_MODEL: ${{ vars.CODE_SUMMARY_MODEL }}
           REFINE_MODEL: ${{ vars.REFINE_MODEL }}
-          REFINE_THINKING: ${{ vars.REFINE_THINKING }}   # 생략 시 disabled(기본 모델 Haiku와 짝). Sonnet 등으로 바꾸면 adaptive
+          REFINE_THINKING: ${{ vars.REFINE_THINKING }}   # adaptive | disabled. 생략 시 adaptive
           AMPLITUDE_MCP_URL: ${{ vars.AMPLITUDE_MCP_URL }}
           LLM_BUDGET_USD: ${{ vars.LLM_BUDGET_USD }}
         run: |
@@ -96,7 +96,7 @@ jobs:
           AGENT_MODEL=${AGENT_MODEL:-anthropic:claude-sonnet-5-5}
           CODE_SUMMARY_MODEL=${CODE_SUMMARY_MODEL:-anthropic:claude-haiku-5-5}
           REFINE_MODEL=${REFINE_MODEL:-anthropic:claude-haiku-5-5}
-          REFINE_THINKING=${REFINE_THINKING:-disabled}
+          REFINE_THINKING=${REFINE_THINKING:-adaptive}
           ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
           OPENAI_API_KEY=$OPENAI_API_KEY
           AGENT_MAX_TURNS=10

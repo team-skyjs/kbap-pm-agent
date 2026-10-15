@@ -1,6 +1,6 @@
 """두 LLM SDK에 가짜 HTTP 전송을 넣는 검사 도우미. 실제 SDK 요청 생성·응답 파싱 경로를 그대로 사용. 비용 0.
 스크립트 단계: ("tool", 도구이름, 입력) | ("tools", [(도구이름, 입력), ...]) 병렬 호출 | ("final", AgentAnswer dict)
-| ("raw", 텍스트) 그대로의 텍스트 응답(잘못된 JSON 시험) | ("refusal",)"""
+| ("raw", 텍스트) 그대로의 텍스트 응답(잘못된 JSON 시험) | ("refusal",) | ("http400",) 요청 거부"""
 import asyncio
 import json
 
@@ -61,6 +61,9 @@ def script(provider: str, steps, delay: float = 0.0):
         if delay:
             await asyncio.sleep(delay)
         step, n = next(it), len(sent)
+        if step[0] == "http400":
+            err = {"type": "error", "error": {"type": "invalid_request_error", "message": "rejected"}}
+            return (httpx2 if provider == "anthropic" else httpx).Response(400, json=err)
         if provider == "anthropic":
             return httpx2.Response(200, json=_anthropic_reply(step, n))
         if not sent[-1].get("stream"):

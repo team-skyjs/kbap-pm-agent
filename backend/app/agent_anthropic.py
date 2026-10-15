@@ -2,11 +2,10 @@
 import contextlib
 import logging
 
-from anthropic import AsyncAnthropic, beta_async_tool
+from anthropic import AsyncAnthropic, BadRequestError, beta_async_tool
 
 from app import amplitude
-from app.config import env
-from app.config import is_fake
+from app.config import env, is_fake
 
 log = logging.getLogger("app.agent_anthropic")
 BETAS = ["server-side-fallback-2026-07-01"]  # fallbacks="default"와 짝 (배열형은 2026-06-01 헤더라 섞으면 400)
@@ -80,11 +79,19 @@ async def refine(model: str, prompt: str):
     """질문 다듬기: 도구·tool_choice 없이 구조화 출력 1회. 거절이면 agent.Refused"""
     from app.agent import Refused
     from app.schemas import RefineResult
-    # 한 문장 재작성이라 사고가 지연만 늘림. 모델명을 코드에 두지 않도록 env로 켜고 끔(disabled를 받는 모델에만 설정)
-    extra = {"thinking": {"type": "disabled"}} if env("REFINE_THINKING", "adaptive") == "disabled" else {}
-    resp = await _client().messages.parse(model=model, max_tokens=2000, output_format=RefineResult,
-                                          output_config={"effort": "low"},
-                                          messages=[{"role": "user", "content": prompt}], **extra)
+    def call(**extra):
+        return _client().messages.parse(model=model, max_tokens=2000, output_format=RefineResult,
+                                        output_config={"effort": "low"},
+                                        messages=[{"role": "user", "content": prompt}], **extra)
+    # 한 문장 재작성이라 사고가 지연만 늘림. 모델명을 코드에 두지 않도록 env로 켜고 끔
+    if env("REFINE_THINKING", "adaptive") == "disabled":
+        try:
+            resp = await call(thinking={"type": "disabled"})
+        except BadRequestError:  # disabled를 거부하는 모델로 바뀌어도 다듬기가 깨지지 않게 adaptive로 1회 재시도
+            log.warning("refine: %s rejected thinking disabled, retrying with adaptive", model)
+            resp = await call()
+    else:
+        resp = await call()
     if resp.stop_reason == "refusal":  # 본문을 읽기 전에 확인
         raise Refused()
     if resp.parsed_output is None:

@@ -164,12 +164,20 @@ try:
     script("anthropic", [("final", answer)])
     c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})
     assert sent[0]["thinking"] == {"type": "disabled"}, sent[0]
+    # disabled를 거부(400)하는 모델: adaptive로 1회 재시도해 성공
+    script("anthropic", [("http400",), ("final", answer)])
+    r = c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})
+    assert r.status_code == 200 and len(sent) == 2, (r.text, len(sent))
+    assert sent[0]["thinking"] == {"type": "disabled"} and "thinking" not in sent[1]
+    script("anthropic", [("http400",), ("http400",)])  # 재시도도 실패하면 502, 재시도는 1회만
+    r = c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})
+    assert r.status_code == 502 and len(sent) == 2, (r.text, len(sent))
     os.environ["REFINE_THINKING"] = "adaptive"
     script("anthropic", [("final", answer)])
     c.post("/api/questions/refine", json={"conversationId": None, "question": "x"})
     assert "thinking" not in sent[0]
     os.environ.pop("REFINE_THINKING")
-    ok("REFINE_MODEL 비면 CODE_SUMMARY_MODEL 사용, REFINE_THINKING=disabled일 때만 thinking disabled 전송(기본·adaptive는 생략)")
+    ok("REFINE_MODEL 비면 CODE_SUMMARY_MODEL 사용, REFINE_THINKING=disabled일 때만 thinking disabled 전송, 400이면 adaptive 1회 재시도(재실패 502)")
     os.environ["REFINE_MODEL"] = "foo:bar"
     from app import agent
     try:
