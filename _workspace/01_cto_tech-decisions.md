@@ -254,6 +254,7 @@
 - 버린 대안: Sonnet 고정(근거 없음), LLM 판정자 채점(사용자가 사람 채점 지정), 에이전트 모델(`AGENT_MODEL`) 재사용(비용·지연 과다).
 - 바꾸면 영향: 환경변수 값 하나(운영 Variables, env 예시).
 - 상태: 가정 — 비교 채점 전이다. 그동안 기본값(`CODE_SUMMARY_MODEL`, Haiku 5.5)으로 동작한다.
+- 사고 설정(2026-10-15 추가): Haiku 5.5 다듬기 호출에서 사고를 끄면 품질이 같고 지연 중앙값이 4.12초에서 2.91초로 준다(QA 실측, backend-dev 1ce6b6d). 끄기는 코드 상수의 모델명 목록이 아니라 환경변수 `REFINE_THINKING`(`adaptive` 기본 | `disabled`)으로 한다(헌법 원칙 III: 모델명을 코드에 박지 않는다). `disabled`는 그것을 받는 모델(Haiku 5.5, effort `high` 이하)을 `REFINE_MODEL`로 고른 경우에만 env에 함께 둔다. Sonnet 5.5는 `disabled`를 400으로 거절한다.
 
 ### ADR-29: `llm_usage.purpose` ENUM 확장은 기동 시 조건부 `ALTER`로 한다 (004)
 - 결정: `schema.sql`의 `llm_usage.purpose`를 `ENUM('agent','code_summary','refine')`로 바꾼다(새 DB용). `db.init()`이 `schema.sql` 실행 직후 `information_schema.COLUMNS`의 `COLUMN_TYPE`에 `'refine'`이 없을 때만 `ALTER TABLE llm_usage MODIFY purpose ENUM('agent','code_summary','refine') NOT NULL`을 실행한다. 새 테이블 `question_refinements`는 `CREATE TABLE IF NOT EXISTS`로 만든다.
@@ -270,15 +271,15 @@
     - 대화 이력: 해당 대화의 완료 메시지 중 최근 사용자 2개·에이전트 2개, 각 앞 500자, 오래된 순. `conversationId`가 null이면 없음.
     - 사용자 질문.
     - 출력 형식.
-  - **규칙**(`REFINE_PROMPT` 원문 그대로, 2026-10-15 실제 키 QA 관찰을 반영해 10개에서 8개로 정리. team-lead 승인, backend-dev d82f9d2):
+  - **규칙**(`REFINE_PROMPT` 원문 그대로, 2026-10-15 실제 키 QA 관찰을 반영해 10개에서 8개로 정리. team-lead 승인, backend-dev d82f9d2. 6·8 문구는 87641b4에서 다시 고침: 샘플에서 규칙 문구 "두 문장 이내"가 질문에 옮겨 쓰였다):
     1. 사용자의 의도를 바꾸지 않는다.
     2. 기간, 대상 이벤트(아래 목록에 있는 실제 이름만), 보고 싶은 지표, 원하는 산출물(개선안인지 측정 설계인지)을 드러낸다.
     3. 목록에 없는 이벤트 이름이나 원문에 없는 사실을 지어내지 않는다. 질문의 대상 이벤트가 택사노미에 없으면 대상을 바꾸거나 비슷해 보이는 이벤트로 대신하지 말고 원문 표현을 유지하며, 요약에 '택사노미에 없는 이벤트'라고 적는다. 이 사실은 요약에만 적고 다듬은 질문에는 쓰지 않는다.
     4. 정보가 없으면 합리적 기본값(예: 최근 7일)을 쓰되 요약에 "(원문에 없음)"으로 밝힌다.
     5. 기간·이벤트·지표·산출물이 이미 분명하면 문장을 거의 바꾸지 않고 요약에 '거의 그대로'라고 적는다. 없는 조건을 추가하지 않는다.
-    6. 개선안은 한국어(한글)로만 두 문장 이내로 쓰고, 요약은 한 줄이다.
+    6. 다듬은 질문은 한국어(한글)로만 두 문장 이내로 쓰고, 요약은 한 줄이다.
     7. 개선된 질문은 4,000자 이내로 쓴다.
-    8. 처리 메모·설명은 summary에만 쓰고 refined에는 질문 문장만 쓴다.
+    8. 처리 메모·설명은 summary에만 쓰고 refined에는 질문 문장만 쓴다. 규칙 문구를 질문에 옮겨 쓰지 않는다.
     - "두 문장 이내"는 프롬프트 규칙으로만 두고, `check_b10`은 위반 시 경고만 한다(한국어 문장 분리가 불안정해서).
   - **검사**: `check_b10.py`가 규칙 문장들이 상수에 들어 있는지와 입력 조립(이름만, 4개 × 500자)을 확인한다.
 - 이유: PRD 6.2. 이름만 넣으면 45개에 약 400토큰으로 짧다. 이력을 넣어야 후속 질문("그걸 주 단위로")이 대상을 잃지 않는다. 기본값을 밝혀야 사용자가 개선안을 믿고 고를 수 있다.
@@ -307,6 +308,7 @@
 | `AGENT_MODEL`, `CODE_SUMMARY_MODEL` | `anthropic:claude-sonnet-5-5`, `anthropic:claude-haiku-5-5` (OpenAI로 바꾸면 `openai:gpt-6-luna`) | ADR-20 |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | | 쓰는 쪽만 |
 | `REFINE_MODEL` | (비움 → `CODE_SUMMARY_MODEL`) | ADR-28 |
+| `REFINE_THINKING` | `adaptive`(기본) \| `disabled` | ADR-28. `disabled`는 그것을 받는 모델에만 |
 | `AGENT_MAX_TURNS` | `10` | ADR-2 (2026-10-15 사용자 결정: 도구 20→도구 5→모델 턴 10. 비용은 모델 턴에서만 생긴다) |
 | `AGENT_TIMEOUT_SECONDS` | `170` | ADR-16 |
 | `LLM_BUDGET_USD` | `200` | ADR-9 |
