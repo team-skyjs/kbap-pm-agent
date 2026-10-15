@@ -101,8 +101,23 @@ async def summarize(model: str, prompt: str) -> tuple[str, int, int]:
 
 
 async def refine(model: str, prompt: str):
-    """질문 다듬기: 도구 없는 단발 실행, 구조화 출력 RefineResult"""
+    """질문 다듬기: 도구 없는 단발 실행, 구조화 출력 RefineResult. 거절·형식 오류는 usage를 실은 agent.Malformed"""
+    from agents import RunHooks
+    from agents.exceptions import AgentsException
+
+    from app.agent import Malformed
     from app.schemas import RefineResult
-    result = await Runner.run(Agent(name="question-refine", model=_model(model), output_type=RefineResult), prompt)
-    u = result.context_wrapper.usage
-    return result.final_output, u.input_tokens, u.output_tokens
+
+    class Tokens(RunHooks):  # 모델 응답마다 사용량 누적: 출력 검증이 실패해도 쓴 토큰을 기록하기 위해
+        input = output = 0
+
+        async def on_llm_end(self, context, agent, response):
+            self.input += response.usage.input_tokens
+            self.output += response.usage.output_tokens
+    tokens = Tokens()
+    try:
+        result = await Runner.run(Agent(name="question-refine", model=_model(model), output_type=RefineResult), prompt,
+                                  hooks=tokens)
+    except AgentsException as e:  # 거절·잘못된 출력
+        raise Malformed((tokens.input, tokens.output) if tokens.input or tokens.output else None, type(e).__name__) from e
+    return result.final_output, tokens.input, tokens.output

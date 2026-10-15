@@ -75,14 +75,27 @@ async def summarize(model: str, prompt: str) -> tuple[str, int, int]:
     return "".join(b.text for b in resp.content if b.type == "text"), *_usage(resp.usage)
 
 
-async def refine(model: str, prompt: str):
-    """질문 다듬기: 도구·tool_choice 없이 구조화 출력 1회. 거절이면 agent.Refused"""
-    from app.agent import Refused
+def _refine_format() -> dict:
+    """messages.parse(output_format=RefineResult)가 보내는 것과 같은 스키마. 검증을 직접 해야 실패한 응답의 usage도 기록 가능.
+    ponytail: SDK 내부 함수(transform_schema) 사용, SDK 갱신 때 경로가 바뀌면 여기만 수정"""
+    from pydantic import TypeAdapter
+
+    from anthropic.lib._parse._transform import transform_schema
     from app.schemas import RefineResult
+    return {"type": "json_schema", "schema": transform_schema(TypeAdapter(RefineResult).json_schema())}
+
+
+async def refine(model: str, prompt: str):
+    """질문 다듬기: 도구·tool_choice 없이 구조화 출력 1회. 거절·형식 오류는 usage를 실은 예외(agent.Refused·Malformed)"""
+    from pydantic import ValidationError
+
+    from app.agent import Malformed, Refused
+    from app.schemas import RefineResult
+
     def call(**extra):
-        return _client().messages.parse(model=model, max_tokens=2000, output_format=RefineResult,
-                                        output_config={"effort": "low"},
-                                        messages=[{"role": "user", "content": prompt}], **extra)
+        return _client().messages.create(model=model, max_tokens=2000,
+                                         output_config={"effort": "low", "format": _refine_format()},
+                                         messages=[{"role": "user", "content": prompt}], **extra)
     # 한 문장 재작성이라 사고가 지연만 늘림. 모델명을 코드에 두지 않도록 env로 켜고 끔
     if env("REFINE_THINKING", "adaptive") == "disabled":
         try:
@@ -92,8 +105,10 @@ async def refine(model: str, prompt: str):
             resp = await call()
     else:
         resp = await call()
+    usage = _usage(resp.usage)
     if resp.stop_reason == "refusal":  # 본문을 읽기 전에 확인
-        raise Refused(_usage(resp.usage))
-    if resp.parsed_output is None:
-        raise ValueError("구조화 출력 없음")
-    return resp.parsed_output, *_usage(resp.usage)
+        raise Refused(usage)
+    try:
+        return RefineResult.model_validate_json("".join(b.text for b in resp.content if b.type == "text")), *usage
+    except ValidationError as e:
+        raise Malformed(usage, f"검증 실패 {e.error_count()}건") from e

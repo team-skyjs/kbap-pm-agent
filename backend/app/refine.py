@@ -96,7 +96,6 @@ async def refine_question(body: RefineIn):
     try:
         result, model = await agent.refine(prompt)
     except Exception as e:
-        # ponytail: 응답 파싱 단계에서 실패하면 그 호출의 토큰은 기록되지 않음. 실패가 잦으면 런타임에서 usage를 먼저 기록
         log.warning("refine failed: %s", type(e).__name__)
         raise ApiError(502, "UPSTREAM_ERROR", "질문 다듬기 모델 호출에 실패했습니다. 원문으로 보내거나 다시 시도해 주세요.")
     summary = with_truncated_note(result.summary) if truncated else result.summary
