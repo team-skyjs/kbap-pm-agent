@@ -66,6 +66,7 @@
 | 2026-10-15 | REFINE_THINKING 환경변수화 (d349085) | 정적 통과 | 워크플로우 기본 disabled, env 예시 둘 다 disabled, 코드 기본 adaptive(미설정 시 thinking 미전송). 요청 형태는 1ce6b6d와 같아 재실행 생략. 위험: REFINE_MODEL을 Sonnet 등으로 바꾸고 REFINE_THINKING=disabled를 두면 다듬기가 모두 502. deploy/README에 명시됨 |
 | 2026-10-15 | thinking disabled 거부 시 재시도 (56c5d82) | 통과 | disabled 요청이 400이면 경고 로그 후 thinking 없이 1회 재시도, 다시 실패하면 502. 워크플로우 기본 adaptive(운영은 Variable disabled). 커밋본 check_b6·b10 OK. 위 d349085의 Sonnet+disabled 502 위험 해소. 참고: 모든 400에 재시도하므로 다른 원인의 400도 1회 더 호출(400은 과금 없음) |
 | 2026-10-15 | PR #16 Codex 2건 (943a915) | 통과, 결함 1(낮음) | Anthropic 거절 시 usage 기록(502·행 없음), 공백만 refined·summary 502·행 없음. 커밋본 check_b1~b7·b9·b10 OK. 같은 원칙으로 남은 경로 QA-13 |
+| 2026-10-15 | 최종 회귀 (ab2137f = 943a915·1778aca 포함) | 통과 | 커밋본: check 8 OK, check:ui 388 통과·71 건너뜀·실패 0, check_b1~b7·b9·b10 OK(b8 운영), 계약 diff 0. 실제 fake 왕복: 시연 1~8 실패 0, 카드 연 채 Enter original, 넣기 뒤 새 다듬기 cancelled, 카드 연 채 다른 대화로 이동 cancelled·전송 없음. 열린 결함 QA-13(낮음)뿐 |
 
 ## 결함
 
