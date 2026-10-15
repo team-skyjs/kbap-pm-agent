@@ -254,7 +254,7 @@
 - 버린 대안: Sonnet 고정(근거 없음), LLM 판정자 채점(사용자가 사람 채점 지정), 에이전트 모델(`AGENT_MODEL`) 재사용(비용·지연 과다).
 - 바꾸면 영향: 환경변수 값 하나(운영 Variables, env 예시).
 - 상태: 가정 — 비교 채점 전이다. 그동안 기본값(`CODE_SUMMARY_MODEL`, Haiku 5.5)으로 동작한다.
-- 사고 설정(2026-10-15 추가): Haiku 5.5 다듬기 호출에서 사고를 끄면 품질이 같고 지연 중앙값이 4.12초에서 2.91초로 준다(QA 실측, backend-dev 1ce6b6d). 끄기는 코드 상수의 모델명 목록이 아니라 환경변수 `REFINE_THINKING`(`adaptive` 기본 | `disabled`)으로 한다(헌법 원칙 III: 모델명을 코드에 박지 않는다). `disabled`는 그것을 받는 모델(Haiku 5.5, effort `high` 이하)을 `REFINE_MODEL`로 고른 경우에만 env에 함께 둔다. Sonnet 5.5는 `disabled`를 400으로 거절한다.
+- 사고 설정(2026-10-15 추가): Haiku 5.5 다듬기 호출에서 사고를 끄면 품질이 같고 지연 중앙값이 4.12초에서 2.91초로 준다(QA 실측, backend-dev 1ce6b6d). 끄기는 코드 상수의 모델명 목록이 아니라 환경변수 `REFINE_THINKING`(`adaptive` 기본 | `disabled`)으로 한다(헌법 원칙 III: 모델명을 코드에 박지 않는다). `disabled`는 그것을 받는 모델(Haiku 5.5, effort `high` 이하)을 `REFINE_MODEL`로 고른 경우에만 env에 함께 둔다. Sonnet 5.5는 `disabled`를 400으로 거절한다. 안전장치(56c5d82, team-lead 지시): 배포 워크플로우 기본값은 `adaptive`이고, 운영 Variable로 `disabled`를 켠다. `disabled` 요청이 400이면 앱이 `adaptive`로 한 번 재시도하고 경고 로그를 남긴다. 모델만 바꿔도 다듬기가 깨지지 않는다.
 
 ### ADR-29: `llm_usage.purpose` ENUM 확장은 기동 시 조건부 `ALTER`로 한다 (004)
 - 결정: `schema.sql`의 `llm_usage.purpose`를 `ENUM('agent','code_summary','refine')`로 바꾼다(새 DB용). `db.init()`이 `schema.sql` 실행 직후 `information_schema.COLUMNS`의 `COLUMN_TYPE`에 `'refine'`이 없을 때만 `ALTER TABLE llm_usage MODIFY purpose ENUM('agent','code_summary','refine') NOT NULL`을 실행한다. 새 테이블 `question_refinements`는 `CREATE TABLE IF NOT EXISTS`로 만든다.
@@ -308,7 +308,7 @@
 | `AGENT_MODEL`, `CODE_SUMMARY_MODEL` | `anthropic:claude-sonnet-5-5`, `anthropic:claude-haiku-5-5` (OpenAI로 바꾸면 `openai:gpt-6-luna`) | ADR-20 |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | | 쓰는 쪽만 |
 | `REFINE_MODEL` | (비움 → `CODE_SUMMARY_MODEL`) | ADR-28 |
-| `REFINE_THINKING` | `adaptive`(기본) \| `disabled` | ADR-28. `disabled`는 그것을 받는 모델에만 |
+| `REFINE_THINKING` | `adaptive`(기본) \| `disabled` | ADR-28. `disabled`는 그것을 받는 모델에만, 400이면 `adaptive`로 1회 재시도 |
 | `AGENT_MAX_TURNS` | `10` | ADR-2 (2026-10-15 사용자 결정: 도구 20→도구 5→모델 턴 10. 비용은 모델 턴에서만 생긴다) |
 | `AGENT_TIMEOUT_SECONDS` | `170` | ADR-16 |
 | `LLM_BUDGET_USD` | `200` | ADR-9 |
