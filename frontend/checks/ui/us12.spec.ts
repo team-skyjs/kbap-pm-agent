@@ -142,7 +142,7 @@ test('카드를 연 채 다른 대화로 옮기면 cancelled', async ({ page }) 
 
 test('카드를 연 채 입력창 Enter: 원문 전송으로 기록하고 카드 닫힘, 이후 카드 선택 없음', async ({ page }) => {
   const rec = capture(page)
-  await openCard(page, { scenario: 'hang' })
+  await openCard(page)
   await box(page).press('Enter')
   await expect(card(page)).toHaveCount(0)
   await expect.poll(() => rec.choices).toEqual(['original'])
@@ -164,6 +164,45 @@ for (const height of [800, 667, 560]) {
     expect(input && input.y + input.height).toBeLessThanOrEqual(height)
     expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBeLessThanOrEqual(0)
     await shot(page, `us12-card-${height}`, info)
+  })
+}
+
+test('입력창에 넣기 후 전송 실패: 채택 미기록, 다시 보내 성공하면 refined', async ({ page }) => {
+  const rec = capture(page)
+  await openCard(page, { sendFailFirst: true })
+  await card(page).getByRole('button', { name: '입력창에 넣기' }).click()
+  await box(page).press('Enter')
+  await expect(page.locator('#chat-hint')).toContainText('예산')
+  await expect(box(page)).toHaveValue(REFINED)
+  expect(rec.choices).toEqual([])
+  await box(page).press('Enter')
+  await expect(page.locator('.msg.user').last()).toContainText(REFINED)
+  await expect.poll(() => rec.choices).toEqual(['refined'])
+})
+
+test('개선안으로 보내기가 전송 실패: 기록 없음, 이후 다른 전송에 붙지 않음', async ({ page }) => {
+  const rec = capture(page)
+  await openCard(page, { sendFailFirst: true })
+  await card(page).getByRole('button', { name: '개선안으로 보내기' }).click()
+  await expect(page.locator('#chat-hint')).toContainText('예산')
+  await box(page).fill('다른 질문')
+  await box(page).press('Enter')
+  await expect(page.locator('.msg.user').last()).toContainText('다른 질문')
+  await expect(page.locator('.msg.assistant').last().locator('.card').first()).toBeVisible()
+  expect(rec.choices).toEqual([])
+})
+
+// 모델 오류는 다듬기 실패 문구, 토큰 오류는 기존 토큰 안내 문구
+for (const [kind, text] of [['fail', '다듬지 못했습니다'], ['token', '접근 토큰이 없거나 맞지 않습니다']] as const) {
+  test(`다듬기 오류(${kind}) 문구는 원문을 보내 성공하면 사라짐`, async ({ page }) => {
+    await mockApi(page, { scenario: 'done', refine: kind })
+    await page.goto('./#/conversations/8')
+    await box(page).fill(ORIGINAL)
+    await refineBtn(page).click()
+    await expect(page.locator('#chat-hint')).toContainText(text)
+    await box(page).press('Enter')
+    await expect(page.locator('.msg.user').last()).toContainText(ORIGINAL)
+    await expect(page.locator('#chat-hint')).not.toContainText(text)
   })
 }
 

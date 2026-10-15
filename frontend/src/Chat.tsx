@@ -151,6 +151,8 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
           content: '', errorCode: null, toolCalls: [], proposals: [], usage: null, createdAt: u.createdAt,
         }
         setMessages((ms) => [...ms, u, placeholder])
+        // 다듬기 선택은 서버가 메시지를 받은 뒤에 기록
+        refine.sent()
         onChanged()
         return
       }
@@ -179,9 +181,9 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
 
   async function submit(text?: string) {
     const content = (text ?? input).trim()
-    if (!content || streaming) return
-    // 입력창에 넣어 둔 개선안의 채택 기록은 실제 전송 시점(입력창을 비우기 전)
-    refine.sent()
+    if (!content || streaming) { refine.sendFailed(); return }
+    // 이전 다듬기 오류 문구는 새 전송에서 지움
+    refine.dismissError()
     setNotice('')
     setTokenError(false)
     setBusyFrom(null)
@@ -194,6 +196,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
       load()
     } catch (e) {
       // 스트림 시작 전 에러(실행 중, 예산 초과, 입력 오류 등)는 입력창 아래에 안내
+      refine.sendFailed()
       setNotice(describe(e))
       setTokenError(e instanceof ApiError && e.code === 'UNAUTHORIZED')
       // 토큰 문제(UNAUTHORIZED)는 설정 안내로 충분, 배너는 세션 만료 코드에만. 이 코드는 접근 제한 머지 후 생김

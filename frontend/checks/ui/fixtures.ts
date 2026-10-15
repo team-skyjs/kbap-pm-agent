@@ -65,10 +65,12 @@ type Options = {
   // 409 순서 재현: 첫 전송 뒤 재조회는 1초 늦게 완료로, 두 번째 전송은 409, 409 뒤 첫 재조회만 실행 중
   conflictRace?: boolean
   // 질문 다듬기: ok(계약 08b 예시) | fail(502 UPSTREAM_ERROR), 응답 지연(ms, 진행 상태 확인용)
-  refine?: 'ok' | 'fail'
+  refine?: 'ok' | 'fail' | 'token'
   refineDelayMs?: number
   // 선택 기록 500(전송은 계속되어야 함)
   choiceFail?: boolean
+  // 첫 메시지 전송만 스트림 전 403 BUDGET_EXCEEDED(전송 실패 시 다듬기 선택 미기록 확인)
+  sendFailFirst?: boolean
 }
 
 // 대화 7(계약 상세 예시, 제안 두 개) + 전송 시나리오. 다른 대화는 빈 상태로 시작
@@ -90,6 +92,7 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
   const allProposals = () => [...threads.values()].flat().flatMap((m) => arr(m.proposals).filter(isJson))
   let readsAfterSend = -1
   let posts = 0
+  let sendFailed = false
   let delayedSent = false
   let readsAfterConflict = 0
   let nextId = 900
@@ -104,6 +107,7 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
     if (method === 'GET' && path === '/api/health') return json(200, HEALTH)
     if (method === 'POST' && path === '/api/questions/refine') {
       await new Promise((r) => setTimeout(r, opts.refineDelayMs ?? 300))
+      if (opts.refine === 'token') return json(401, { error: { code: 'UNAUTHORIZED', message: '접근 토큰이 없거나 틀렸습니다.' } })
       if (opts.refine === 'fail') return json(502, { error: { code: 'UPSTREAM_ERROR', message: '질문 다듬기 모델 응답 오류입니다.' } })
       return json(200, REFINE)
     }
@@ -146,6 +150,7 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
     }
     if (method === 'POST' && /^\/api\/conversations\/\d+\/messages$/.test(path)) {
       if (scenario === 'hang') return new Promise<void>(() => {})
+      if (opts.sendFailFirst && !sendFailed) { sendFailed = true; return json(403, { error: { code: 'BUDGET_EXCEEDED', message: 'LLM 예산 상한에 도달했습니다.' } }) }
       if (opts.conflictRace && ++posts >= 2) return json(409, { error: { code: 'RUN_IN_PROGRESS', message: '이 대화에서 이미 에이전트가 실행 중입니다.' } })
       readsAfterSend = 0
       if (scenario === 'token') return json(401, { error: { code: 'UNAUTHORIZED', message: '접근 토큰이 없거나 틀렸습니다.' } })
