@@ -67,6 +67,7 @@
 | 2026-10-15 | thinking disabled 거부 시 재시도 (56c5d82) | 통과 | disabled 요청이 400이면 경고 로그 후 thinking 없이 1회 재시도, 다시 실패하면 502. 워크플로우 기본 adaptive(운영은 Variable disabled). 커밋본 check_b6·b10 OK. 위 d349085의 Sonnet+disabled 502 위험 해소. 참고: 모든 400에 재시도하므로 다른 원인의 400도 1회 더 호출(400은 과금 없음) |
 | 2026-10-15 | PR #16 Codex 2건 (943a915) | 통과, 결함 1(낮음) | Anthropic 거절 시 usage 기록(502·행 없음), 공백만 refined·summary 502·행 없음. 커밋본 check_b1~b7·b9·b10 OK. 같은 원칙으로 남은 경로 QA-13 |
 | 2026-10-15 | 최종 회귀 (ab2137f = 943a915·1778aca 포함) | 통과 | 커밋본: check 8 OK, check:ui 388 통과·71 건너뜀·실패 0, check_b1~b7·b9·b10 OK(b8 운영), 계약 diff 0. 실제 fake 왕복: 시연 1~8 실패 0, 카드 연 채 Enter original, 넣기 뒤 새 다듬기 cancelled, 카드 연 채 다른 대화로 이동 cancelled·전송 없음. 열린 결함 QA-13(낮음)뿐 |
+| 2026-10-15 | QA-13 재검증 (69fe1b1) | 확인됨 | parse → create 전환 후 실제 경로 정상(10/10), 실패 응답 usage 기록은 check_b10 두 런타임 × 세 형식 오류 + 거절. 열린 결함 0 |
 
 ## 결함
 
@@ -197,4 +198,4 @@
 - 실제: Anthropic `messages.parse`가 구조화 출력 검증(잘못된 JSON, 4,001자 이상 refined, 공백만 refined·summary)에서 예외를 내면 응답 usage를 읽기 전에 빠져나가 llm_usage 행이 없다. 모델은 출력 토큰을 이미 썼다. OpenAI 런타임 `Runner.run`의 거절·검증 실패도 기록 경로가 없다(현재 OpenAI 키 없음). 모두 502·다듬기 행 없음은 맞다
 - 수정 방향: 백엔드. 원응답을 받은 뒤 검증하는 경로(예: `messages.create` 후 `RefineResult.model_validate_json`)로 바꾸거나, 검증 예외에 usage를 실어 Refused와 같은 방식으로 기록한다. 빈도·금액이 작아(Haiku 1회 약 $0.0004) 다음 사이클로 미뤄도 된다
 - 수신: backend-dev
-- 상태: 열림
+- 상태: 확인됨 (69fe1b1: Anthropic은 messages.create + RefineResult 직접 검증, OpenAI는 RunHooks.on_llm_end로 usage 누적, 거절·형식 오류는 usage를 실은 예외로 기록 후 502. 커밋본 check_b1~b7·b9·b10 OK, 계약 diff 0. 실제 키 Haiku 10건: 오류 0, usage 행 +10, 지연 중앙값 1.94초, 규칙 문구·처리 메모 유입 0)
