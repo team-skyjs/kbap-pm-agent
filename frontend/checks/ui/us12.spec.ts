@@ -4,8 +4,6 @@ import { expect, test, type Page } from '@playwright/test'
 import { REFINE, mockApi } from './fixtures.ts'
 import { expectNoSeriousA11y, shot } from './helpers.ts'
 
-const SHORT_PHONE = { width: 375, height: 667 }
-
 const ORIGINAL = '스캔 이탈 왜 많아?'
 const REFINED = String(REFINE.refined)
 
@@ -142,17 +140,23 @@ test('카드를 연 채 입력창 Enter: 원문 전송으로 기록하고 카드
   expect(rec.sent).toEqual([ORIGINAL])
 })
 
-test('좁고 짧은 화면의 빈 대화에서 카드를 열어도 axe 심각·중대 0', async ({ page }, info) => {
-  test.skip(info.project.name !== '375-light' && info.project.name !== '375-dark', '375 프로젝트 전용')
-  await page.setViewportSize(SHORT_PHONE)
-  await mockApi(page, { refine: 'ok' })
-  await page.goto('./#/conversations/8')
-  await box(page).fill(ORIGINAL)
-  await refineBtn(page).click()
-  await expect(card(page)).toBeVisible()
-  await expectNoSeriousA11y(page)
-  await shot(page, 'us12-card-short', info)
-})
+// 빈 대화(포커스 가능한 제안 카드 없음)에서 카드가 대화 영역을 밀어내도 접근성·배치 유지
+for (const height of [800, 667, 560]) {
+  test(`375×${height} 빈 대화에서 카드를 열어도 axe 0, 입력창 화면 안, 문서 스크롤 없음`, async ({ page }, info) => {
+    test.skip(info.project.name !== '375-light' && info.project.name !== '375-dark', '375 프로젝트 전용')
+    await page.setViewportSize({ width: 375, height })
+    await mockApi(page, { refine: 'ok' })
+    await page.goto('./#/conversations/8')
+    await box(page).fill(ORIGINAL)
+    await refineBtn(page).click()
+    await expect(card(page)).toBeVisible()
+    await expectNoSeriousA11y(page)
+    const input = await box(page).boundingBox()
+    expect(input && input.y + input.height).toBeLessThanOrEqual(height)
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBeLessThanOrEqual(0)
+    await shot(page, `us12-card-${height}`, info)
+  })
+}
 
 test('다듬기 실패: 카드 없이 안내, 원문 유지', async ({ page }, info) => {
   await mockApi(page, { refine: 'fail' })

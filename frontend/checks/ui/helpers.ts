@@ -4,6 +4,10 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, type TestInfo } from '@playwright/test'
 
 export async function expectNoSeriousA11y(page: Page): Promise<void> {
+  // 등장 전환 중에는 반투명 색으로 대비가 낮게 계산되므로 끝나는 애니메이션은 모두 기다림(무한 반복 제외)
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter((a) => a.effect?.getComputedTiming().endTime !== Infinity)
+    .map((a) => a.finished.catch(() => undefined))))
   const { violations } = await new AxeBuilder({ page }).analyze()
   const serious = violations.filter((v) => v.impact === 'critical' || v.impact === 'serious')
   expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([])
