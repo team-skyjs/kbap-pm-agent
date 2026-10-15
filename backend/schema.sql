@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS proposals (
 CREATE TABLE IF NOT EXISTS llm_usage (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   message_id BIGINT NULL,
-  purpose ENUM('agent','code_summary') NOT NULL,
+  purpose ENUM('agent','code_summary','refine') NOT NULL,
   model VARCHAR(100) NOT NULL,
   input_tokens INT NOT NULL,
   output_tokens INT NOT NULL,
@@ -75,4 +75,19 @@ CREATE TABLE IF NOT EXISTS app_settings (
   k VARCHAR(100) PRIMARY KEY,
   v JSON NOT NULL,
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 질문 다듬기 1회 = 1행. 모델 호출이 실패하면 행을 만들지 않음. choice는 사용자가 카드를 닫을 때 기록(덮어쓰기 허용)
+CREATE TABLE IF NOT EXISTS question_refinements (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  conversation_id BIGINT NULL,
+  original_question TEXT NOT NULL,
+  refined_question TEXT NOT NULL,
+  summary VARCHAR(300) NOT NULL,
+  model VARCHAR(100) NOT NULL,
+  choice ENUM('refined','original','cancelled') NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  chosen_at DATETIME(3) NULL,
+  INDEX idx_choice (choice),
+  CONSTRAINT fk_qr_conv FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

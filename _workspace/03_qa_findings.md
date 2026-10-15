@@ -52,6 +52,27 @@
 | 2026-10-15 | us8 409 순서 케이스 커밋 (e69b9dd) | 통과 | 커밋본(UI_PORT=5195) check 7 OK, check:ui 256 통과·50 건너뜀·실패 0. 경합 회귀 검사가 원격에 남음 |
 | 2026-10-15 | UI-3 재검증 (2e6012b) | 확인됨 | playwright.config.ts: listen(0)로 빈 포트를 골라 UI_PORT에 넣고 reuseExistingServer false. 커밋본 두 사본에서 UI_PORT 없이 check:ui를 동시에 돌려 각각 다른 포트(55737·55738)로 떴고 둘 다 256 통과·50 건너뜀·실패 0. UI_PORT=5199를 미리 점유하면 재사용하지 않고 'already used'로 종료 1 |
 | 2026-10-15 | 도구 일부 실패 표시 (6db3a1c, 검사 07426fb) | 통과 | 커밋본 check 7·f6 OK, check:ui 265 통과·50 건너뜀·실패 0. QA 직접(상세 응답 가로채기, 도구 2건 중 1건 failed): 요약 "⚠ 조회 2건 중 1건 실패", details.has-failed, 펼치면 li.failed 1·"실패" 라벨, 대비 라이트 5.93·다크 9.48, axe 심각·중대 0. 실패를 글자로도 구분(색만 아님) |
+| 2026-10-15 | 004 질문 마법사 데이터 흐름 (3b5f09d, frontend T014~T016) | 정적 통과, 백엔드 대기 | 계약 v1.3 08b 절과 api.ts 대조: 요청 {conversationId(null 허용), question}, 응답 {refinementId, refined, summary}, 선택 기록 {choice: refined/original/cancelled} → {refinementId, choice, chosenAt} 필드 단위 일치, 캐스팅 없는 파서, REFINEMENT_NOT_FOUND 추가. 커밋본 npm run check f1~f5·f7~f9 OK(f9 단언 11), 계약 diff 0. 실제 백엔드 왕복은 다듬기 엔드포인트 완료 후 |
+| 2026-10-15 | 004 Q1 질문 다듬기 백엔드 (2d9f7ae) T008 | 통과, 결함 1(낮음) | 커밋본 이미지·별도 DB(fake): refine 응답 키 = 계약 08b, fake refined·summary = 예시 원문, conversationId null·생략 200, 빈·공백만·4001자·누락·깨진 JSON 400, 4000자 200, 없는 대화 404, choice 키 = 계약·chosenAt ISO·덮어쓰기와 갱신·허용값 밖·누락 400·없는 기록 404 REFINEMENT_NOT_FOUND, DB choice = 마지막 값, llm_usage refine 0원, 대화 messages에 안 나타남. check_b1~b7·b9·b10 OK, 계약 diff 0. 결함 QA-11 |
+| 2026-10-15 | 004 T013 US2 수락 시나리오(실제 키, Haiku 5.5 기본값) | 실행 완료, 규칙 위반 리포트 | 별도 실제 모드 컨테이너·별도 DB, kbap-fe EVENTS 45개 택사노미. 4건 모두 200, 지연 2.4~3.4초, 건당 $0.0002~0.0003. (1) 일상어 "스캔 이탈 왜 많아?" 이벤트·기간·기본값 표시 통과(error_state_view 범위 추가는 경계선) (2) 택사노미에 없는 "결제 화면" → 없는 이름은 안 지었으나 order_card_open·order_done으로 대상을 바꿈(사용자 말 유지 규칙 부분 위반, 요약에는 대체 사실 표시) (3) 후속 "그걸 주 단위로" 직전 대상 반영 통과, 원문에 없는 목적 문장 추가 (4) 이미 구체적 질문: 의미 유지, 요약에 '거의 그대로' 표시 없음 + 원문에 없는 산출물 조건 추가(위반). 출력 원문은 QA 산출물 t013_out.json으로 보관, 05_refine_comparison에 반영 예정 |
+| 2026-10-15 | 004 T025 모델 비교 (실제 키, 프롬프트 01050f7·c51a5ea) | 통과, 결론 Haiku | 샘플 10건 × Haiku·Sonnet 순차 2회 실행. 최종 프롬프트 Sonnet 76·Haiku 72(4점 차, 기준 8 미만), Haiku 의도 0점 0건. Haiku 지연 중앙값 3.22초(SC-001 통과), 평균 $0.0004(SC-004 통과). 새 문제: 규칙 7 이후 처리 메모가 다듬은 질문 본문에 들어감(backend-dev에 전달). 상세 `06_refine_model_comparison.md` |
+| 2026-10-15 | QA-11 재검증·T008 (01050f7) | 확인됨 | 커밋본 이미지·별도 DB: qa_refine.py 실패 0, check_b1~b7·b9·b10 OK(b4·b5는 rg가 PATH에 있어야 함), 계약 diff 0 |
+| 2026-10-15 | 004 US1·US3 실제 fake 왕복 (0b5c430) T020·T023 | 통과, 결함 2(중간 1, 낮음 1) | 커밋본 이미지·별도 DB(fake) + 커밋본 프론트 dev 서버. check f1~f5·f7~f9 OK, check:ui 364 통과·50 건너뜀·실패 0. 시연 1~8 Playwright: 빈 입력 비활성, 다듬는 동안 입력창 잠금·aria-busy, 카드 원문·개선안·요약, 첫 포커스 개선안으로 보내기, 개선안·원문 전송과 기록, 입력창에 넣기 직후 POST 없음·NULL, 편집 전송 refined, 비우면 cancelled, ESC cancelled·입력창 포커스, 채택 비율 SQL 40.0·shown 5, refine 사용량 5행 0원, 선택 POST 순서 refined,original,refined,cancelled,cancelled. ui-review 라이트·다크 × 1280·375: 1280 좌우·375 위아래, 가로 스크롤 없음, 카드 최소 대비 5.17, 버튼 비활성·호버·포커스 링 2px, 동작 줄이기 0s. 예산: real 컨테이너 settings spentUsd = llm_usage 합계(refine 0.1048). 결함 QA-12, UI-4 |
+| 2026-10-15 | 프롬프트 재확인 Haiku (0b5c430, 347a825) | 통과 | 347a825에서 처리 메모 유입·세 문장·한자 0건, 지연 중앙값 4.12초(SC-001 안, 여유 감소). `06_refine_model_comparison.md` 재확인 절 |
+| 2026-10-15 | 계약 08b 보강(b91fbd3) 넣기 뒤 새 다듬기 (프론트 0b5c430) | 통과 | 실제 fake 왕복: 입력창에 넣기 직후 이전 행 NULL, 새로 다듬기 시작 시 이전 행 cancelled, 새 행 NULL. 문구 2차(03d77df)의 4,000자 502·택사노미 겹침 우선은 check_b10(347a825 OK)으로 확인 |
+| 2026-10-15 | QA-12·UI-4 재검증, T020·T023·T027 회귀 (7d84470, 테스트만 바뀐 34a0195) | 통과 | 커밋본 이미지·별도 DB(fake): 시연 1~8 실패 0, 넣기 뒤 새 다듬기 cancelled, ui-review 라이트·다크 × 1280·375 실패 0, 375×560 입력창 화면 안. check f1~f5·f7~f9 OK, check:ui 379 통과·71 건너뜀·실패 0(34a0195), check_b1~b7·b9·b10 OK(b8은 운영 검사), 계약 diff 0. SC-005 질문→진행 0.75초→카드 2장→채택→새로고침 유지, 409 안내 후 입력 비활성 약 80ms, 다른 클라이언트 실행을 폴링으로 반영. 열린 결함 0 |
+| 2026-10-15 | Haiku thinking 끄기 (1ce6b6d) 10건 재실행 | 통과, 유지 권고 | 지연 중앙값 4.12→2.91초, 출력 토큰 128~274(600 이상 0건), 처리 메모 유입 0, 한자 0, 의도 0점 0건. 2번에 프롬프트 규칙 문구 "두 문장 이내로"가 질문 본문에 들어간 1건 |
+| 2026-10-15 | 규칙 문구 유입 수정 (87641b4) Haiku 10건 재실행 | 확인됨 | 규칙 문구·처리 메모 유입 0, 세 문장 0, 한자 0. 2번은 "주문 흐름 단계별 이탈 수와 비율"로 규칙 문구 없음. 지연 중앙값 2.10초, 출력 토큰 133~239 |
+| 2026-10-15 | REFINE_THINKING 환경변수화 (d349085) | 정적 통과 | 워크플로우 기본 disabled, env 예시 둘 다 disabled, 코드 기본 adaptive(미설정 시 thinking 미전송). 요청 형태는 1ce6b6d와 같아 재실행 생략. 위험: REFINE_MODEL을 Sonnet 등으로 바꾸고 REFINE_THINKING=disabled를 두면 다듬기가 모두 502. deploy/README에 명시됨 |
+| 2026-10-15 | thinking disabled 거부 시 재시도 (56c5d82) | 통과 | disabled 요청이 400이면 경고 로그 후 thinking 없이 1회 재시도, 다시 실패하면 502. 워크플로우 기본 adaptive(운영은 Variable disabled). 커밋본 check_b6·b10 OK. 위 d349085의 Sonnet+disabled 502 위험 해소. 참고: 모든 400에 재시도하므로 다른 원인의 400도 1회 더 호출(400은 과금 없음) |
+| 2026-10-15 | PR #16 Codex 2건 (943a915) | 통과, 결함 1(낮음) | Anthropic 거절 시 usage 기록(502·행 없음), 공백만 refined·summary 502·행 없음. 커밋본 check_b1~b7·b9·b10 OK. 같은 원칙으로 남은 경로 QA-13 |
+| 2026-10-15 | 최종 회귀 (ab2137f = 943a915·1778aca 포함) | 통과 | 커밋본: check 8 OK, check:ui 388 통과·71 건너뜀·실패 0, check_b1~b7·b9·b10 OK(b8 운영), 계약 diff 0. 실제 fake 왕복: 시연 1~8 실패 0, 카드 연 채 Enter original, 넣기 뒤 새 다듬기 cancelled, 카드 연 채 다른 대화로 이동 cancelled·전송 없음. 열린 결함 QA-13(낮음)뿐 |
+| 2026-10-15 | QA-13 재검증 (69fe1b1) | 확인됨 | parse → create 전환 후 실제 경로 정상(10/10), 실패 응답 usage 기록은 check_b10 두 런타임 × 세 형식 오류 + 거절. 열린 결함 0 |
+| 2026-10-15 | QA-13 되돌림·재적용 (b23076b → 4b1828c) | 확인됨 | 69fe1b1을 b23076b로 되돌렸다가 team-lead 결정으로 4b1828c에서 다시 적용. b23076b는 ab2137f와 backend 동일·check_b10 OK, 4b1828c는 69fe1b1과 코드 동일·check_b10 OK. 69fe1b1 실제 키 검증이 현재 상태에 유효 |
+| 2026-10-15 | PR #16 Codex 다듬기 시간 상한 (1feba63) | 통과 | REFINE_TIMEOUT_SECONDS(기본 20초) 초과 시 502 UPSTREAM_ERROR·행 없음, 계약 08b "모델 호출 실패 502"와 일치. 프론트에는 별도 요청 시간 상한이 없어 서버 상한과 충돌 없음. 커밋본 check_b1~b7·b9·b10 OK, 계약 diff 0. 실제 키 엔드포인트 2건 200(2.96·1.66초), 응답 키 refinementId·refined·summary, usage 행 2 |
+| 2026-10-15 | PR #16 Codex 재리뷰 2건 (50f7871, 선택 기록을 message_created 뒤로) | 통과 | 커밋본: check 8 OK, check:ui 424 통과·71 건너뜀·실패 0. 실제 fake 왕복: 시연 1~8 실패 0(채택 비율 40.0·shown 5), 선택 POST 순서 동일, 카드 연 채 Enter는 서버 확인(약 200ms) 뒤 카드 닫힘·original, 넣기 뒤 새 다듬기·다른 대화 이동 cancelled, SC-005 흐름 유지. 실제 409: 카드 연 채 Enter가 409면 카드 유지·기록 NULL·안내 표시, 실행 끝난 뒤 원문으로 보내기 original |
+| 2026-10-15 | 마지막 회귀 (b83894e = 62d36b2 포함) | 통과 | 커밋본: check 8 OK, check:ui 424 통과·71 건너뜀·실패 0. 실제 fake 왕복: 시연 1~8 실패 0, 넣기 뒤 새 다듬기·이동 cancelled, SC-005 흐름 유지. 전송 실패 실측(별도 DB에 예산 초과 행을 잠시 넣어 403 유도): 409 중 개선안으로 보내기 → 기록 없음·개선안이 입력창에 남음·다시 보내면 refined, 예산 초과 중 원문으로 보내기 → 기록 없음·이후 무관한 전송에도 기록 없음, 넣기 뒤 예산 실패 → 기록 없음·입력창 유지·다시 보내면 refined. 열린 결함 0 |
+| 2026-10-15 | 최종 회귀 (3a75c5f = ac9181f 카드 재오픈·b551a53 compare_refine·3a75c5f busy 중 닫기 무시) | 통과, 결함 1(낮음, 다음 사이클) | 커밋본: check 8 OK, check:ui 433 통과·71 건너뜀·실패 0, check_b1~b7·b9·b10 OK, 계약 diff 0, compare_refine 구문 OK. 실제 fake 왕복: 시연 1~8 실패 0, 넣기 뒤 새 다듬기·이동 cancelled, SC-005 유지. 전송 실패: 409 중 개선안으로 보내기 → 같은 카드 재오픈·기록 없음·입력창 원문 → 재시도 refined 1건(선택 POST ["refined"]). 예산 실패 원문으로 보내기 → 카드 재오픈·기록 없음 → 재시도 original. 넣기 뒤 예산 실패 → 입력창 유지 → 재시도 refined. 응답 지연 중 Enter 직후 ESC → 닫기 비활성·카드 유지·기록 없음, 서버 확인 뒤 original 1건. 결함 UI-5 |
 
 ## 결함
 
@@ -147,3 +168,48 @@
 - 심각도: 높음(검사 결과 오판)
 - 수신: frontend-dev
 - 상태: 확인됨 (2e6012b: 실행마다 빈 포트, 재사용 끔. 동시 실행 두 사본 모두 256 통과, 점유 포트 지정 시 즉시 실패)
+
+### QA-11: refine 요청의 conversationId에 문자열 "7"을 넣어도 정수로 받아들인다
+- 모듈: backend / 004 Q1 (POST /api/questions/refine)
+- 경계면: 요청 검증
+- 기대: 계약 공통 "ID: 양의 정수(JSON number)", `VALIDATION_ERROR` = "필수 필드 누락·타입 오류·허용값 밖"
+- 실제: `{"conversationId": "7", "question": "x"}` → 400이 아니라 404 `CONVERSATION_NOT_FOUND`(그 DB에 대화 7이 없어서). Pydantic 기본(lax) 모드가 "7"을 7로 강제 변환. 대화 7이 있으면 200으로 통과한다
+- 수정 방향: 백엔드. 요청 모델 `conversationId: int | None`을 strict(`StrictInt` 또는 `model_config strict`)로. check_b10 타입 400 케이스에 문자열 ID 추가
+- 수신: backend-dev
+- 상태: 확인됨 (4918a52: RefineIn.conversation_id를 StrictInt로, check_b10에 문자열·불리언 케이스 추가. 01050f7 커밋본 재검증: "7"·7.0·true 모두 400 VALIDATION_ERROR, null 200)
+
+### QA-12: 카드가 열린 채 원문을 보낸 뒤 실행 중에 "개선안으로 보내기"를 누르면 전송 없이 refined로 기록된다
+- 모듈: frontend / 004 Q2·Q3 (Chat.tsx submit, refine.ts finish, RefineCard)
+- 경계면: 선택 기록 ↔ 실제 전송
+- 기대: data-model "개선안을 보낸 경우 refined", FR-007 채택 = 실제 전송. 기록은 화면에서 일어난 일과 같아야 한다
+- 실제: 재현 순서는 다음과 같다. (1) 입력 → 질문 다듬기 → 카드가 열린다. (2) 입력창에서 Enter → 원문이 전송되고 에이전트가 실행된다. 카드는 남고 기록은 NULL이다. (3) 실행 중 카드의 "개선안으로 보내기" → `finish('refined')`가 기록 POST를 보낸다. 그러나 `submit`은 `streaming`이라 바로 return한다. 사용자 메시지는 4개에서 4개로 그대로, 카드는 닫히고, 기록 = refined다. 개선안 문장은 어디에도 남지 않는다. "원문으로 보내기"도 같은 경로로 original이 잘못 남는다. 채택 비율(SC-002)이 부풀고 사용자는 눌렀는데 아무 일도 없다
+- 수정 방향: 프론트. 카드가 열린 상태에서 메시지가 전송되면 카드를 닫고 `original`로 기록한다(사용자가 원문을 보낸 것). `submit`의 `refine.sent()` 옆에서 처리하면 된다. 실행 중에는 카드의 두 전송 버튼도 비활성으로 둔다. us12에 "카드 연 채 Enter" 케이스를 추가한다
+- 수신: frontend-dev, frontend-designer
+- 상태: 확인됨 (f56d363: 열린 카드를 ref로 추적, 카드 연 채 전송하면 original로 기록하고 닫음, 카드 동작은 열린 카드가 있을 때만. 34001a6의 실행 중 비활성과 함께 7d84470 커밋본 재검증: 카드 연 채 Enter → 카드 닫힘·original 기록·원문 전송(DB 메시지 확인), 시연 1~8 실패 0)
+
+### UI-4: 375px에서 카드가 열리면 메시지 영역이 키보드로 스크롤되지 않는다 (axe scrollable-region-focusable, serious)
+- 모듈: frontend / 004 Q3 (Chat.tsx `.scroll`, RefineCard)
+- 경계면: 화면 접근성
+- 기대: check:ui 공통 기준 axe critical·serious 0
+- 실제: 375×800 빈 대화에서 카드(높이 472px)를 열면 `.scroll`이 152px로 줄어 내용이 넘친다. 안에 포커스 가능한 요소가 없어 axe serious `scrollable-region-focusable`이 난다(라이트·다크 둘 다, 카드 닫힌 상태는 0). 375×667에서는 메시지 영역이 19px, 375×560에서는 0px이 되고 문서 전체가 스크롤되며 입력창 아래쪽이 화면 밖으로 나간다. us12는 대화에 제안 카드(포커스 가능)가 있는 고정 응답이라 잡지 못한다
+- 수정 방향: 디자이너. `.scroll`에 `tabIndex={0}`과 접근 이름("대화 내용")을 준다. 또는 좁은 화면에서 카드 높이에 상한을 두고 카드 안을 스크롤한다. us12에 빈 대화 375 axe 케이스를 추가한다
+- 수신: frontend-designer
+- 상태: 확인됨 (34001a6: `.scroll`에 tabIndex·region·"대화 내용", 카드 높이를 화면 절반으로 제한하고 카드 안 스크롤. 커밋본 재검증: 라이트·다크 × 1280·375 axe critical·serious 0, 375×667 메시지 영역 127px, 375×560 입력창 화면 안·문서 스크롤 없음)
+
+### QA-13: 형식이 틀린 다듬기 응답과 OpenAI 거절은 과금되지만 사용량에 기록되지 않는다
+- 모듈: backend / 004 (agent.refine, agent_anthropic.refine, agent_openai.refine)
+- 경계면: LLM 응답 ↔ 예산 기록
+- 기대: 943a915가 세운 원칙 "거절도 과금되므로 예산에 기록", FR-008 사용량·예산
+- 실제: Anthropic `messages.parse`가 구조화 출력 검증(잘못된 JSON, 4,001자 이상 refined, 공백만 refined·summary)에서 예외를 내면 응답 usage를 읽기 전에 빠져나가 llm_usage 행이 없다. 모델은 출력 토큰을 이미 썼다. OpenAI 런타임 `Runner.run`의 거절·검증 실패도 기록 경로가 없다(현재 OpenAI 키 없음). 모두 502·다듬기 행 없음은 맞다
+- 수정 방향: 백엔드. 원응답을 받은 뒤 검증하는 경로(예: `messages.create` 후 `RefineResult.model_validate_json`)로 바꾸거나, 검증 예외에 usage를 실어 Refused와 같은 방식으로 기록한다. 빈도·금액이 작아(Haiku 1회 약 $0.0004) 다음 사이클로 미뤄도 된다
+- 수신: backend-dev
+- 상태: 확인됨 (69fe1b1: Anthropic은 messages.create + RefineResult 직접 검증, OpenAI는 RunHooks.on_llm_end로 usage 누적, 거절·형식 오류는 usage를 실은 예외로 기록 후 502. 커밋본 check_b1~b7·b9·b10 OK, 계약 diff 0. 실제 키 Haiku 10건: 오류 0, usage 행 +10, 지연 중앙값 1.94초, 규칙 문구·처리 메모 유입 0)
+
+### UI-5: 409로 카드가 다시 열리면 키보드 포커스가 페이지 본문으로 떨어진다
+- 모듈: frontend / 004 (refine.ts 카드 재오픈, RefineCard 첫 포커스)
+- 경계면: 화면 접근성 (전송 실패 후 상태)
+- 기대: ac9181f 설명대로 재오픈 시 포커스가 "개선안으로 보내기"에 간다. 예산 403에서는 그렇게 된다
+- 실제: 다른 클라이언트 실행 중 카드에서 "개선안으로 보내기"나 "원문으로 보내기" → 409 → 카드는 다시 열리지만 document.activeElement가 body다(두 버튼 모두 재현, 403은 정상). 409 뒤 상세 재조회로 실행 중 상태가 되어 카드 버튼·입력창이 모두 비활성이라 포커스를 둘 곳이 없는 것으로 보인다. 스크린 리더 사용자는 카드가 다시 열린 것과 위치를 알기 어렵다
+- 수정 방향: 프론트. 실행 중에도 포커스 가능한 요소(카드 닫기는 busy라 비활성이므로 카드 제목에 tabIndex=-1을 주고 포커스, 또는 #chat-hint 안내로 포커스)를 정하고, 실행이 끝나 버튼이 살아나면 개선안으로 보내기로 옮긴다. us12에 409 재오픈 포커스 케이스를 추가한다
+- 수신: frontend-dev, frontend-designer
+- 상태: 열림 (낮음, 다음 사이클. 프론트 동결)

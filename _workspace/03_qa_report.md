@@ -146,6 +146,45 @@ npm run check:ui                   # 9 프로젝트(1280/768/375 × light/dark/r
 cd ../backend && uv run python checks/check_b9.py   # 레포 안에서
 ```
 
+## 004 질문 마법사 — 2026-10-15 (feat/question-wizard, 최종 3a75c5f)
+
+### 요약: 통과 7 / 실패 0 / 미검증 2
+
+QA 태스크 7개(T008·T013·T020·T023·T025·T027·T028)가 모두 통과했다. 결함 4건(QA-11 문자열 ID 수용, QA-12 카드 연 채 전송 시 잘못된 선택 기록, UI-4 375 스크롤 영역 접근성, 처리 메모 유입)은 확인됨이다. PR 리뷰 반영(거절 사용량 기록, 공백 개선안 502, 카드 연 채 이탈 cancelled, 다듬기 20초 상한, 선택 기록을 서버 확인 뒤로, 카드에서 보낸 전송이 실패하면 기록 없이 같은 카드를 다시 열고 재시도하면 1건만 기록, 응답 대기 중 닫기·ESC 무시)도 확인했다. 열린 결함은 UI-5(낮음, 409로 카드가 다시 열릴 때 포커스가 본문으로 떨어짐, 다음 사이클) 하나다. 409·예산 초과 전송 실패는 실제 fake 백엔드로 재현했다. QA-13(형식이 틀린 응답의 사용량 미기록)도 69fe1b1에서 확인됨이다. 다듬기 모델은 비교로 Haiku 5.5로 정했다.
+
+| 기준 | 결과 | 값 |
+|---|---|---|
+| 계약 08b 왕복 | 통과 | refine·choice 응답 키 = 계약 예시, 요청 검증 400(문자열·실수·불리언 ID 포함), 없는 ID 404, 4,000자 넘는 개선안 502·행 없음, 계약 diff 0 |
+| 화면 흐름 (US1) | 통과 | 시연 1~8 실제 fake 왕복 실패 0. 빈 입력 비활성, 다듬는 동안 잠금, 첫 포커스, 네 선택, ESC, 카드 연 채 전송은 original로 닫힘 |
+| 선택 기록 (US3, SC-002) | 통과 | 선택 POST 순서 refined·original·refined·cancelled·cancelled, 넣기는 전송 때 refined·비우면 cancelled·새 다듬기면 cancelled, 채택 비율 SQL 40.0·shown 5 |
+| 사용량·예산 | 통과 | fake 0원 행, real 컨테이너 settings spentUsd = llm_usage 합계 |
+| 다듬기 품질 (US2) | 통과 | 실제 키 10건, 목록 밖 이벤트 이름 0, 처리 메모 유입 0, 의도 0점 0건 |
+| SC-001 지연 | 통과 | Haiku 중앙값 2.91초(thinking 끔, 1ce6b6d). 비교 기준 프롬프트에서 3.22초 |
+| SC-004 비용 | 통과 | Haiku 1회 평균 약 $0.0004, 질문 1회 목표 $0.3의 0.13% |
+| 화면 리뷰·접근성 | 통과 | 라이트·다크 × 1280·375 카드 대비 최소 5.17, axe critical·serious 0, 버튼 네 상태, 동작 줄이기 0s, 375×560까지 입력창 화면 안 |
+| 기능 회귀 (SC-005) | 통과 | check f1~f5·f7~f9, check:ui 433 통과·71 건너뜀·실패 0, check_b1~b7·b9·b10 OK. 질문→카드→채택→새로고침 유지, 409 안내 후 입력 비활성 |
+
+### 미검증 항목과 이유
+- **SC-004의 분모:** 로컬에는 fake 기록만 있어 실제 agent 질문 비용이 없다. 운영 첫 질문 기록값($1.60)과 비용 PRD 목표($0.3)로 계산했다. 운영에서 refine·agent 평균을 llm_usage로 다시 보면 된다.
+- **실제 키로 화면 끝까지:** 실제 모델은 엔드포인트(T013)와 비교 스크립트(T025)로만 돌렸다. 화면은 fake 고정 응답으로 검증했다. 응답 형식은 같아 경계면 위험은 낮다.
+- check_b8은 운영 대상 검사라 로컬 회귀에서 뺐다.
+
+### 남은 위험
+- **운영 REFINE_MODEL 값은 team-lead가 Variables에 넣어야 한다.** 비우면 CODE_SUMMARY_MODEL로 대체된다.
+- **모델이 프롬프트 규칙 문구를 질문에 옮길 수 있다.** thinking을 끈 뒤 1건("두 문장 이내로")이 나왔다. 에이전트 답변을 해치지는 않지만, 운영에서 다듬은 질문을 가끔 표본으로 본다.
+- **1인 채점·1회 실행이다.** 같은 질문도 실행마다 다르게 다듬는다(결제 화면 질문이 T013에서는 대상을 바꿨고 이후에는 유지).
+- **다듬기 호출이 SDK 내부 함수(transform_schema)에 기댄다.** 실패한 응답의 사용량을 기록하려고 parse 대신 create로 바꾼 결과다. SDK를 올릴 때 check_b10과 실제 키 1회 호출로 확인한다.
+- **409로 카드가 다시 열리면 키보드 포커스를 잃는다(UI-5).** 마우스 사용에는 영향이 없고 실행이 끝나면 버튼이 살아난다.
+- **llm_usage.cost_usd가 소수 넷째 자리다.** Haiku 1회 비용은 반올림 오차가 크다. 합계 판단에는 문제없다.
+
+### 실행 방법
+```bash
+cd backend && uv run python checks/check_b10.py                       # 다듬기 계약·검증·기록·프롬프트 규칙 (fake)
+cd backend && uv run python checks/compare_refine.py                   # 모델 비교, 실제 키·비용 발생, 결과 _workspace/06_refine_model_comparison.*
+cd frontend && npm run check && npm run check:ui                       # f9·us12 포함
+```
+채택 비율은 `specs/004-question-wizard/data-model.md`의 SQL 한 줄로 본다.
+
 ## 실행 방법 (사용자가 직접 재현)
 
 아래의 `pm-agent.example.com`은 예시 도메인이다. 실제 운영 주소는 GitHub Variables `PUBLIC_BASE_URL`에만 둔다.

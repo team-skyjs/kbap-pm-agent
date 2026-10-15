@@ -37,6 +37,16 @@ def init() -> None:
         for stmt in sql.split(";"):
             if stmt.strip():
                 cur.execute(stmt)
+    migrate()
+
+
+def migrate() -> None:
+    """기존 DB 보정. CREATE TABLE IF NOT EXISTS는 이미 있는 테이블의 ENUM을 바꾸지 않아 조건부 ALTER로 확장.
+    값이 이미 있으면 건너뜀(멱등). 기동 시 init()에서 요청을 받기 전에 실행"""
+    col = one("""SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'llm_usage' AND COLUMN_NAME = 'purpose'""")
+    if col and "'refine'" not in col["COLUMN_TYPE"]:
+        x("ALTER TABLE llm_usage MODIFY purpose ENUM('agent','code_summary','refine') NOT NULL")
 
 
 def q(sql: str, args=()) -> list[dict]:

@@ -20,7 +20,7 @@ from app.main import app  # noqa: E402
 
 def client() -> TestClient:
     db.init()
-    for t in ["llm_usage", "tool_calls", "proposals", "messages", "conversations", "app_settings"]:
+    for t in ["llm_usage", "question_refinements", "tool_calls", "proposals", "messages", "conversations", "app_settings"]:
         db.x(f"DELETE FROM {t}")
     return TestClient(app)
 

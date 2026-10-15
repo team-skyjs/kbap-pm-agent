@@ -2,7 +2,7 @@
 라우트는 dict를 직접 생성, 이 모델은 계약 검증(검사 스크립트)과 에이전트 최종 응답 강제(AgentAnswer)용."""
 from typing import Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -227,3 +227,34 @@ class SendMessageIn(M):
 class PatchProposalIn(M):
     status: Literal["pending", "adopted", "on_hold"]
     note: str | None = Field(default=None, max_length=1000)
+
+
+# --- 질문 다듬기
+class RefineResult(M):
+    """다듬기 모델의 구조화 출력. 두 문장 이내 규칙은 한국어 문장 분리가 불안정해 프롬프트로만 강제"""
+    refined: str = Field(min_length=1, max_length=4000,
+                         description="에이전트에게 그대로 보낼 질문 문장만. 처리 메모·설명은 넣지 않음")
+    summary: str = Field(min_length=1, max_length=300, description="무엇이 달라졌는지와 처리 메모 한 줄")
+
+    @field_validator("refined", "summary")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:  # 공백·개행만이면 보낼 수 없는 개선안 → 검증 실패(502, 행 없음)
+        if not v.strip():
+            raise ValueError("공백만 있음")
+        return v
+
+
+class RefineIn(M):
+    conversation_id: StrictInt | None = None  # ID는 JSON number만. 문자열 "7"을 정수로 바꿔 받지 않음
+    question: str = Field(min_length=1, max_length=4000)
+
+    @field_validator("question")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("공백만 있는 질문")
+        return v
+
+
+class RefineChoiceIn(M):
+    choice: Literal["refined", "original", "cancelled"]
