@@ -122,7 +122,7 @@ description: "질문 마법사 구현 태스크"
     - 실패·키보드: 다듬기 502이면 안내와 원문 유지, 키보드만으로 버튼 → 카드 → 선택, 포커스 이동.
   - 기록 실패: 선택 기록 500이어도 전송된다.
   - 공통: axe critical·serious 0, 9조합 스크린샷이다.
-- [ ] T020 [US1] [QA] US1 검증: `check-f9`, `us12.spec.ts`를 실행한다. quickstart 시연 시나리오 1~6을 실제 fake 백엔드로 돌리고, ui-review(카드 라이트·다크·375, 버튼 네 상태)를 한다 (Q2·Q3 QA)
+- [x] T020 [US1] [QA] US1 검증: `check-f9`, `us12.spec.ts`를 실행한다. quickstart 시연 시나리오 1~6을 실제 fake 백엔드로 돌리고, ui-review(카드 라이트·다크·375, 버튼 네 상태)를 한다 (Q2·Q3 QA)
 
 ---
 
@@ -138,7 +138,7 @@ description: "질문 마법사 구현 태스크"
   - 응답·덮어쓰기: 선택 200 응답 키가 계약 예시와 같고, 두 번 부르면 마지막 값으로 바뀌며 `chosenAt`이 갱신된다.
   - 에러: 404와 400이다.
   - 집계: 네 행(`refined` 2, `original` 1, `cancelled` 1)에 data-model.md의 채택 비율 SQL을 돌리면 `50.0`이고 `shown`은 4다.
-- [ ] T023 [US3] [QA] US3 경계면 검증: (Q1 QA)
+- [x] T023 [US3] [QA] US3 경계면 검증: (Q1 QA)
   - 매핑: 프론트 선택 POST 본문과 계약 enum이 일치한다. "입력창에 넣기"는 넣는 순간 기록이 없고, 전송하면 `refined`, 비우거나 대화를 떠나면 `cancelled`다.
   - 기록: quickstart 시나리오 3~8 후 DB 행이 맞다.
   - 예산: `settings.budget.spentUsd`에 다듬기 비용이 합산된다(real 모드면 0 초과).
@@ -162,7 +162,7 @@ description: "질문 마법사 구현 태스크"
 
 ## Phase 7: Polish
 
-- [ ] T027 [QA] 회귀: 아래를 모두 통과하는지 본다.
+- [x] T027 [QA] 회귀: 아래를 모두 통과하는지 본다.
   - 모듈·UI 검사: `npm run check`(f1~f9), `npm run check:ui` 전체.
   - 백엔드 검사: `check_b1`~`check_b10`을 순차 실행한다.
   - 계약: diff 0.
