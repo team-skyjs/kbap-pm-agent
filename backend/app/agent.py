@@ -122,20 +122,12 @@ def check_models() -> None:
             runtime(env("REFINE_MODEL"))
 
 
-class UsageError(Exception):
-    """모델이 토큰을 쓴 뒤의 실패. usage = (입력, 출력): 실패해도 과금되므로 호출자가 예산에 기록"""
+class Refused(Exception):
+    """모델의 stop_reason refusal 거절. usage = (입력, 출력) 토큰: 거절도 과금되므로 예산에 기록"""
 
-    def __init__(self, usage: tuple[int, int] | None = None, reason: str = ""):
-        super().__init__(reason or type(self).__name__)
+    def __init__(self, usage: tuple[int, int] | None = None):
+        super().__init__("refusal")
         self.usage = usage
-
-
-class Refused(UsageError):
-    """모델의 stop_reason refusal 거절."""
-
-
-class Malformed(UsageError):
-    """구조화 출력 검증 실패(잘못된 JSON, 길이 밖, 공백만)."""
 
 
 class TurnLimit(Exception):
@@ -321,7 +313,7 @@ async def refine(prompt: str):
     mod, name = runtime(model_str)
     try:
         result, input_tokens, output_tokens = await mod.refine(name, prompt)
-    except UsageError as e:  # 거절·형식 오류도 토큰을 쓰므로 예산에서 빠지지 않게 기록 후 다시 올림
+    except Refused as e:  # 거절 응답도 토큰을 쓰므로 예산에서 빠지지 않게 기록 후 다시 올림
         if e.usage:
             budget.record("refine", model_str, *e.usage, None)
         raise
