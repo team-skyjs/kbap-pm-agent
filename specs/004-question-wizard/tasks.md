@@ -25,7 +25,7 @@ description: "질문 마법사 구현 태스크"
 
 ## Phase 1: Setup
 
-- [ ] T001 [BE] `.env.example`·`deploy/kbap-pm-agent.env.example`에 `REFINE_MODEL=`(비우면 `CODE_SUMMARY_MODEL`)을 주석과 함께 추가한다. 배포 워크플로우의 env 생성 단계에도 `REFINE_MODEL=${REFINE_MODEL:-}`(Variables)를 추가한다 (Q1)
+- [x] T001 [BE] `.env.example`·`deploy/kbap-pm-agent.env.example`에 `REFINE_MODEL=`(비우면 `CODE_SUMMARY_MODEL`)을 주석과 함께 추가한다. 배포 워크플로우의 env 생성 단계에도 `REFINE_MODEL=${REFINE_MODEL:-}`(Variables)를 추가한다 (Q1)
 
 ---
 
@@ -33,25 +33,25 @@ description: "질문 마법사 구현 태스크"
 
 **Purpose**: 프론트가 실제 백엔드(fake)로 붙을 수 있는 최소 경계면이다.
 
-- [ ] T002 [BE] `backend/schema.sql`: `question_refinements` 테이블을 data-model.md 그대로 추가한다. 제약은 다음과 같다. (Q1)
+- [x] T002 [BE] `backend/schema.sql`: `question_refinements` 테이블을 data-model.md 그대로 추가한다. 제약은 다음과 같다. (Q1)
   - `conversation_id BIGINT NULL` FK `ON DELETE SET NULL`.
   - `choice ENUM('refined','original','cancelled') NULL`.
   - `summary VARCHAR(300)`, `chosen_at DATETIME(3) NULL`.
   - `llm_usage.purpose`는 `ENUM('agent','code_summary','refine') NOT NULL`로 바꾼다.
-- [ ] T003 [BE] `backend/app/db.py` `init()`: `schema.sql` 실행 뒤 마이그레이션을 실행한다(ADR-29). `information_schema.COLUMNS`에서 `llm_usage.purpose`의 `COLUMN_TYPE`에 `'refine'`이 없을 때만 `ALTER TABLE llm_usage MODIFY purpose ENUM('agent','code_summary','refine') NOT NULL`이다. 주석에 이유(기존 테이블 ENUM은 CREATE IF NOT EXISTS로 안 바뀜)를 적는다 (Q1)
-- [ ] T004 [BE] `backend/app/schemas.py`에 두 모델을 추가한다. (Q1)
+- [x] T003 [BE] `backend/app/db.py` `init()`: `schema.sql` 실행 뒤 마이그레이션을 실행한다(ADR-29). `information_schema.COLUMNS`에서 `llm_usage.purpose`의 `COLUMN_TYPE`에 `'refine'`이 없을 때만 `ALTER TABLE llm_usage MODIFY purpose ENUM('agent','code_summary','refine') NOT NULL`이다. 주석에 이유(기존 테이블 ENUM은 CREATE IF NOT EXISTS로 안 바뀜)를 적는다 (Q1)
+- [x] T004 [BE] `backend/app/schemas.py`에 두 모델을 추가한다. (Q1)
   - `RefineResult`: `refined` 1~4000자, `summary` 1~300자. 모델 출력이 벗어나면 엔드포인트가 502 `UPSTREAM_ERROR`(자르지 않음, 행 없음)다.
   - 요청 모델: `question` 1~4000자이고 공백만이면 거절, `conversationId`는 int 또는 null.
-- [ ] T005 [BE] `backend/app/agent.py` `refine(prompt) -> (RefineResult, model_str)`: 다듬기 seam이다. 실제 런타임은 T010에서 채운다. (Q1)
+- [x] T005 [BE] `backend/app/agent.py` `refine(prompt) -> (RefineResult, model_str)`: 다듬기 seam이다. 실제 런타임은 T010에서 채운다. (Q1)
   - 모델: `env("REFINE_MODEL") or env("CODE_SUMMARY_MODEL")`.
   - fake 분기: 계약 v1.3 다듬기 응답 예시의 `refined`·`summary`를 반환하고 `budget.record("refine", "fake", 0, 0, None)`.
   - 기동 검사: `check_models()`에 `REFINE_MODEL`(설정된 경우) 접두사 검사를 추가한다.
   - 예시: `backend/checks/examples.py`에 계약 08b 예시를 추가한다.
-- [ ] T006 [BE] `backend/app/refine.py`(신규)에 `POST /api/questions/refine`를 만들고 `main.py`에 라우터를 등록한다. (Q1)
+- [x] T006 [BE] `backend/app/refine.py`(신규)에 `POST /api/questions/refine`를 만들고 `main.py`에 라우터를 등록한다. (Q1)
   - 처리 순서: 요청 검증(400 `VALIDATION_ERROR`), `conversationId`가 있으면 존재 확인(404 `CONVERSATION_NOT_FOUND`), `budget.check()`(403 `BUDGET_EXCEEDED`), 입력 조립(T011이 채운다. 그 전에는 질문만 넘긴다), `agent.refine()`, `question_refinements` 행 삽입, 응답 `{refinementId, refined, summary}`.
   - 잘림 표시: 조립 결과가 `truncated`면 요약 끝에 " (택사노미 이름이 많아 앞부분만 참고)"를 붙인다. 합계가 300자를 넘으면 모델 요약 쪽을 줄인다(계약 v1.3).
   - 실패 처리: 모델 실패·구조화 검증 실패(`refined` 4,000자 초과 포함)는 502 `UPSTREAM_ERROR`이고 행을 만들지 않는다.
-- [ ] T007 [BE] `backend/checks/check_b10.py`(신규, fake 모드): assert 항목은 다음과 같다. (Q1 검사)
+- [x] T007 [BE] `backend/checks/check_b10.py`(신규, fake 모드): assert 항목은 다음과 같다. (Q1 검사)
   - 응답·기록: 다듬기 응답 키가 계약 예시와 같고(`refinementId`는 새 정수, `refined`·`summary`는 예시와 글자 단위로 같음), 행 1개, `llm_usage`에 `purpose='refine'` 0원 행 1개가 생긴다.
   - 검증: 빈 문자열·공백만·4001자는 400이다. 없는 `conversationId`는 404, `conversationId: null`은 200이다.
   - 예산: `LLM_BUDGET_USD=0`이면 403이다.
@@ -68,16 +68,16 @@ description: "질문 마법사 구현 태스크"
 
 **Independent Test**: `check_b10.py`의 규칙·조립·가짜 전송 항목과, 실제 키가 있으면 spec US2 수락 시나리오 네 질문.
 
-- [ ] T009 [P] [US2] [BE] 런타임 두 파일에 `refine(model, prompt) -> (RefineResult, input_tokens, output_tokens)`를 둔다(research R2). (Q1)
+- [x] T009 [P] [US2] [BE] 런타임 두 파일에 `refine(model, prompt) -> (RefineResult, input_tokens, output_tokens)`를 둔다(research R2). (Q1)
   - `agent_anthropic.py`: `messages.parse(model, max_tokens=2000, output_format=RefineResult, output_config={"effort": "low"}, messages=[...])`. `tools`·`tool_choice`·`thinking`은 주지 않는다. `stop_reason == "refusal"`이면 예외다. usage를 반환한다.
   - `agent_openai.py`: `Agent(model, output_type=RefineResult, tools=[])` 단발 실행, usage를 반환한다.
   - `agent.refine()` real 분기가 이를 부르고 `budget.record("refine", model_str, ...)`한다.
-- [ ] T010 [US2] [BE] `backend/app/refine.py` `REFINE_PROMPT` 상수: ADR-30의 규칙 여덟 개(7·8은 실제 키 QA 관찰로 추가. 아래는 1~6의 요지:의도 유지, 기간·실제 이벤트 이름·지표·산출물 드러내기, 지어내지 않기·목록에 없는 대상은 사용자 말 유지, 기본값은 요약에 "(원문에 없음)", 이미 구체적이면 그대로, 한국어 두 문장 이내·요약 한 줄)를 문장으로 둔다 (Q1)
-- [ ] T011 [US2] [BE] `refine.py` 입력 조립 함수 `build_prompt(question, conversation_id)`(research R5): (Q1)
+- [x] T010 [US2] [BE] `backend/app/refine.py` `REFINE_PROMPT` 상수: ADR-30의 규칙 여덟 개(7·8은 실제 키 QA 관찰로 추가. 아래는 1~6의 요지:의도 유지, 기간·실제 이벤트 이름·지표·산출물 드러내기, 지어내지 않기·목록에 없는 대상은 사용자 말 유지, 기본값은 요약에 "(원문에 없음)", 이미 구체적이면 그대로, 한국어 두 문장 이내·요약 한 줄)를 문장으로 둔다 (Q1)
+- [x] T011 [US2] [BE] `refine.py` 입력 조립 함수 `build_prompt(question, conversation_id)`(research R5): (Q1)
   - 택사노미: `app_settings.taxonomy`의 `events[].name`만 쉼표로 잇고, 없으면 "택사노미 없음"이다. 4,000자를 넘을 때만 고르는 순서를 바꾼다. 질문과 겹치는 이름(이름 전체가 질문에 들어 있거나, 이름을 `_`로 나눈 조각 하나가 질문의 영숫자 낱말(소문자)과 같음)을 원래 순서대로 먼저 넣는다. 남은 자리는 나머지 이름을 원래 순서대로 4,000자 안에서 채운다. 잘렸으면 `truncated=True`를 함께 반환한다.
   - 이력: 대화의 `status='completed'`이고 비어 있지 않은 메시지 중 최근 사용자 2개·에이전트 2개, 각 앞 500자, 오래된 순이다. null 대화면 이력 없음이다.
   - 마지막에 질문을 붙인다.
-- [ ] T012 [US2] [BE] `check_b10.py`에 항목을 추가한다. (Q1 검사)
+- [x] T012 [US2] [BE] `check_b10.py`에 항목을 추가한다. (Q1 검사)
   - 프롬프트: `REFINE_PROMPT`에 규칙 키 문장 여덟 개가 들어 있다.
   - 조립: `build_prompt`에 택사노미 정의·속성 문자열이 없고 이름만 있다. 이력이 4개 이하이고 각 500자 이하이며 순서가 맞다. 택사노미가 없으면 "택사노미 없음"이다. 이름 합계가 4,000자를 넘는 택사노미면 넣은 이름 문자열이 4,000자 이하이고 `truncated`이며, fake 응답 요약 끝에 고정 문구가 붙고 300자 이하다. 질문 "scan_complete 왜 줄었어?"와 4,000자를 넘는 택사노미(뒤쪽에 `scan_complete`)면, 넣은 목록에 `scan_complete`가 포함된다(겹치는 이름 우선). 겹치지 않는 이름은 원래 순서다.
   - 가짜 전송: 두 런타임이 `RefineResult`를 돌려주고 사용량 행이 생긴다(기존 `checks/llm_mock.py` 재사용). refusal과 잘못된 JSON은 502이고 행이 없다.
@@ -105,17 +105,17 @@ description: "질문 마법사 구현 태스크"
     - `close()`: 기록 `cancelled`, 원문 유지.
   - 오류: 다듬기 오류면 `error` 상태와 안내 문구이고 원문을 유지한다. `UNAUTHORIZED` 문구는 기존 규칙(003 UI-2)을 따른다.
 - [x] T016 [US1] [FE] `frontend/checks/check-f9.ts`: 계약 `08b-questions.md`의 다듬기·선택 응답 예시가 `api.ts` 파서를 통과하고, `choice`가 세 값 밖이면 파서가 거부하는지 확인한다. `checks/run.ts`에 f9를 추가한다 (Q2 검사)
-- [ ] T017 [US1] [DS] `frontend/src/RefineCard.tsx`(신규)·`style.css`: 비교 카드 표현이다. (Q3)
+- [x] T017 [US1] [DS] `frontend/src/RefineCard.tsx`(신규)·`style.css`: 비교 카드 표현이다. (Q3)
   - 배치: 입력창 위에 둔다. 넓은 화면은 좌 원문·우 개선안 두 열, 375px은 위아래로 쌓는다. 개선안 아래에 변경 요약 한 줄이 있다.
   - 동작: 버튼 네 개(개선안으로 보내기·원문으로 보내기·입력창에 넣기·닫기)다.
   - 접근성: `role="region"`과 `aria-labelledby`(제목)다. 열릴 때 첫 동작 버튼으로 포커스가 가고 ESC로 닫는다.
   - 오류: 오류 상태는 짧은 안내 한 줄이다.
   - 스타일: 토큰만 쓰고, 003 상호작용 네 상태와 라이트·다크를 지원한다.
-- [ ] T018 [US1] [DS] `frontend/src/Chat.tsx`·`style.css`: 보내기 왼쪽에 "질문 다듬기" 버튼(아이콘 + 라벨, `aria-label`)을 둔다. (Q3)
+- [x] T018 [US1] [DS] `frontend/src/Chat.tsx`·`style.css`: 보내기 왼쪽에 "질문 다듬기" 버튼(아이콘 + 라벨, `aria-label`)을 둔다. (Q3)
   - 비활성: 입력이 비었거나, 에이전트 실행 중이거나, 다듬는 중이면 비활성이다. 다듬는 동안 버튼은 진행 표시이고 입력창은 잠긴다.
   - 연결: `refine.ts` 훅을 연결하고, 카드가 닫히면 포커스를 입력창으로 돌린다.
   - 기존 전송 흐름은 그대로다.
-- [ ] T019 [US1] [FE] `frontend/checks/ui/fixtures.ts`에 다듬기·선택 고정 응답(계약 08b 예시, 오류 502, 선택 500)을 추가하고 `frontend/checks/ui/us12.spec.ts`를 쓴다. (Q3 검사)
+- [x] T019 [US1] [FE] `frontend/checks/ui/fixtures.ts`에 다듬기·선택 고정 응답(계약 08b 예시, 오류 502, 선택 500)을 추가하고 `frontend/checks/ui/us12.spec.ts`를 쓴다. (Q3 검사)
   - 수락 시나리오: spec US1의 1~9를 다룬다.
     - 버튼 상태: 빈 입력 비활성, 실행 중 비활성.
     - 진행·선택: 진행 중 입력창 잠금, 네 선택의 결과(전송 본문, 입력창 값), 선택 POST 본문의 `choice` 값. "입력창에 넣기"는 클릭 시 POST가 없고, 전송 시 `refined`, 입력을 비우면 `cancelled`다.
@@ -130,11 +130,11 @@ description: "질문 마법사 구현 태스크"
 
 **Independent Test**: quickstart 시나리오 3~8 후 data-model.md의 채택 비율 SQL.
 
-- [ ] T021 [US3] [BE] `refine.py`에 `POST /api/questions/refine/{refinementId}/choice`를 만든다. (Q1)
+- [x] T021 [US3] [BE] `refine.py`에 `POST /api/questions/refine/{refinementId}/choice`를 만든다. (Q1)
   - 검증: `choice` 세 값 밖이면 400이고, 없는 ID는 404 `REFINEMENT_NOT_FOUND`다.
   - 기록: `choice`·`chosen_at`을 갱신한다(덮어쓰기 허용).
   - 응답: `{refinementId, choice, chosenAt}`.
-- [ ] T022 [US3] [BE] `check_b10.py`에 항목을 추가한다. (Q1 검사)
+- [x] T022 [US3] [BE] `check_b10.py`에 항목을 추가한다. (Q1 검사)
   - 응답·덮어쓰기: 선택 200 응답 키가 계약 예시와 같고, 두 번 부르면 마지막 값으로 바뀌며 `chosenAt`이 갱신된다.
   - 에러: 404와 400이다.
   - 집계: 네 행(`refined` 2, `original` 1, `cancelled` 1)에 data-model.md의 채택 비율 SQL을 돌리면 `50.0`이고 `shown`은 4다.
@@ -147,7 +147,7 @@ description: "질문 마법사 구현 태스크"
 
 ## Phase 6: User Story 4 — 다듬기 모델을 비교로 정한다 (P2)
 
-- [ ] T024 [US4] [BE] `backend/checks/compare_refine.py`(신규)를 만든다(research R1).
+- [x] T024 [US4] [BE] `backend/checks/compare_refine.py`(신규)를 만든다(research R1).
   - 샘플: 10건을 고정한다. 유형은 일상어 이탈 2, 기간 없는 지표 2, 측정 설계 2, 후속(직전 대화 포함) 2, 이미 구체적 1, 택사노미에 없는 대상 1이다.
   - 입력: 택사노미 이름은 DB 값이 있으면 그것을, 없으면 고정 목록을 쓴다.
   - 실행: 같은 `build_prompt` 결과를 `anthropic:claude-haiku-5-5`와 `anthropic:claude-sonnet-5-5`로 `agent` 런타임을 통해 다듬는다.
@@ -156,7 +156,7 @@ description: "질문 마법사 구현 태스크"
   - 채점: 네 항목을 채점하고 합계를 낸다.
   - 결정: ADR-28 규칙(Sonnet이 8점 이상 높거나, Haiku 의도 보존 0점이 2건 이상이면 Sonnet)을 적용해 결정과 근거를 비교표 끝에 쓴다.
   - 보고: CTO에 결과를 보낸다(CTO가 ADR-28 상태를 갱신).
-- [ ] T026 [US4] [BE] 결정 반영: `.env.example`·`deploy/kbap-pm-agent.env.example`의 `REFINE_MODEL` 예시와 주석을 결정 모델로 바꾸고, 운영 Variables 값이 필요하다는 것을 `deploy/README.md`에 한 줄 적는다(값 설정은 team-lead)
+- [x] T026 [US4] [BE] 결정 반영: `.env.example`·`deploy/kbap-pm-agent.env.example`의 `REFINE_MODEL` 예시와 주석을 결정 모델로 바꾸고, 운영 Variables 값이 필요하다는 것을 `deploy/README.md`에 한 줄 적는다(값 설정은 team-lead)
 
 ---
 
