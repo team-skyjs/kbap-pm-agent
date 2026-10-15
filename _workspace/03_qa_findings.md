@@ -69,6 +69,7 @@
 | 2026-10-15 | 최종 회귀 (ab2137f = 943a915·1778aca 포함) | 통과 | 커밋본: check 8 OK, check:ui 388 통과·71 건너뜀·실패 0, check_b1~b7·b9·b10 OK(b8 운영), 계약 diff 0. 실제 fake 왕복: 시연 1~8 실패 0, 카드 연 채 Enter original, 넣기 뒤 새 다듬기 cancelled, 카드 연 채 다른 대화로 이동 cancelled·전송 없음. 열린 결함 QA-13(낮음)뿐 |
 | 2026-10-15 | QA-13 재검증 (69fe1b1) | 확인됨 | parse → create 전환 후 실제 경로 정상(10/10), 실패 응답 usage 기록은 check_b10 두 런타임 × 세 형식 오류 + 거절. 열린 결함 0 |
 | 2026-10-15 | QA-13 되돌림·재적용 (b23076b → 4b1828c) | 확인됨 | 69fe1b1을 b23076b로 되돌렸다가 team-lead 결정으로 4b1828c에서 다시 적용. b23076b는 ab2137f와 backend 동일·check_b10 OK, 4b1828c는 69fe1b1과 코드 동일·check_b10 OK. 69fe1b1 실제 키 검증이 현재 상태에 유효 |
+| 2026-10-15 | PR #16 Codex 다듬기 시간 상한 (1feba63) | 통과 | REFINE_TIMEOUT_SECONDS(기본 20초) 초과 시 502 UPSTREAM_ERROR·행 없음, 계약 08b "모델 호출 실패 502"와 일치. 프론트에는 별도 요청 시간 상한이 없어 서버 상한과 충돌 없음. 커밋본 check_b1~b7·b9·b10 OK, 계약 diff 0. 실제 키 엔드포인트 2건 200(2.96·1.66초), 응답 키 refinementId·refined·summary, usage 행 2 |
 
 ## 결함
 
