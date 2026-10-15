@@ -180,16 +180,17 @@ test('입력창에 넣기 후 전송 실패: 채택 미기록, 다시 보내 성
   await expect.poll(() => rec.choices).toEqual(['refined'])
 })
 
-test('개선안으로 보내기가 전송 실패: 기록 없음, 이후 다른 전송에 붙지 않음', async ({ page }) => {
+test('개선안으로 보내기가 전송 실패: 기록 없이 개선안이 입력창에 남고, 다시 보내면 refined', async ({ page }) => {
   const rec = capture(page)
   await openCard(page, { sendFailFirst: true })
   await card(page).getByRole('button', { name: '개선안으로 보내기' }).click()
   await expect(page.locator('#chat-hint')).toContainText('예산')
-  await box(page).fill('다른 질문')
-  await box(page).press('Enter')
-  await expect(page.locator('.msg.user').last()).toContainText('다른 질문')
-  await expect(page.locator('.msg.assistant').last().locator('.card').first()).toBeVisible()
+  await expect(box(page)).toHaveValue(REFINED)
   expect(rec.choices).toEqual([])
+  await box(page).press('Enter')
+  await expect(page.locator('.msg.user').last()).toContainText(REFINED)
+  await expect.poll(() => rec.choices).toEqual(['refined'])
+  expect(rec.sent).toEqual([REFINED, REFINED])
 })
 
 // 모델 오류는 다듬기 실패 문구, 토큰 오류는 기존 토큰 안내 문구
