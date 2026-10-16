@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS messages (
   status ENUM('running','completed','failed') NOT NULL,
   content MEDIUMTEXT NOT NULL,
   error_code VARCHAR(50) NULL,
+  amplitude_status ENUM('used','unavailable','skipped') NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   INDEX idx_conv (conversation_id, created_at),
   CONSTRAINT fk_msg_conv FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE

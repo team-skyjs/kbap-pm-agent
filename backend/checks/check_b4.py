@@ -113,7 +113,7 @@ assert s["taxonomy"]["eventCount"] == 2
 ok("택사노미 업로드 2개, date 타입·중복·빈 배열 → 400 + 위치, 기존 값 유지")
 
 Settings.model_validate(s)
-assert s["agentMode"] == "fake" and s["amplitude"]["status"] == "disconnected" and s["amplitude"]["connectedAt"] is None
+assert s["agentMode"] == "fake" and s["amplitude"] == {"status": "missing"}
 assert set(s) == set(SETTINGS)
 ok("GET /api/settings = Settings 모델")
 print("check_b4 OK")

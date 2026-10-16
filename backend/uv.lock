@@ -38,11 +38,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ad/9a/a835340c91bc9a233bd54c05fc438fe07cbef71ca667f24f3892a268ae20/anthropic-1.13.0-py3-none-any.whl", hash = "sha256:157bd74dbf6a595cf9e5fcac557c791fd297924dc48261f57470c2ed6f4e6671", size = 1958595, upload-time = "2026-10-09T15:29:10.689Z" },
 ]
 
-[package.optional-dependencies]
-mcp = [
-    { name = "mcp" },
-]
-
 [[package]]
 name = "anyio"
 version = "4.15.1"
@@ -384,10 +379,9 @@ name = "kbap-pm-agent"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "anthropic", extra = ["mcp"] },
+    { name = "anthropic" },
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "mcp" },
     { name = "openai-agents" },
     { name = "pymysql" },
     { name = "uvicorn" },
@@ -395,10 +389,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", extras = ["mcp"] },
+    { name = "anthropic" },
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "mcp", specifier = ">=1,<2" },
     { name = "openai-agents" },
     { name = "pymysql", specifier = ">=1.1" },
     { name = "uvicorn" },

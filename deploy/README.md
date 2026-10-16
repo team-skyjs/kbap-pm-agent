@@ -21,12 +21,14 @@ main에 병합되면 자동 배포된다.
    | `OPENAI_API_KEY` | GPT 쓸 때만. 없으면 빈 값 |
    | `GH_PAT` | kbap-fe 클론용 PAT (Contents: Read). env 파일에는 `GITHUB_TOKEN`으로 들어간다 |
    | `ACCESS_TOKEN` | 공개 API 잠금. 비우면 꺼짐 |
+   | `AMPLITUDE_API_KEY` | Amplitude 프로젝트 API 키. **운영 등록 필요(team-lead)** |
+   | `AMPLITUDE_SECRET_KEY` | 같은 프로젝트의 시크릿 키. **운영 등록 필요(team-lead)**. 둘 중 하나라도 없으면 실제 모드 메시지 전송이 503 `AMPLITUDE_UNAVAILABLE`로 거절된다 |
 
    | Variables (비밀 아님) | 값 |
    |---|---|
    | `PUBLIC_BASE_URL` | `https://<운영 API 주소>` |
    | `CORS_ORIGINS` | `https://team-skyjs.github.io` |
-   | `AMPLITUDE_MCP_URL` | `https://mcp.amplitude.com/mcp` |
+   | `AMPLITUDE_REST_BASE` | 생략 시 `https://amplitude.com`. EU 데이터 센터면 `https://analytics.eu.amplitude.com` |
    | `AGENT_MODEL`, `CODE_SUMMARY_MODEL`, `LLM_BUDGET_USD` | 생략 시 기본값(anthropic:claude-sonnet-5-5 / claude-haiku-5-5 / 200) |
    | `REFINE_MODEL` | 질문 다듬기 모델. 생략 시 배포 워크플로우 기본값 `anthropic:claude-haiku-5-5`(샘플 비교로 확정). 앱은 비어 있으면 `CODE_SUMMARY_MODEL`로 폴백 |
    | `REFINE_THINKING` | 다듬기 호출 사고(`adaptive` \| `disabled`, 생략 시 `adaptive`). 운영은 Haiku와 짝으로 `disabled`(지연 절감). 모델이 disabled를 거부(400)하면 앱이 adaptive로 1회 재시도하고 경고 로그 |

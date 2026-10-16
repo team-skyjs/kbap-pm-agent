@@ -29,7 +29,7 @@ description: "Amplitude 서버 고정 인증 구현 태스크"
 
 ## Phase 1: Setup
 
-- [ ] T001 [BE] 설정 파일 정리(ADR-34). (A1)
+- [x] T001 [BE] 설정 파일 정리(ADR-34). (A1)
   - env 예시: `.env.example`·`deploy/kbap-pm-agent.env.example`에서 `AMPLITUDE_MCP_URL`·`AMPLITUDE_TOOLS`를 지우고 `AMPLITUDE_API_KEY=`·`AMPLITUDE_SECRET_KEY=`·`AMPLITUDE_REST_BASE=`(주석: 기본 `https://amplitude.com`, EU 주소)를 둔다.
   - 배포 워크플로우: `.github/workflows/deploy-backend.yml`의 env 생성 단계도 같게 한다(키 둘은 Secrets, 주소는 Variables).
   - 문서: `deploy/README.md`에 "운영 Secrets 두 개 등록 필요(team-lead)"를 적는다. 값은 쓰지 않는다.
@@ -38,13 +38,13 @@ description: "Amplitude 서버 고정 인증 구현 태스크"
 
 ## Phase 2: Foundational — REST 기반, OAuth 제거, 저장 구조 (A1)
 
-- [ ] T002 [BE] `backend/app/amplitude.py` 기반을 다시 쓴다. (A1)
+- [x] T002 [BE] `backend/app/amplitude.py` 기반을 다시 쓴다. (A1)
   - 지우는 것: OAuth provider·DB 토큰 저장소·connect/callback 라우트·MCP 도구 목록·허용 목록 불일치 처리.
   - 키·주소: env 키 둘과 주소를 읽는다. 둘 중 하나라도 비면 키 없음이다.
   - 호출 함수 `_get(path, params)`: 허용 경로 6개(amplitude-tools.md 4절)의 GET만 허용하고 나머지는 호출 전에 예외다. `httpx.BasicAuth`, `(path, params)` 키의 15분 프로세스 캐시(`ponytail:` 단일 워커 전제)를 쓴다.
   - 오류 분류: 400·401/403·429·연결/5xx를 나눈다. 예외 메시지에 키를 넣지 않는다.
-- [ ] T003 [BE] `backend/app/main.py`에서 amplitude 라우터 등록과 `OPEN_PATHS`의 콜백을 지운다. `backend/app/settings.py`의 `amplitude_state()`는 `{"status": "configured" | "missing"}`(계약 v1.5)을 돌려준다 (A1)
-- [ ] T004 [BE] `backend/schema.sql`에 `messages.amplitude_status ENUM('used','unavailable','skipped') NULL`을 둔다. `backend/app/db.py` `init()`에는 두 가지를 넣는다(research R5, ADR-29 패턴). (A1)
+- [x] T003 [BE] `backend/app/main.py`에서 amplitude 라우터 등록과 `OPEN_PATHS`의 콜백을 지운다. `backend/app/settings.py`의 `amplitude_state()`는 `{"status": "configured" | "missing"}`(계약 v1.5)을 돌려준다 (A1)
+- [x] T004 [BE] `backend/schema.sql`에 `messages.amplitude_status ENUM('used','unavailable','skipped') NULL`을 둔다. `backend/app/db.py` `init()`에는 두 가지를 넣는다(research R5, ADR-29 패턴). (A1)
   - 컬럼이 없을 때만 `ALTER TABLE messages ADD COLUMN …`.
   - `DELETE FROM app_settings WHERE k IN ('amplitude','amplitude_oauth')`(멱등).
 
@@ -52,32 +52,32 @@ description: "Amplitude 서버 고정 인증 구현 태스크"
 
 ## Phase 3: User Story 1 — 재승인 없이 지표가 붙은 답 (P1) (A1)
 
-- [ ] T005 [US1] [BE] `amplitude_query`(amplitude-tools.md 1절)를 만든다. (A1)
+- [x] T005 [US1] [BE] `amplitude_query`(amplitude-tools.md 1절)를 만든다. (A1)
   - 인자: Pydantic 모델(`kind`, `events[{event_type, filters[]}]`, `start`·`end`, `metric`·`formula`, `interval`, `group_by`, `n`, `conversion_window_seconds`)이다. 종류별 이벤트 개수·90일 상한·세그멘테이션 `n` any|active·퍼널 `n` new|active를 검사하고, 맞지 않는 인자는 `인자 오류: …`다. `ce:` 접두어는 그대로 통과시킨다.
   - 호출: REST 세 경로 매핑(날짜는 `YYYYMMDD`로 변환)이다.
   - 결과: 압축표 세 종류다. `kbap-amplitude/amp.py`의 `series_table`·`funnel_table`·`retention_table`·`_summary`·`_labels`를 차트 dict 없이 옮겨 다듬는다. 31행 상한, 표본 30 미만 경고를 두고 끝에 `clip()`.
-- [ ] T006 [US1] [BE] `amplitude_context`(amplitude-tools.md 2절)를 만든다. (A1)
+- [x] T006 [US1] [BE] `amplitude_context`(amplitude-tools.md 2절)를 만든다. (A1)
   - 목록: `event_type`이 없으면 Taxonomy 이벤트 목록과 `app_settings.taxonomy`를 이름으로 병합한다. 설명은 택사노미 우선이고 출처를 표시하며, 커스텀은 `ce:`를 붙인다.
   - 속성: `event_type`이 있으면 이벤트 속성과 사용자 속성 이름이다.
   - 캐시는 15분이고 `clip()`을 적용한다.
-- [ ] T007 [US1] [BE] 에이전트를 연결한다. (A1)
+- [x] T007 [US1] [BE] 에이전트를 연결한다. (A1)
   - 도구 목록(`backend/app/agent.py`): 키가 있고 건너뛰지 않을 때 두 도구를 기존 `wrap(…, source="amplitude")`로 넣는다.
   - 런타임: `agent_anthropic.py`의 MCP 세션·`_mcp_call`·불일치 분기와, `agent_openai.py`의 `MCPServerStreamableHttp`·MCP 이벤트 처리를 지운다.
   - `SYSTEM_PROMPT` 규칙 7: 도구 이름만 바꾼다.
   - `SYSTEM_PROMPT` 규칙 8: research R6 문장으로 교체한다.
   - 상태 문구: `Amplitude 있음` | `없음(사용자가 건너뜀)` | `없음(키 없음)`.
-- [ ] T008 [US1] [BE] 의존성 정리: `rg -n "from mcp|import mcp|MCPServer|mcp_tool" backend/app`가 비면 `backend/pyproject.toml`의 `anthropic[mcp]` extra와 `mcp`를 정리하고 `uv.lock`을 갱신한다. openai-agents는 유지한다. 새 의존성은 넣지 않는다 (A1)
+- [x] T008 [US1] [BE] 의존성 정리: `rg -n "from mcp|import mcp|MCPServer|mcp_tool" backend/app`가 비면 `backend/pyproject.toml`의 `anthropic[mcp]` extra와 `mcp`를 정리하고 `uv.lock`을 갱신한다. openai-agents는 유지한다. 새 의존성은 넣지 않는다 (A1)
 
 ---
 
 ## Phase 4: User Story 2 — 조회가 안 되면 실행 전에 안다 (P1) (A1, A2)
 
-- [ ] T009 [US2] [BE] 사전 점검과 상태 기록을 붙인다(ADR-36). (A1)
+- [x] T009 [US2] [BE] 사전 점검과 상태 기록을 붙인다(ADR-36). (A1)
   - 점검 함수: `amplitude.preflight()`는 키를 확인한 뒤 `GET /api/2/taxonomy/event` 1회(캐시 공유)이고, 실패 이유 넷을 구분한다.
   - 요청 필드: `backend/app/conversations.py` 메시지 POST에 `skipAmplitude`(bool, 기본 false, 타입 엄격)를 받는다.
   - 거절: `budget.check()` 다음, 실제 모드이고 건너뛰지 않을 때 점검한다. 실패하면 사용자 메시지 저장 없이 503 `AMPLITUDE_UNAVAILABLE`(계약 v1.5 문구)이다.
   - 상태 기록: `skipped`/`used`를 run에 넘겨 assistant 메시지에 기록한다. 실행 중 Amplitude 401·403이면 `unavailable`이고, 시연 모드는 NULL이다.
-- [ ] T010 [US2] [BE] `backend/checks/check_b12.py`(신규)를 만들고 `backend/checks/check_b7.py`를 삭제한다. `httpx.MockTransport`로 Amplitude를 흉내 낸다. assert 항목은 다음과 같다. (A1 검사)
+- [x] T010 [US2] [BE] `backend/checks/check_b12.py`(신규)를 만들고 `backend/checks/check_b7.py`를 삭제한다. `httpx.MockTransport`로 Amplitude를 흉내 낸다. assert 항목은 다음과 같다. (A1 검사)
   - 도구:
     - 세 종류 결과 표의 머리 행과 요약 줄이 맞다.
     - 인자 오류는 Amplitude 요청 0회다. 대상은 91일, 세그멘테이션 `n: "new"`, 퍼널 이벤트 1개, 퍼널에 `metric`이다.

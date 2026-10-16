@@ -18,9 +18,7 @@ class RepositoryIn(M):
 
 
 def amplitude_state() -> dict:
-    a = db.get_setting("amplitude") or {}
-    return {"status": "connected" if a.get("connectedAt") else "disconnected",
-            "serverUrl": amplitude.server_url(), "connectedAt": a.get("connectedAt")}
+    return {"status": "configured" if amplitude.configured() else "missing"}
 
 
 @router.get("")

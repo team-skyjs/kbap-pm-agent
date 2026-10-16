@@ -20,3 +20,9 @@
 | 모듈 | 상태 | 실행 | 연동 상태 | 검사 | 비고 |
 |------|------|------|----------|------|------|
 | E2 내보내기 기록 | 완료 | 동일 | 외부 호출 없음(fake·real 같음) | `checks/check_b11.py` | `POST /api/conversations/{id}/exports` → 201. 테이블 `conversation_exports` 신규(CREATE IF NOT EXISTS, 마이그레이션 없음). 대화 삭제 시 CASCADE. 회귀 check_b2·b3 통과 |
+
+## 006 Amplitude 서버 고정 인증
+
+| 모듈 | 상태 | 실행 | 연동 상태 | 검사 | 비고 |
+|------|------|------|----------|------|------|
+| A1 REST·사전 점검·상태 | 완료(실제 키 미검증) | 동일. 실제 모드는 env `AMPLITUDE_API_KEY`·`AMPLITUDE_SECRET_KEY` 필요 | Amplitude: REST 코드 완료, 검사는 httpx.MockTransport. 실제 키 호출 미검증(Taxonomy 응답 필드 이름 포함, 사람·키 필요). LLM: 가짜 전송으로 두 런타임 확인 | `checks/check_b12.py` (b7 삭제) | MCP·OAuth 코드와 connect/callback 제거, `mcp` 직접 의존성 제거(openai-agents 경유로 설치는 남음). `llm_mock.sse`는 기본 `skipAmplitude: true`. OpenAI 런타임은 도구 실패 문장을 모델에 그대로 전달하도록 `failure_error_function` 지정(SDK 기본은 고정 문장이라 인자 오류를 모델이 고칠 수 없었음) |

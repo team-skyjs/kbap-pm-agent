@@ -64,7 +64,7 @@ CREATED_8 = json.loads('''{"id": 8, "title": "장바구니 개선 측정 설계"
 SETTINGS = json.loads('''{
   "repository": {"url": "https://github.com/team-skyjs/kbap-fe", "branch": "develop", "headCommit": "9f3c2a1", "codeMapCommit": "9f3c2a1", "codeMapStatus": "ready", "trackedEventCount": 87, "screenCount": 41, "syncedAt": "2026-10-15T08:55:02.117Z", "lastError": null},
   "taxonomy": {"eventCount": 64, "uploadedAt": "2026-10-14T12:01:44.500Z"},
-  "amplitude": {"status": "connected", "serverUrl": "https://mcp.amplitude.com/mcp", "connectedAt": "2026-10-14T12:10:09.031Z"},
+  "amplitude": {"status": "configured"},
   "models": {"agent": "anthropic:claude-sonnet-5-5", "codeSummary": "anthropic:claude-haiku-5-5"},
   "agentMode": "real",
   "budget": {"limitUsd": 200.0, "spentUsd": 3.4172}
@@ -83,7 +83,6 @@ TAXONOMY_BODY = json.loads('''{
   ]
 }''')
 
-AUTH_URL = "https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri=https%3A%2F%2Fpm-agent.example.com%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ&code_challenge=Q9v0aR3&code_challenge_method=S256"
 
 REFINE = json.loads('''{"refinementId": 31, "refined": "최근 7일 scan_start → scan_complete(success=true) 퍼널에서 이탈이 가장 큰 단계를 찾고, 그 원인이 되는 화면 동작과 개선안을 제안해줘.", "summary": "기간을 최근 7일로 정하고(원문에 없음), 이벤트 이름과 원하는 산출물(개선안)을 명시했다."}''')
 

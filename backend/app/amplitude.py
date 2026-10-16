@@ -1,203 +1,321 @@
-"""외부 seam: Amplitude 원격 MCP (조회 전용). OAuth 2.1 + 동적 클라이언트 등록은 MCP SDK OAuthClientProvider 담당.
-토큰·클라이언트 정보는 app_settings 'amplitude_oauth'에 보관(API로 노출하지 않음). 연결 상태는 'amplitude' {connectedAt}.
-fake면 계약서 예시 승인 URL 반환 후 즉시 connected."""
-import asyncio
-import contextlib
-import html
+"""외부 seam: Amplitude Dashboard REST·Taxonomy API (조회 전용). 프로젝트 키 Basic 인증, 키는 env에만.
+도구 두 개(amplitude_query, amplitude_context)와 메시지 전송 사전 점검(preflight). 시연 모드는 호출하지 않음."""
+import datetime
 import json
 import logging
+import time
+from typing import Literal
 
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+import httpx
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from app import db
-from app.config import env, is_fake
-from app.errors import ApiError
+from app.config import env
+from app.errors import ApiError, ToolError
 
 log = logging.getLogger("app.amplitude")
-router = APIRouter(prefix="/api/integrations/amplitude")
-FAKE_AUTH_URL = ("https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri="
-                 "https%3A%2F%2Fpm-agent.example.com%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ"
-                 "&code_challenge=Q9v0aR3&code_challenge_method=S256")
-# ponytail: 진행 중 OAuth 하나를 프로세스 메모리에 보관(단일 워커, 사용자 2명). 다중 워커면 state를 DB에
-_pending: dict = {}
+ALLOWED_PATHS = {"/api/2/events/segmentation", "/api/2/funnels", "/api/2/retention",
+                 "/api/2/taxonomy/event", "/api/2/taxonomy/event-property", "/api/2/taxonomy/user-property"}
+CACHE_SECONDS = 900
+MAX_DAYS = 90
+MAX_ROWS = 31
+AUTH_FAILED = "Amplitude 인증 실패"
+_cache: dict = {}  # ponytail: 프로세스 메모리 캐시, 단일 워커 전제. 여러 워커면 공유 캐시(DB·Redis)로
+_transport = None  # 검사 스크립트가 httpx.MockTransport로 교체
 
 
-def server_url() -> str:
-    return env("AMPLITUDE_MCP_URL", "https://mcp.amplitude.com/mcp")
+class AmplitudeError(ToolError):
+    def __init__(self, kind: str, message: str):
+        super().__init__(message)
+        self.kind = kind  # bad_request | auth | rate | connect
 
 
-def connected() -> bool:
-    return bool((db.get_setting("amplitude") or {}).get("connectedAt"))
+def _keys() -> tuple[str, str] | None:
+    k, s = env("AMPLITUDE_API_KEY"), env("AMPLITUDE_SECRET_KEY")
+    return (k, s) if k and s else None
 
 
-def _oauth() -> dict:
-    return db.get_setting("amplitude_oauth") or {}
+def configured() -> bool:
+    return _keys() is not None
 
 
-def oauth_provider(redirect_handler=None, callback_handler=None):
-    """두 LLM 런타임과 연결 흐름이 함께 쓰는 OAuth provider(httpx.Auth). 토큰 갱신은 provider가 자체 처리."""
-    from mcp.client.auth import OAuthClientProvider, TokenStorage
-    from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata, OAuthToken
-
-    class DbStorage(TokenStorage):
-        async def get_tokens(self):
-            t = _oauth().get("tokens")
-            return OAuthToken.model_validate(t) if t else None
-
-        async def set_tokens(self, tokens):
-            db.set_setting("amplitude_oauth", {**_oauth(), "tokens": tokens.model_dump(mode="json")})
-
-        async def get_client_info(self):
-            c = _oauth().get("client")
-            return OAuthClientInformationFull.model_validate(c) if c else None
-
-        async def set_client_info(self, info):
-            db.set_setting("amplitude_oauth", {**_oauth(), "client": info.model_dump(mode="json")})
-
-    redirect_uri = env("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/") + "/api/integrations/amplitude/callback"
-    meta = OAuthClientMetadata(client_name="kbap-pm-agent", redirect_uris=[redirect_uri], scope="all:read",
-                               grant_types=["authorization_code", "refresh_token"], response_types=["code"],
-                               token_endpoint_auth_method="none")
-    return OAuthClientProvider(server_url(), meta, DbStorage(), redirect_handler=redirect_handler,
-                               callback_handler=callback_handler)
+def _read_only(request: httpx.Request) -> None:
+    # 시크릿 키에는 쓰기 권한도 있어 이 클라이언트로 나가는 모든 요청을 전송 직전에 검사
+    if request.method != "GET" or request.url.path not in ALLOWED_PATHS:
+        raise ValueError(f"허용되지 않은 Amplitude 요청: {request.method} {request.url.path}")
 
 
-async def _list_tools(auth) -> list:
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
-    async with streamablehttp_client(server_url(), auth=auth) as (read, write, _):
-        async with ClientSession(read, write) as s:
-            await s.initialize()
-            return (await s.list_tools()).tools
+def _client() -> httpx.Client:
+    keys = _keys()
+    if keys is None:
+        raise AmplitudeError("missing", "Amplitude 키 없음")
+    return httpx.Client(base_url=env("AMPLITUDE_REST_BASE") or "https://amplitude.com", auth=httpx.BasicAuth(*keys),
+                        timeout=20, transport=_transport, event_hooks={"request": [_read_only]})
 
 
-async def _no_browser(_url):  # 실행 중에는 재승인 불가
-    raise RuntimeError("Amplitude 재승인이 필요합니다. 설정 화면에서 다시 연결해 주세요.")
-
-
-DEFAULT_TOOLS = "get_amplitude_context,query_amplitude_data"
-
-
-def keep(tools: list) -> list:
-    """AMPLITUDE_TOOLS 허용 목록으로 MCP 도구 거르기. 빈 값이면 전부 허용(디버그용).
-    서버가 내려주는 도구 전체를 매 턴 넘기면 입력 토큰·첫 응답 지연이 크게 늘어서 필요한 것만 전달."""
-    allow = {n.strip() for n in env("AMPLITUDE_TOOLS", DEFAULT_TOOLS).split(",") if n.strip()}
-    kept = [t for t in tools if not allow or t.name in allow]
-    if allow and tools and not kept:  # 오타·서버 도구 이름 변경: 런타임이 소스 상태를 "허용 목록 불일치"로 표시
-        log.warning("amplitude tools: allowlist matched 0 of %d", len(tools))
-    else:
-        log.info("amplitude tools: kept %d of %d", len(kept), len(tools))
-    return kept
-
-
-MISMATCH = "없음(허용 목록 불일치)"
-
-
-@contextlib.asynccontextmanager
-async def anthropic_tools():
-    """Anthropic 런타임용: 실행 1회 동안 MCP 세션을 열고 (mcp Tool, ClientSession) 목록 제공. 미연결이면 [].
-    연결 실패 처리는 호출자 몫. 세션은 이 컨텍스트를 연 태스크 안에서 닫아야 함(anyio 취소 범위)."""
-    if is_fake() or not connected():
-        yield []
-        return
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
-    async with streamablehttp_client(server_url(), auth=oauth_provider(redirect_handler=_no_browser)) as (read, write, _):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            yield [(t, session) for t in keep((await session.list_tools()).tools)]
-
-
-def call_key(name: str, arguments) -> tuple[str, str]:
-    return name, json.dumps(arguments or {}, sort_keys=True, ensure_ascii=False)
-
-
-def openai_server(**kwargs):
-    """OpenAI Agents 런타임용 MCP 서버 객체. 미연결이면 None. 같은 OAuth provider를 params["auth"]로 전달."""
-    if is_fake() or not connected():
-        return None
-    from agents.mcp import MCPServerStreamableHttp
-
-    class Allowlisted(MCPServerStreamableHttp):
-        originals: dict = {}  # (도구 이름, 인자 JSON) → 자르기 전 원문 목록, 이벤트·DB용
-
-        async def list_tools(self, *args, **kw):  # SDK가 턴마다 호출, 허용 목록 적용 지점은 Anthropic과 같은 keep()
-            tools = await super().list_tools(*args, **kw)
-            if getattr(self, "_kept", None) is None:  # 로그는 실행당 한 번
-                self._kept = {t.name for t in keep(tools)}
-            return [t for t in tools if t.name in self._kept]
-
-        async def call_tool(self, tool_name, arguments, meta=None):
-            # 이 경로의 MCP 결과는 공통 래퍼를 거치지 않아 여기서 모델용 사본만 자름
-            from mcp.types import TextContent
-
-            from app.agent import clip
-            result = await super().call_tool(tool_name, arguments, meta)
-            text = "\n".join(getattr(c, "text", "") for c in result.content)
-            self.originals.setdefault(call_key(tool_name, arguments), []).append(text)
-            if clip(text) == text and all(isinstance(c, TextContent) for c in result.content):
-                return result
-            # 이미지·오디오·리소스 블록은 상한을 우회하므로 모델 사본에서 제거, 텍스트만 하나로
-            return result.model_copy(update={"content": [TextContent(type="text", text=clip(text))]})
-
-    Allowlisted.originals = {}
-    return Allowlisted(name="amplitude", cache_tools_list=True,
-                                   params={"url": server_url(), "auth": oauth_provider(redirect_handler=_no_browser)},
-                                   **kwargs)
-
-
-@router.post("/connect")
-async def connect():
-    if is_fake():
-        db.set_setting("amplitude", {"connectedAt": db.now_iso()})
-        return {"authorizationUrl": FAKE_AUTH_URL}
-    old = _pending.pop("task", None)
-    if old:
-        old.cancel()
-    loop = asyncio.get_running_loop()
-    url_fut, code_fut = loop.create_future(), loop.create_future()
-
-    async def redirect(url: str):
-        url_fut.set_result(url)
-
-    async def callback():
-        return await code_fut
-
-    oauth = _oauth()
-    db.set_setting("amplitude_oauth", {k: v for k, v in oauth.items() if k != "tokens"})  # 재승인 강제, 클라이언트 등록은 재사용
-    db.del_setting("amplitude")
-
-    async def handshake():
-        await _list_tools(oauth_provider(redirect, callback))
-        db.set_setting("amplitude", {"connectedAt": db.now_iso()})
-
-    task = asyncio.create_task(handshake())
-    _pending.update(task=task, code=code_fut)
-    await asyncio.wait({url_fut, task}, timeout=30, return_when=asyncio.FIRST_COMPLETED)
-    if url_fut.done():
-        return {"authorizationUrl": url_fut.result()}
-    task.cancel()
-    reason = "응답 시간 초과" if not task.done() or task.cancelled() else type(task.exception()).__name__
-    log.error("amplitude connect failed: %s", task.exception() if task.done() and not task.cancelled() else reason)
-    raise ApiError(502, "UPSTREAM_ERROR", f"Amplitude OAuth를 시작하지 못했습니다. ({reason})")
-
-
-def _page(text: str) -> HTMLResponse:
-    return HTMLResponse(f"<!doctype html><meta charset=utf-8><p>{html.escape(text)}</p>")
-
-
-@router.get("/callback")
-async def callback(code: str | None = None, state: str | None = None, error: str | None = None):
-    fut, task = _pending.get("code"), _pending.get("task")
-    if error:
-        return _page(f"Amplitude 연결 실패: {error}")
-    if not code or fut is None or fut.done():
-        return _page("Amplitude 연결 실패: 진행 중인 연결 요청이 없습니다. 설정 화면에서 다시 연결해 주세요.")
-    fut.set_result((code, state))
+def _get(path: str, params: list[tuple[str, str]] | None = None):
+    """허용 경로 GET + 15분 캐시. 실패는 종류별 AmplitudeError(메시지에 키·응답 헤더 없음)."""
+    key = (path, tuple(params or ()))
+    hit = _cache.get(key)
+    if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
+        return hit[1]
     try:
-        await asyncio.wait_for(asyncio.shield(task), 60)
-        return _page("Amplitude 연결 완료. 이 탭을 닫아도 됩니다.")
-    except Exception as e:
-        log.exception("amplitude token exchange failed")
-        return _page(f"Amplitude 연결 실패: {type(e).__name__}")
+        with _client() as c:
+            r = c.get(path, params=params or [])
+    except httpx.HTTPError as e:
+        log.warning("amplitude %s failed: %s", path, type(e).__name__)
+        raise AmplitudeError("connect", "Amplitude 연결 실패") from None
+    if r.status_code == 400:
+        raise AmplitudeError("bad_request", f"Amplitude 인자 오류: {r.text[:300]}")
+    if r.status_code in (401, 403):
+        raise AmplitudeError("auth", AUTH_FAILED)
+    if r.status_code == 429:
+        raise AmplitudeError("rate", "Amplitude 요청 한도 초과(잠시 후 다시)")
+    if r.status_code >= 300:
+        log.warning("amplitude %s status %s", path, r.status_code)
+        raise AmplitudeError("connect", "Amplitude 연결 실패")
+    data = r.json()
+    _cache[key] = (time.monotonic(), data)
+    return data
+
+
+PREFLIGHT = {"missing": "서버에 Amplitude 키가 설정되어 있지 않습니다", "auth": "인증에 실패했습니다(키 확인 필요)",
+             "rate": "요청 한도를 넘었습니다(잠시 후 다시)"}
+
+
+def preflight() -> None:
+    """메시지 전송 전 점검: 이벤트 목록 1회(맥락 도구와 캐시 공유). 실패면 503 AMPLITUDE_UNAVAILABLE."""
+    try:
+        _get("/api/2/taxonomy/event")
+    except AmplitudeError as e:
+        reason = PREFLIGHT.get(e.kind, "연결에 실패했습니다")
+        raise ApiError(503, "AMPLITUDE_UNAVAILABLE",
+                       f"Amplitude 조회 불가: {reason}. 그래도 진행하면 Amplitude 없이 답합니다.") from None
+
+
+# --- amplitude_query 인자: 종류에 맞지 않는 인자는 무시하지 않고 오류(모델이 원하던 것과 다른 조회를 근거로 쓰지 않게)
+class _Strict(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class EventFilter(_Strict):
+    subprop_type: Literal["event", "user"]
+    subprop_key: str
+    subprop_op: Literal["is", "is not", "contains", "does not contain", "less", "less or equal", "greater",
+                        "greater or equal"]
+    subprop_value: list[str] = Field(min_length=1)
+
+
+class AmplitudeEvent(_Strict):
+    event_type: str = Field(description="실제 이벤트 이름. 커스텀 이벤트는 ce:이름")
+    filters: list[EventFilter] = []
+
+
+EVENT_COUNTS = {"segmentation": (1, 2), "funnel": (2, 10), "retention": (2, 2)}
+ONLY = {"metric": {"segmentation"}, "formula": {"segmentation"}, "interval": {"segmentation", "retention"},
+        "group_by": {"segmentation", "funnel"}, "n": {"segmentation", "funnel"}, "conversion_window_seconds": {"funnel"}}
+
+
+class QueryArgs(_Strict):
+    kind: Literal["segmentation", "funnel", "retention"]
+    events: list[AmplitudeEvent]
+    start: datetime.date
+    end: datetime.date
+    metric: Literal["uniques", "totals", "avg", "pct_dau", "formula"] | None = None
+    formula: str | None = None
+    interval: Literal[1, 7, 30] | None = None
+    group_by: str | None = None
+    n: Literal["any", "active", "new"] | None = None
+    conversion_window_seconds: int | None = Field(default=None, ge=1, le=7_776_000)
+
+    @model_validator(mode="after")
+    def _rules(self):
+        lo, hi = EVENT_COUNTS[self.kind]
+        if not lo <= len(self.events) <= hi:
+            raise ValueError(f"{self.kind}의 events는 {lo}~{hi}개입니다(받은 개수 {len(self.events)})"
+                             if lo != hi else f"{self.kind}의 events는 정확히 {lo}개입니다(시작, 복귀)")
+        for k, kinds in ONLY.items():
+            if getattr(self, k) is not None and self.kind not in kinds:
+                raise ValueError(f"{k}는 {', '.join(sorted(kinds))}에서만 씁니다")
+        days = (self.end - self.start).days + 1
+        if days < 1:
+            raise ValueError("start가 end보다 뒤입니다")
+        if days > MAX_DAYS:
+            raise ValueError(f"기간 {days}일, 상한 {MAX_DAYS}일. 기간을 줄여 다시 호출")
+        if self.kind == "segmentation" and self.n == "new":
+            raise ValueError("세그멘테이션의 n은 any·active만 됩니다. 신규 사용자는 funnel의 n new로")
+        if self.kind == "funnel" and self.n == "any":
+            raise ValueError("퍼널의 n은 new·active만 됩니다")
+        if (self.metric == "formula") != (self.formula is not None):
+            raise ValueError("formula는 metric formula와 함께만 씁니다")
+        return self
+
+
+def _arg_error(e: ValidationError) -> str:
+    first = e.errors()[0]
+    loc = ".".join(str(p) for p in first["loc"])
+    msg = first["msg"].removeprefix("Value error, ")
+    return f"인자 오류: {loc + ': ' if loc else ''}{msg}"
+
+
+# --- 결과 압축표: 같은 프로젝트에서 검증된 kbap-amplitude 형식을 옮김(차트 dict 제외)
+def _num(v) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, float):
+        return f"{v:.3g}" if abs(v) < 1 else f"{v:.1f}"
+    return str(v)
+
+
+def _labels(data: dict, n: int) -> list[str]:
+    raw = data.get("seriesLabels") or []
+    # [세그먼트 인덱스, 값] 형태면 인덱스 제거
+    raw = [l[1:] if isinstance(l, list) and len(l) > 1 and isinstance(l[0], int) else l for l in raw]
+    return [("/".join(map(str, l)) if isinstance(l, list) else str(l)) for l in raw] or [f"s{i}" for i in range(n)]
+
+
+def _summary(x: list, labels: list[str], series: list) -> str:
+    out = []
+    for lab, s in list(zip(labels, series))[:6]:
+        vals = [v for v in s if isinstance(v, (int, float))]
+        if not vals:
+            continue
+        mi, ma = min(vals), max(vals)
+        at = x[s.index(ma)] if s.index(ma) < len(x) else ""
+        out.append(f"{lab}: 합 {_num(sum(vals))} · 평균 {_num(sum(vals) / len(vals))} · 최대 {_num(ma)}({at}) "
+                   f"· 최소 {_num(mi)} · 마지막 {_num(vals[-1])} · 0인 날 {sum(1 for v in vals if v == 0)}/{len(vals)}")
+    return "\n".join(out)
+
+
+def series_table(data: dict, title: str) -> str:
+    series = data.get("series") or []
+    labels = _labels(data, len(series))
+    x = data.get("xValues") or []
+    rows = ["| date | " + " | ".join(labels) + " |", "|---|" + "---|" * len(labels)]
+    for i, d in enumerate(x[:MAX_ROWS]):
+        rows.append(f"| {d} | " + " | ".join(_num(s[i] if i < len(s) else None) for s in series) + " |")
+    if len(x) > MAX_ROWS:
+        rows.append(f"| … {len(x) - MAX_ROWS} rows 생략 (요약 통계는 전체 기준) |")
+    return f"**{title} ({len(x)} rows × {len(series)} series)**\n" + "\n".join(rows) + "\n요약: " + _summary(x, labels, series)
+
+
+def funnel_table(data, title: str) -> str:
+    funnels = data if isinstance(data, list) else []
+    if len(funnels) > 1:  # group_by: 세그먼트별 퍼널
+        ev = funnels[0].get("events", [])
+        rows = ["| segment | " + " | ".join(f"{e} (conv%)" for e in ev) + " |", "|---|" + "---|" * len(ev)]
+        small = []
+        for f in funnels[:MAX_ROWS]:
+            seg = (f.get("meta") or {}).get("segment") or "?"
+            raw, cum = f.get("cumulativeRaw", []), f.get("cumulative", [])
+            cells = [_num(raw[i] if i < len(raw) else None) + (f" ({cum[i] * 100:.1f}%)" if i < len(cum) and cum[i] is not None else "")
+                     for i in range(len(ev))]
+            rows.append(f"| {seg} | " + " | ".join(cells) + " |")
+            if raw and raw[0] < 30:
+                small.append(seg)
+        text = f"**{title}** 세그먼트 {len(funnels)}개\n" + "\n".join(rows)
+        return text + (f"\n⚠ 1단계 표본 <30 세그먼트: {small} — 비율 해석 불가" if small else "")
+    f = funnels[0] if funnels else {}
+    ev, raw, cum = f.get("events", []), f.get("cumulativeRaw", []), f.get("cumulative", [])
+    rows = ["| step | event | users | conv% | step conv% |", "|---|---|---|---|---|"]
+    for i, e in enumerate(ev):
+        c = f"{cum[i] * 100:.1f}%" if i < len(cum) and cum[i] is not None else ""
+        sc = "100%" if i == 0 else (f"{raw[i] / raw[i - 1] * 100:.1f}%" if i < len(raw) and raw[i - 1] else "")
+        rows.append(f"| {i + 1} | {e} | {_num(raw[i] if i < len(raw) else None)} | {c} | {sc} |")
+    text = f"**{title}**\n" + "\n".join(rows)
+    return text + (f"\n⚠ 1단계 표본 {raw[0]}명 (<30) — 비율 해석 불가, 절대수로 보고" if raw and raw[0] < 30 else "")
+
+
+def _pct(c):
+    return None if not isinstance(c, dict) or c.get("incomplete") or not c.get("outof") else round(c["count"] / c["outof"] * 100, 1)
+
+
+def retention_table(data: dict, title: str) -> str:
+    """series[0] = {values: {cohort: [cell]}, dates, combined: [cell]}, cell = {count, outof, incomplete}. 표본 0 코호트 생략."""
+    s0 = (data.get("series") or [{}])[0]
+    values, combined = s0.get("values") or {}, s0.get("combined") or []
+    ndays = max([len(combined)] + [len(v) for v in values.values()])
+    days = [f"D{i}" for i in range(ndays)]
+    show = min(ndays, 15)  # ponytail: 코호트 표는 D0~D14만(토큰), 합산 줄은 전체 기간
+    cohorts = [d for d in reversed(s0.get("dates") or list(values)) if any(c.get("outof") for c in values.get(d, []))]
+    rows = ["| cohort (n) | " + " | ".join(days[:show]) + " |", "|---|" + "---|" * show]
+    for d in cohorts[:MAX_ROWS]:
+        cells = values[d][:show]
+        rows.append(f"| {d} ({cells[0]['outof'] if cells else 0}) | " + " | ".join("" if _pct(c) is None else f"{_pct(c)}%" for c in cells) + " |")
+    nout = combined[0]["outof"] if combined else 0
+    avg = [(i, _pct(c), c) for i, c in enumerate(combined)]
+    return (f"**{title}** 코호트 {len(cohorts)}개 (표본 0 코호트 {len(values) - len(cohorts)}개 생략), 합산 모수 n={nout}\n"
+            + "\n".join(rows) + "\n합산(combined): "
+            + ", ".join(f"D{i} {a}% ({c['count']}/{c['outof']})" for i, a, c in avg if a is not None and i in (0, 1, 2, 3, 7, 14, 30)))
+
+
+def _event_json(e: AmplitudeEvent) -> str:
+    body = {"event_type": e.event_type}
+    if e.filters:
+        body["filters"] = [f.model_dump() for f in e.filters]
+    return json.dumps(body, ensure_ascii=False)
+
+
+def amplitude_query(kind: Literal["segmentation", "funnel", "retention"], events: list[AmplitudeEvent], start: str, end: str,
+                    metric: Literal["uniques", "totals", "avg", "pct_dau", "formula"] | None = None,
+                    formula: str | None = None, interval: Literal[1, 7, 30] | None = None, group_by: str | None = None,
+                    n: Literal["any", "active", "new"] | None = None, conversion_window_seconds: int | None = None) -> str:
+    """Amplitude 지표 조회(조회 전용). 결과는 압축 마크다운 표.
+    kind: segmentation(events 1~2개, metric uniques|totals|avg|pct_dau|formula, formula는 metric formula일 때만 "UNIQUES(A)/UNIQUES(B)",
+    interval 1|7|30, group_by, n any|active), funnel(events 2~10개 순서대로, n new|active, conversion_window_seconds, group_by),
+    retention(events 정확히 2개: 시작·복귀, interval).
+    events: [{"event_type": 실제 이벤트 이름, "filters": [{"subprop_type": "event"|"user", "subprop_key", "subprop_op": "is" 등, "subprop_value": [문자열]}]}].
+    start·end: YYYY-MM-DD, 양 끝 포함 90일 이내. group_by: 사용자 속성 이름 하나(커스텀은 gp:이름). 종류에 맞지 않는 인자는 오류."""
+    raw = {k: v for k, v in locals().items() if v is not None}
+    raw["events"] = [e.model_dump() if isinstance(e, BaseModel) else e for e in events]
+    try:
+        a = QueryArgs.model_validate(raw)
+    except ValidationError as e:
+        raise ToolError(_arg_error(e)) from None
+    s, t = a.start.strftime("%Y%m%d"), a.end.strftime("%Y%m%d")
+    names = ", ".join(e.event_type for e in a.events)
+    title = f"{a.kind} {names} {a.start}~{a.end}"
+    if a.kind == "segmentation":
+        p = [("e", _event_json(a.events[0]))] + ([("e2", _event_json(a.events[1]))] if len(a.events) > 1 else [])
+        p += [("m", a.metric or "uniques")] + ([("formula", a.formula)] if a.formula else [])
+        p += [("start", s), ("end", t), ("i", str(a.interval or 1)), ("n", a.n or "any")] + ([("g", a.group_by)] if a.group_by else [])
+        return series_table(_get("/api/2/events/segmentation", p)["data"], title)
+    if a.kind == "funnel":
+        p = [("e", _event_json(e)) for e in a.events]
+        p += [("start", s), ("end", t), ("n", a.n or "active"), ("cs", str(a.conversion_window_seconds or 2_592_000))]
+        p += [("g", a.group_by)] if a.group_by else []
+        return funnel_table(_get("/api/2/funnels", p)["data"], title)
+    p = [("se", _event_json(a.events[0])), ("re", _event_json(a.events[1])), ("start", s), ("end", t), ("i", str(a.interval or 1))]
+    return retention_table(_get("/api/2/retention", p)["data"], title)
+
+
+def _cat(c) -> str:
+    return (c.get("name") or "") if isinstance(c, dict) else (c or "")
+
+
+def amplitude_context(event_type: str | None = None) -> str:
+    """Amplitude 이벤트 맥락. event_type 생략이면 이벤트 목록(업로드 택사노미 설명 우선, 출처 표시),
+    주면 그 이벤트의 속성 표와 사용자 속성 이름 목록."""
+    tax = {e["name"]: e for e in (db.get_setting("taxonomy") or {}).get("events", [])}
+    if event_type is None:
+        amp = {e["event_type"]: e for e in _get("/api/2/taxonomy/event").get("data", []) if e.get("event_type")}
+        rows = ["| event | category | 설명 | 출처 |", "|---|---|---|---|"]
+        for name in sorted(amp.keys() | tax.keys()):
+            a, t = amp.get(name, {}), tax.get(name, {})
+            source = "양쪽" if a and t else ("Amplitude에만" if a else "택사노미에만")
+            desc = t.get("description") or a.get("description") or ""
+            rows.append(f"| {name} | {t.get('category') or _cat(a.get('category'))} | {desc} | {source} |")
+        return f"이벤트 {len(amp.keys() | tax.keys())}개 (Amplitude {len(amp)}, 택사노미 {len(tax)})\n" + "\n".join(rows)
+    tprops = {p["name"]: p for p in tax.get(event_type, {}).get("properties", [])}
+    props = _get("/api/2/taxonomy/event-property", [("event_type", event_type)]).get("data", [])
+    users = _get("/api/2/taxonomy/user-property").get("data", [])
+    rows = [f"**{event_type}** 이벤트 속성", "| property | type | 설명 |", "|---|---|---|"]
+    for p in props:
+        name = p.get("event_property", "")
+        t = tprops.get(name, {})
+        rows.append(f"| {name} | {t.get('type') or p.get('type') or ''} | {t.get('description') or p.get('description') or ''} |")
+    for name, t in tprops.items():  # 택사노미에만 정의된 속성도 보이게
+        if name not in {p.get("event_property") for p in props}:
+            rows.append(f"| {name} | {t.get('type') or ''} | {t.get('description') or ''} (택사노미에만) |")
+    names = sorted(u["user_property"] for u in users if u.get("user_property") and not u.get("is_hidden") and not u.get("deleted"))
+    return "\n".join(rows) + "\n사용자 속성: " + (", ".join(names) or "없음")
