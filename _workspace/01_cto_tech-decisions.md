@@ -305,10 +305,10 @@
     - 흐름 풀기: `.app`·메인 열·`.scroll`의 높이 고정과 스크롤을 푼다.
     - 숨김: 사이드바·입력창·다듬기 카드·조작 버튼·도구 진행 행을 숨긴다.
     - 머리글: 인쇄 머리글(제목·생성일·내보낸 날짜)을 보인다.
-    - 페이지: 제안 카드·차트·코드 블록·표 행만 `break-inside: avoid`(메시지 전체는 나뉠 수 있음, 빈 쪽 방지), 코드·표는 줄 바꿈으로 넘침을 막는다.
+    - 페이지: 제안 카드의 머리·각 절, 차트, 코드 블록, 표 행만 `break-inside: avoid`(메시지·카드 전체는 나뉠 수 있음, 빈 쪽 방지). 질문과 카드 제목은 `break-after: avoid`, 코드·표는 줄 바꿈으로 넘침을 막는다.
     - 밝게: 색 토큰을 `--print-*`(밝은 값)로 다시 정의하고 `color-scheme: light`로 둔다.
   - **인쇄 직전·직후** (`print.ts`, `beforeprint`/`afterprint`): 닫혀 있던 제안 카드 `<details>`를 열었다가 그것만 되돌린다. 닫힌 `<details>`는 인쇄되지 않기 때문이다.
-  - **차트** (`ChartBlock`): 같은 이벤트와 `matchMedia('print')`에서 애니메이션과 `responsive`를 끄고 `--print-chart-*` 색과 인쇄 폭 상수(약 680px)로 `resize` + `update('none')`한다. 인쇄 후에는 print 미디어가 화면으로 돌아오면 화면 토큰으로 복원한다(`afterprint`와의 순서와 무관하게 같은 결과, QA 2003354).
+  - **차트** (`ChartBlock`): 같은 이벤트와 `matchMedia('print')`에서 애니메이션과 `responsive`를 끄고 `--print-chart-*` 색과 인쇄 폭 상수(약 680px)로 `resize` + `update('none')`한다. 호출 순서는 `stop()` → `update('none')` → `resize(680)`이다. 인쇄 후에는 `afterprint`와 print 미디어 해제를 둘 다 받은 뒤 한 번, 다음 프레임에 화면 토큰으로 복원한다. print 미디어가 켜진 적이 없으면 `afterprint`만으로 복원한다(frontend-dev f9cb344).
 - 이유: PRD 6.3 제약(서버 PDF·헤드리스·라이브러리 금지)을 지킨다. 대화 전체가 이미 DOM에 있어 레이아웃만 풀면 된다. 인쇄 시점의 `getComputedStyle`은 화면 매체 값이라 차트 색을 인쇄용 토큰에서 따로 읽어야 다크 테마에서도 밝게 찍힌다.
 - 버린 대안: 서버 PDF 생성(제약 위반), 인쇄 전에 차트를 이미지로 바꿔 끼우기(교체·복원이 더 복잡), 인쇄 전용 페이지 라우트(같은 화면을 다시 그리는 중복).
 - 바꾸면 영향: `style.css` 인쇄 블록, `print.ts`, `ChartBlock.tsx`의 인쇄 처리.
