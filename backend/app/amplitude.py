@@ -203,9 +203,13 @@ def series_table(data: dict, title: str, names: list[str]) -> str:
         rows.append(f"| {d} | " + " | ".join(_num(s[i] if i < len(s) else None) for s in series) + " |")
     if len(x) > MAX_ROWS:
         rows.append(f"| … {len(x) - MAX_ROWS} rows 생략 (요약 통계는 전체 기준) |")
-    nums = [f"{lab} 합 {_num(sum(v for v in sr if isinstance(v, (int, float))))} · 마지막 {_num(sr[-1] if sr else None)}"
-            for lab, sr in list(zip(labels, series))[:3]]
-    head = f"**{title} ({len(x)} rows × {len(series)} series)** " + ", ".join(nums)  # 첫 줄 = 화면 도구 목록 요약
+    # 첫 줄 = 화면 도구 목록 요약(첫 시리즈 기준)
+    vals = [v for v in (series[0] if series else []) if isinstance(v, (int, float))]
+    head = f"{title}: 값 없음"
+    if vals:
+        top = max(vals)
+        at = x[series[0].index(top)] if series[0].index(top) < len(x) else ""
+        head = f"{title}: 합 {_num(sum(vals))} · 평균 {_num(sum(vals) / len(vals))} · 최대 {_num(top)}({at})"
     return head + "\n" + "\n".join(rows) + "\n요약: " + _summary(x, labels, series)
 
 
@@ -223,7 +227,7 @@ def funnel_table(data, title: str) -> str:
             rows.append(f"| {seg} | " + " | ".join(cells) + " |")
             if raw and raw[0] < 30:
                 small.append(seg)
-        text = f"**{title}** 세그먼트 {len(funnels)}개\n" + "\n".join(rows)
+        text = f"{ev[0] if ev else '?'} → {ev[-1] if ev else '?'}: 세그먼트 {len(funnels)}개\n" + "\n".join(rows)
         return text + (f"\n⚠ 1단계 표본 <30 세그먼트: {small} — 비율 해석 불가" if small else "")
     f = funnels[0] if funnels else {}
     ev, raw, cum = f.get("events", []), f.get("cumulativeRaw", []), f.get("cumulative", [])
@@ -232,9 +236,12 @@ def funnel_table(data, title: str) -> str:
         c = f"{cum[i] * 100:.1f}%" if i < len(cum) and cum[i] is not None else ""
         sc = "100%" if i == 0 else (f"{raw[i] / raw[i - 1] * 100:.1f}%" if i < len(raw) and raw[i - 1] else "")
         rows.append(f"| {i + 1} | {e} | {_num(raw[i] if i < len(raw) else None)} | {c} | {sc} |")
-    steps = " → ".join(f"{e} {_num(raw[i] if i < len(raw) else None)}명" for i, e in enumerate(ev))
-    total = f", 전환율 {raw[-1] / raw[0] * 100:.1f}%" if len(raw) == len(ev) > 1 and raw[0] else ""
-    text = f"**{title}** {steps}{total}\n" + "\n".join(rows)
+    if len(raw) == len(ev) > 1:
+        conv = f" ({raw[-1] / raw[0] * 100:.1f}%)" if raw[0] else ""
+        head = f"{ev[0]} → {ev[-1]}: {_num(raw[0])} → {_num(raw[-1])}{conv}"
+    else:
+        head = f"{title}: 값 없음"
+    text = head + "\n" + "\n".join(rows)
     return text + (f"\n⚠ 1단계 표본 {raw[0]}명 (<30) — 비율 해석 불가, 절대수로 보고" if raw and raw[0] < 30 else "")
 
 
@@ -259,9 +266,9 @@ def retention_table(data: dict, title: str) -> str:
         rows.append(f"| {d} ({size[d]}) | " + " | ".join("" if _pct(c) is None else f"{_pct(c)}%" for c in cells) + " |")
     nout = (raw_combined[0].get("outof") or 0) if raw_combined else 0
     avg = [(i, _pct(c), c) for i, c in enumerate(combined)]
-    head = ", ".join(f"D{i} {a}%" for i, a, _ in avg if a is not None and i in (0, 1, 7))
-    return (f"**{title}** 합산 n={nout}: {head or '값 없음'} · 코호트 {len(cohorts)}개 (표본 0 코호트 {len(values) - len(cohorts)}개 생략)\n"
-            + "\n".join(rows) + "\n합산(combined): "
+    days_txt = ", ".join(f"D{i} {a}%" for i, a, _ in avg if a is not None and i in (1, 7))
+    return (f"합산 n={nout}" + (f": {days_txt}" if days_txt else "") + "\n" + "\n".join(rows)
+            + f"\n{title}: 코호트 {len(cohorts)}개 (표본 0 코호트 {len(values) - len(cohorts)}개 생략)\n합산(combined): "
             + ", ".join(f"D{i} {a}% ({c['count']}/{c['outof']})" for i, a, c in avg if a is not None and i in (0, 1, 2, 3, 7, 14, 30)))
 
 

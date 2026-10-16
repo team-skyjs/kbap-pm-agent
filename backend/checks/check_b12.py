@@ -93,7 +93,7 @@ def tool_error(**kw) -> str:
 reset()
 seg = amplitude.amplitude_query(kind="segmentation", events=[{"event_type": "scan_start"}], start="2026-10-01", end="2026-10-03")
 lines = seg.splitlines()
-assert lines[0] == "**segmentation scan_start 2026-10-01~2026-10-03 (3 rows × 1 series)** scan_start 합 30 · 마지막 0", lines[0]
+assert lines[0] == "segmentation scan_start 2026-10-01~2026-10-03: 합 30 · 평균 10.0 · 최대 20(2026-10-02)", lines[0]
 assert lines[1] == "| date | scan_start |", lines[1]  # 정수 라벨 0 → 이벤트 이름
 assert lines[3] == "| 2026-10-01 | 10 |", lines[:4]
 assert lines[-1] == "요약: scan_start: 합 30 · 평균 10.0 · 최대 20(2026-10-02) · 최소 0 · 마지막 0 · 0인 날 1/3", lines[-1]
@@ -103,7 +103,7 @@ fun = amplitude.amplitude_query(kind="funnel", events=[{"event_type": "scan_star
                                 start="2026-10-01", end="2026-10-14")
 assert "| step | event | users | conv% | step conv% |" in fun and "| 2 | scan_complete | 41 | 41.0% | 41.0% |" in fun, fun
 assert "⚠" not in fun
-assert fun.splitlines()[0].endswith("** scan_start 100명 → scan_complete 41명, 전환율 41.0%"), fun.splitlines()[0]
+assert fun.splitlines()[0] == "scan_start → scan_complete: 100 → 41 (41.0%)", fun.splitlines()[0]
 assert reqs[-1].url.params.get_list("e") == ['{"event_type": "scan_start"}', '{"event_type": "scan_complete"}']
 assert (reqs[-1].url.params["n"], reqs[-1].url.params["cs"]) == ("active", "2592000")
 FUNNEL["data"][0]["cumulativeRaw"] = [20, 5]
@@ -114,7 +114,7 @@ ret = amplitude.amplitude_query(kind="retention", events=[{"event_type": "scan_s
                                 start="2026-10-01", end="2026-10-02")
 assert "| cohort (n) | D0 | D1 |" in ret and "| 2026-10-01 (50) | 96.0% | 20.0% |" in ret, ret
 assert "표본 0 코호트 1개 생략" in ret and "2026-10-02 (" not in ret
-assert "** 합산 n=50: D0 96.0%, D1 20.0% · 코호트 1개" in ret.splitlines()[0], ret.splitlines()[0]
+assert ret.splitlines()[0] == "합산 n=50: D1 20.0%", ret.splitlines()[0]  # D7 칸 없음 → 생략
 assert ret.splitlines()[-1] == "합산(combined): D0 96.0% (48/50), D1 20.0% (10/50)", ret
 SEG2 = {"data": {"series": [[1, 2], [3, 4]], "seriesLabels": [[0, "ios"], [1, "ios"]], "xValues": ["2026-10-01", "2026-10-02"]}}
 ROUTES["/api/2/events/segmentation"] = SEG2
@@ -268,8 +268,8 @@ try:
         evs = sse(c, cid, skip_amplitude=False)
         assert [e for e, _ in evs] == ["message_created", "tool_call", "tool_result", "final"], evs
         assert evs[1][1]["source"] == "amplitude" and evs[1][1]["name"] == "amplitude_query" and evs[1][1]["input"]["kind"] == "segmentation"
-        assert evs[2][1]["status"] == "succeeded" and evs[2][1]["resultSummary"].startswith("**segmentation scan_start"), evs[2]
-        assert evs[2][1]["resultSummary"].endswith("scan_start 합 30 · 마지막 0"), evs[2]  # 화면 도구 목록에 수치
+        assert evs[2][1]["status"] == "succeeded" and evs[2][1]["resultSummary"].startswith("segmentation scan_start"), evs[2]
+        assert evs[2][1]["resultSummary"].endswith(": 합 30 · 평균 10.0 · 최대 20(2026-10-02)"), evs[2]  # 화면 도구 목록에 수치
         names = {t.get("name") for t in sent[0]["tools"]}
         assert {"amplitude_query", "amplitude_context"} <= names and "Amplitude 있음" in json.dumps(sent[0], ensure_ascii=False)
         assert amp_status(cid) == "used"
