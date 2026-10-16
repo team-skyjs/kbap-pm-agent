@@ -1,4 +1,4 @@
-# 01 CTO — API 계약서 v1.4
+# 01 CTO — API 계약서 v1.5
 
 작성일: 2026-10-15 · 이 문서가 FE·BE·QA의 유일한 경계 기준이다. 변경은 CTO만 하고, 바뀌면 상단 변경 이력에 남긴다.
 
@@ -12,11 +12,12 @@
 | 2026-10-15 | v1.3 (문구) | PRD 보강 반영: 택사노미 이름 4,000자 상한과 잘림 시 요약 표시 규칙. shape 변경 없음 |
 | 2026-10-15 | v1.3 (문구 2) | PRD 3차 반영: "입력창에 넣기"의 기록 시점(전송 시 refined, 전송 없이 비우거나 대화 이탈 시 cancelled), `refined` 범위 밖이면 502, 택사노미 상한 시 질문과 겹치는 이름 우선. shape 변경 없음 |
 | 2026-10-17 | v1.4 | 대화 내보내기(specs/005-conversation-export): `POST /api/conversations/{conversationId}/exports`(내보내기 기록)를 추가했다. 기존 shape는 그대로다 |
+| 2026-10-17 | v1.5 | Amplitude 서버 고정 인증(specs/006-amplitude-rest)이다. 서버가 REST 프로젝트 키로 조회하도록 바꿨다. OAuth 엔드포인트 두 개(`POST /api/integrations/amplitude/connect`, `GET /api/integrations/amplitude/callback`)를 삭제했다. 설정 `amplitude`는 `{status: "configured" \| "missing"}`로 줄었다. 메시지 전송에 선택 필드 `skipAmplitude`와 스트림 전 에러 `AMPLITUDE_UNAVAILABLE`(503)을 추가했다. 그 밖의 shape는 그대로다 |
 
 ## 공통
 
 - **Base URL:** 프론트 빌드 환경변수 `VITE_API_BASE_URL` (예: 로컬 `http://localhost:8000`, 운영 `https://pm-agent.example.com`). 모든 경로는 `/api`로 시작한다.
-- **인증:** 백엔드에 `ACCESS_TOKEN`이 설정되어 있으면 `GET /api/health`와 `GET /api/integrations/amplitude/callback`을 제외한 모든 요청에 `Authorization: Bearer <토큰>` 헤더가 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
+- **인증:** 백엔드에 `ACCESS_TOKEN`이 설정되어 있으면 `GET /api/health`를 제외한 모든 요청에 `Authorization: Bearer <토큰>` 헤더가 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
 - **형식:** 요청·응답 본문은 `application/json; charset=utf-8`. 메시지 전송 응답만 `text/event-stream`.
 - **필드 이름:** camelCase 고정. DB의 snake_case를 그대로 노출하지 않는다.
 - **ID:** 양의 정수(JSON number).
@@ -48,19 +49,19 @@
 | `NOT_FOUND` | 404 | 정의되지 않은 경로 |
 | `REPOSITORY_NOT_CONFIGURED` | 409 | 저장소 등록 전에 동기화 요청 |
 | `RUN_IN_PROGRESS` | 409 | 같은 대화에 `status: "running"`인 assistant 메시지가 있는데 새 메시지 전송 |
-| `UPSTREAM_ERROR` | 502 | GitHub 클론 실패, Amplitude OAuth 시작 실패, LLM 공급자 오류 |
+| `UPSTREAM_ERROR` | 502 | GitHub 클론 실패, LLM 공급자 오류 |
+| `AMPLITUDE_UNAVAILABLE` | 503 | 메시지 전송 사전 점검에서 Amplitude 조회 불가(서버 키 없음, 인증 실패 401·403, 요청 한도 429, 연결 실패). `message`가 이유를 구분한다. `skipAmplitude: true`로 다시 보내면 Amplitude 없이 실행한다 |
 | `INTERNAL_ERROR` | 500 | 그 외 |
 
 ### 시연 모드 (`AGENT_MODE=fake`)
 
-백엔드가 `AGENT_MODE=fake`로 뜨면 외부 연동 세 가지(LLM, Amplitude MCP, GitHub)를 전부 호출하지 않는다. 응답 shape는 실제 모드와 같다.
+백엔드가 `AGENT_MODE=fake`로 뜨면 외부 연동 세 가지(LLM, Amplitude REST, GitHub)를 전부 호출하지 않는다. 응답 shape는 실제 모드와 같다.
 
 | 엔드포인트 | fake 동작 |
 |---|---|
-| `POST /api/conversations/{conversationId}/messages` | 스크립트된 실행: 도구 호출 2개(`taxonomy`, `code`)와 제안 2개(`improvement` 1, `funnel_design` 1)를 계약 순서대로 스트림하고 DB에 저장. `usage.costUsd`는 `0` |
+| `POST /api/conversations/{conversationId}/messages` | 스크립트된 실행: 도구 호출 2개(`taxonomy`, `code`)와 제안 2개(`improvement` 1, `funnel_design` 1)를 계약 순서대로 스트림하고 DB에 저장. `usage.costUsd`는 `0`. Amplitude 사전 점검은 하지 않고 항상 통과한다. `skipAmplitude`는 받아도 무시한다 |
 | `PUT /api/settings/repository` | 클론하지 않는다. 요청의 `url`·`branch`에 이 문서 Settings 예시의 나머지 값(`headCommit: "9f3c2a1"`, `codeMapStatus: "ready"` 등)을 채워 저장·응답 |
 | `POST /api/settings/repository/sync` | 저장된 값을 `syncedAt`만 현재 시각으로 바꿔 응답 |
-| `POST /api/integrations/amplitude/connect` | 이 문서의 예시 `authorizationUrl`을 그대로 응답하고 즉시 `amplitude.status`를 `"connected"`로 저장 |
 | `POST /api/questions/refine` | LLM을 호출하지 않는다. 이 문서의 다듬기 응답 예시 `refined`·`summary`를 그대로 돌려주고 기록 행을 만든다(`refinementId`는 실제 새 ID). 사용량은 0원으로 기록한다 |
 | `GET /api/settings` | `agentMode: "fake"`. 나머지는 저장된 값 |
 
@@ -146,7 +147,7 @@ data: {"id":301,"seq":1,"source":"amplitude","name":"query_funnel","input":{"eve
 - user 메시지는 `toolCalls: []`, `proposals: []`, `usage: null`.
 - `status`가 `"running"`인 assistant 메시지(실행 중 상세 조회)는 `content: ""`, `proposals: []`, `usage: null`이고 `toolCalls`에는 그때까지 저장된 호출이 들어간다.
 - `content`: 마크다운 문자열. **제안 내용을 여기에 섞지 않는다.** 제안은 `proposals`에만 있다.
-- `toolCalls`는 `seq` 오름차순. `source`: `"amplitude"` | `"code"` | `"taxonomy"`. `status`: `"running"` | `"succeeded"` | `"failed"`. `name`은 도구 이름 그대로(Amplitude MCP 도구명은 MCP 서버가 정한 이름). `resultSummary`는 최대 500자, `running`이면 `null`. `durationMs`는 `running`이면 `null`.
+- `toolCalls`는 `seq` 오름차순. `source`: `"amplitude"` | `"code"` | `"taxonomy"`. `status`: `"running"` | `"succeeded"` | `"failed"`. `name`은 도구 이름 그대로다(Amplitude 도구는 `amplitude_query`·`amplitude_context`). `resultSummary`는 최대 500자, `running`이면 `null`. `durationMs`는 `running`이면 `null`.
 - 위 예시의 `proposals`는 지면상 비웠다. 실제 완료 메시지에는 아래 Proposal이 0개 이상 들어간다.
 
 ### Proposal
@@ -241,9 +242,7 @@ data: {"id":301,"seq":1,"source":"amplitude","name":"query_funnel","input":{"eve
     "uploadedAt": "2026-10-14T12:01:44.500Z"
   },
   "amplitude": {
-    "status": "connected",
-    "serverUrl": "https://mcp.amplitude.com/mcp",
-    "connectedAt": "2026-10-14T12:10:09.031Z"
+    "status": "configured"
   },
   "models": {
     "agent": "anthropic:claude-sonnet-5-5",
@@ -258,7 +257,7 @@ data: {"id":301,"seq":1,"source":"amplitude","name":"query_funnel","input":{"eve
 ```
 - `repository`: 미등록이면 `null`. `headCommit`, `codeMapCommit`은 7자리 짧은 SHA. `codeMapStatus`: `"none"` | `"building"` | `"ready"` | `"failed"`. 요약 생성 전 `codeMapCommit`은 `null`. `lastError`: 마지막 동기화·요약이 실패했으면 사유 문장(예: `"GitHub 인증 실패: GITHUB_TOKEN이 없거나 만료되었습니다."`), 성공하면 `null`. 토큰 값은 넣지 않는다.
 - `taxonomy`: 미업로드면 `null`.
-- `amplitude.status`: `"connected"` | `"disconnected"`. 끊겼으면 `connectedAt: null`.
+- `amplitude.status`: `"configured"`(서버 환경 변수에 API 키와 시크릿 키가 둘 다 있음) | `"missing"`(하나라도 없음). 키 값은 절대 내려주지 않는다. 키가 실제로 유효한지는 이 응답이 확인하지 않으며, 메시지 전송의 사전 점검이 확인한다. 시연 모드에서도 같은 규칙이다.
 - `agentMode`: `"real"` | `"fake"`.
 - 저장소·택사노미·Amplitude가 비어 있어도 대화는 가능하다. 에이전트는 쓸 수 있는 도구만으로 답한다.
 
@@ -316,8 +315,13 @@ data: {"id":301,"seq":1,"source":"amplitude","name":"query_funnel","input":{"eve
 ```json
 {"content": "장바구니 개선 효과를 보려면 퍼널을 어떻게 짜고, 어떤 이벤트를 어디에 추가해야 해?"}
 ```
-  `content`는 1~4000자.
-- 스트림 시작 **전** 에러는 일반 JSON 에러 응답이다: `VALIDATION_ERROR`, `CONVERSATION_NOT_FOUND`, `RUN_IN_PROGRESS`, `BUDGET_EXCEEDED`.
+  `content`는 1~4000자. 선택 필드 `skipAmplitude`(boolean, 기본 `false`)도 받는다. `true`면 Amplitude 사전 점검을 건너뛰고 Amplitude 도구 없이 실행하며, 답의 `content`에 그 사실을 적는다.
+- 스트림 시작 **전** 에러는 일반 JSON 에러 응답이다: `VALIDATION_ERROR`, `CONVERSATION_NOT_FOUND`, `RUN_IN_PROGRESS`, `BUDGET_EXCEEDED`, `AMPLITUDE_UNAVAILABLE`.
+- 사전 점검(실제 모드, `skipAmplitude`가 `false`일 때): 예산 검사 다음에 Amplitude 이벤트 목록을 1회 조회한다(15분 캐시). 실패하면 모델을 호출하지 않고, 사용자 메시지도 저장하지 않고 503 `AMPLITUDE_UNAVAILABLE`로 거절한다. 예시는 아래와 같다.
+```json
+{"error": {"code": "AMPLITUDE_UNAVAILABLE", "message": "Amplitude 조회 불가: 서버에 Amplitude 키가 설정되어 있지 않습니다. 그래도 진행하면 Amplitude 없이 답합니다."}}
+```
+  이유별 `message` 앞부분은 다음 넷이다. "Amplitude 조회 불가: 서버에 Amplitude 키가 설정되어 있지 않습니다", "Amplitude 조회 불가: 인증에 실패했습니다(키 확인 필요)", "Amplitude 조회 불가: 요청 한도를 넘었습니다(잠시 후 다시)", "Amplitude 조회 불가: 연결에 실패했습니다". 키 값은 넣지 않는다.
 - 정상이면 200, `Content-Type: text/event-stream`. 이벤트 순서:
   1. `message_created` 정확히 1회
   2. `tool_call` / `tool_result` 0회 이상 (같은 도구 호출 id로 `tool_call` 다음에 `tool_result`)
@@ -424,22 +428,6 @@ data: {"error":{"code":"UPSTREAM_ERROR","message":"LLM 공급자 응답 오류�
 {"error": {"code": "VALIDATION_ERROR", "message": "events[3].properties[0].type: \"date\"는 허용되지 않습니다. string, number, boolean 중 하나여야 합니다."}}
 ```
 
-### POST /api/integrations/amplitude/connect
-- 용도: Amplitude MCP OAuth 시작. 프론트는 받은 URL을 새 탭으로 연다.
-- 요청: 본문 없음.
-- 응답 200:
-```json
-{"authorizationUrl": "https://app.amplitude.com/oauth/authorize?response_type=code&client_id=mcp-4f2a91&redirect_uri=https%3A%2F%2Fpm-agent.example.com%2Fapi%2Fintegrations%2Famplitude%2Fcallback&state=Zx81kQ&code_challenge=Q9v0aR3&code_challenge_method=S256"}
-```
-  (URL의 호스트·쿼리는 Amplitude가 정한다. 프론트는 문자열을 그대로 연다.)
-- 에러: `UPSTREAM_ERROR`.
-- 비고: 승인 완료는 이 응답으로 알 수 없다. 프론트는 새 탭을 연 뒤 `GET /api/settings`를 3초 간격으로 최대 2분 다시 읽어 `amplitude.status`가 `"connected"`가 되면 멈춘다.
-
-### GET /api/integrations/amplitude/callback
-- 용도: Amplitude가 브라우저를 돌려보내는 OAuth 콜백. 인증 불필요. 프론트가 직접 부르지 않는다.
-- 요청: 쿼리 `code`, `state` (Amplitude가 붙인다).
-- 응답 200: `text/html` 한 줄 페이지. 성공 시 "Amplitude 연결 완료. 이 탭을 닫아도 됩니다.", 실패 시 "Amplitude 연결 실패: {사유}". JSON 아님.
-
 ### POST /api/questions/refine
 - 용도: 사용자가 보내기 전에 질문을 다듬는다. 서버가 택사노미 이벤트 이름과 그 대화의 최근 메시지를 붙여 모델을 한 번 호출하고(도구 없음), 개선된 질문 하나와 변경 요약을 돌려준다. 호출마다 기록 행을 만든다.
 - 요청:
@@ -503,7 +491,5 @@ data: {"error":{"code":"UPSTREAM_ERROR","message":"LLM 공급자 응답 오류�
 | PUT | `/api/settings/repository` | 필요 | JSON |
 | POST | `/api/settings/repository/sync` | 필요 | JSON |
 | PUT | `/api/settings/taxonomy` | 필요 | JSON |
-| POST | `/api/integrations/amplitude/connect` | 필요 | JSON |
-| GET | `/api/integrations/amplitude/callback` | 불필요 | HTML |
 
 CORS: 백엔드는 `CORS_ORIGINS`의 출처에 대해 위 메서드 전부와 `Authorization`, `Content-Type` 헤더의 preflight를 허용한다.

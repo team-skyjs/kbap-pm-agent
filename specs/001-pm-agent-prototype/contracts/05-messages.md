@@ -4,8 +4,13 @@
 ```json
 {"content": "장바구니 개선 효과를 보려면 퍼널을 어떻게 짜고, 어떤 이벤트를 어디에 추가해야 해?"}
 ```
-  `content`는 1~4000자.
-- 스트림 시작 **전** 에러는 일반 JSON 에러 응답이다: `VALIDATION_ERROR`, `CONVERSATION_NOT_FOUND`, `RUN_IN_PROGRESS`, `BUDGET_EXCEEDED`.
+  `content`는 1~4000자. 선택 필드 `skipAmplitude`(boolean, 기본 `false`)도 받는다. `true`면 Amplitude 사전 점검을 건너뛰고 Amplitude 도구 없이 실행하며, 답의 `content`에 그 사실을 적는다.
+- 스트림 시작 **전** 에러는 일반 JSON 에러 응답이다: `VALIDATION_ERROR`, `CONVERSATION_NOT_FOUND`, `RUN_IN_PROGRESS`, `BUDGET_EXCEEDED`, `AMPLITUDE_UNAVAILABLE`.
+- 사전 점검(실제 모드, `skipAmplitude`가 `false`일 때): 예산 검사 다음에 Amplitude 이벤트 목록을 1회 조회한다(15분 캐시). 실패하면 모델을 호출하지 않고, 사용자 메시지도 저장하지 않고 503 `AMPLITUDE_UNAVAILABLE`로 거절한다. 예시는 아래와 같다.
+```json
+{"error": {"code": "AMPLITUDE_UNAVAILABLE", "message": "Amplitude 조회 불가: 서버에 Amplitude 키가 설정되어 있지 않습니다. 그래도 진행하면 Amplitude 없이 답합니다."}}
+```
+  이유별 `message` 앞부분은 다음 넷이다. "Amplitude 조회 불가: 서버에 Amplitude 키가 설정되어 있지 않습니다", "Amplitude 조회 불가: 인증에 실패했습니다(키 확인 필요)", "Amplitude 조회 불가: 요청 한도를 넘었습니다(잠시 후 다시)", "Amplitude 조회 불가: 연결에 실패했습니다". 키 값은 넣지 않는다.
 - 정상이면 200, `Content-Type: text/event-stream`. 이벤트 순서:
   1. `message_created` 정확히 1회
   2. `tool_call` / `tool_result` 0회 이상 (같은 도구 호출 id로 `tool_call` 다음에 `tool_result`)

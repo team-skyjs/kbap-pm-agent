@@ -1,4 +1,4 @@
-# 01 CTO — API 계약서 v1.4
+# 01 CTO — API 계약서 v1.5
 
 작성일: 2026-10-15 · 이 문서가 FE·BE·QA의 유일한 경계 기준이다. 변경은 CTO만 하고, 바뀌면 상단 변경 이력에 남긴다.
 
@@ -12,11 +12,12 @@
 | 2026-10-15 | v1.3 (문구) | PRD 보강 반영: 택사노미 이름 4,000자 상한과 잘림 시 요약 표시 규칙. shape 변경 없음 |
 | 2026-10-15 | v1.3 (문구 2) | PRD 3차 반영: "입력창에 넣기"의 기록 시점(전송 시 refined, 전송 없이 비우거나 대화 이탈 시 cancelled), `refined` 범위 밖이면 502, 택사노미 상한 시 질문과 겹치는 이름 우선. shape 변경 없음 |
 | 2026-10-17 | v1.4 | 대화 내보내기(specs/005-conversation-export): `POST /api/conversations/{conversationId}/exports`(내보내기 기록)를 추가했다. 기존 shape는 그대로다 |
+| 2026-10-17 | v1.5 | Amplitude 서버 고정 인증(specs/006-amplitude-rest)이다. 서버가 REST 프로젝트 키로 조회하도록 바꿨다. OAuth 엔드포인트 두 개(`POST /api/integrations/amplitude/connect`, `GET /api/integrations/amplitude/callback`)를 삭제했다. 설정 `amplitude`는 `{status: "configured" \| "missing"}`로 줄었다. 메시지 전송에 선택 필드 `skipAmplitude`와 스트림 전 에러 `AMPLITUDE_UNAVAILABLE`(503)을 추가했다. 그 밖의 shape는 그대로다 |
 
 ## 공통
 
 - **Base URL:** 프론트 빌드 환경변수 `VITE_API_BASE_URL` (예: 로컬 `http://localhost:8000`, 운영 `https://pm-agent.example.com`). 모든 경로는 `/api`로 시작한다.
-- **인증:** 백엔드에 `ACCESS_TOKEN`이 설정되어 있으면 `GET /api/health`와 `GET /api/integrations/amplitude/callback`을 제외한 모든 요청에 `Authorization: Bearer <토큰>` 헤더가 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
+- **인증:** 백엔드에 `ACCESS_TOKEN`이 설정되어 있으면 `GET /api/health`를 제외한 모든 요청에 `Authorization: Bearer <토큰>` 헤더가 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
 - **형식:** 요청·응답 본문은 `application/json; charset=utf-8`. 메시지 전송 응답만 `text/event-stream`.
 - **필드 이름:** camelCase 고정. DB의 snake_case를 그대로 노출하지 않는다.
 - **ID:** 양의 정수(JSON number).
@@ -48,19 +49,19 @@
 | `NOT_FOUND` | 404 | 정의되지 않은 경로 |
 | `REPOSITORY_NOT_CONFIGURED` | 409 | 저장소 등록 전에 동기화 요청 |
 | `RUN_IN_PROGRESS` | 409 | 같은 대화에 `status: "running"`인 assistant 메시지가 있는데 새 메시지 전송 |
-| `UPSTREAM_ERROR` | 502 | GitHub 클론 실패, Amplitude OAuth 시작 실패, LLM 공급자 오류 |
+| `UPSTREAM_ERROR` | 502 | GitHub 클론 실패, LLM 공급자 오류 |
+| `AMPLITUDE_UNAVAILABLE` | 503 | 메시지 전송 사전 점검에서 Amplitude 조회 불가(서버 키 없음, 인증 실패 401·403, 요청 한도 429, 연결 실패). `message`가 이유를 구분한다. `skipAmplitude: true`로 다시 보내면 Amplitude 없이 실행한다 |
 | `INTERNAL_ERROR` | 500 | 그 외 |
 
 ### 시연 모드 (`AGENT_MODE=fake`)
 
-백엔드가 `AGENT_MODE=fake`로 뜨면 외부 연동 세 가지(LLM, Amplitude MCP, GitHub)를 전부 호출하지 않는다. 응답 shape는 실제 모드와 같다.
+백엔드가 `AGENT_MODE=fake`로 뜨면 외부 연동 세 가지(LLM, Amplitude REST, GitHub)를 전부 호출하지 않는다. 응답 shape는 실제 모드와 같다.
 
 | 엔드포인트 | fake 동작 |
 |---|---|
-| `POST /api/conversations/{conversationId}/messages` | 스크립트된 실행: 도구 호출 2개(`taxonomy`, `code`)와 제안 2개(`improvement` 1, `funnel_design` 1)를 계약 순서대로 스트림하고 DB에 저장. `usage.costUsd`는 `0` |
+| `POST /api/conversations/{conversationId}/messages` | 스크립트된 실행: 도구 호출 2개(`taxonomy`, `code`)와 제안 2개(`improvement` 1, `funnel_design` 1)를 계약 순서대로 스트림하고 DB에 저장. `usage.costUsd`는 `0`. Amplitude 사전 점검은 하지 않고 항상 통과한다. `skipAmplitude`는 받아도 무시한다 |
 | `PUT /api/settings/repository` | 클론하지 않는다. 요청의 `url`·`branch`에 이 문서 Settings 예시의 나머지 값(`headCommit: "9f3c2a1"`, `codeMapStatus: "ready"` 등)을 채워 저장·응답 |
 | `POST /api/settings/repository/sync` | 저장된 값을 `syncedAt`만 현재 시각으로 바꿔 응답 |
-| `POST /api/integrations/amplitude/connect` | 이 문서의 예시 `authorizationUrl`을 그대로 응답하고 즉시 `amplitude.status`를 `"connected"`로 저장 |
 | `POST /api/questions/refine` | LLM을 호출하지 않는다. 이 문서의 다듬기 응답 예시 `refined`·`summary`를 그대로 돌려주고 기록 행을 만든다(`refinementId`는 실제 새 ID). 사용량은 0원으로 기록한다 |
 | `GET /api/settings` | `agentMode: "fake"`. 나머지는 저장된 값 |
 
