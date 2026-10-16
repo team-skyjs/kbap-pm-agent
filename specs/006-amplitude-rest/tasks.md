@@ -92,16 +92,16 @@ description: "Amplitude 서버 고정 인증 구현 태스크"
   - 설정: `configured`/`missing`이다. 삭제된 두 경로는 404다.
   - 마이그레이션: `init()` 두 번이 멱등이고 OAuth 설정 행이 삭제된다.
   - 비밀: 로그 캡처와 응답 본문에 키 문자열이 없다.
-- [ ] T011 [US2] [FE] `frontend/src/Chat.tsx`: 메시지 전송이 `ApiError` 코드 `AMPLITUDE_UNAVAILABLE`이면 응답 `message`를 안내로 보이고 "Amplitude 없이 진행" 버튼을 둔다. 버튼은 같은 내용을 `skipAmplitude: true`로 다시 보낸다. 입력값은 보존하고 키보드로 조작할 수 있게 한다 (A2)
+- [x] T011 [US2] [FE] `frontend/src/Chat.tsx`: 메시지 전송이 `ApiError` 코드 `AMPLITUDE_UNAVAILABLE`이면 응답 `message`를 안내로 보이고 "Amplitude 없이 진행" 버튼을 둔다. 버튼은 같은 내용을 `skipAmplitude: true`로 다시 보낸다. 입력값은 보존하고 키보드로 조작할 수 있게 한다 (A2)
 
 ---
 
 ## Phase 5: User Story 3 — 설정 화면은 서버 키 상태만 (P2) (A2)
 
-- [ ] T012 [US3] [FE] API·설정 화면을 바꾼다. (A2)
+- [x] T012 [US3] [FE] API·설정 화면을 바꾼다. (A2)
   - `frontend/src/api.ts`: `Settings.amplitude`를 `{status: 'configured' | 'missing'}`로 바꾸고, `connectAmplitude`와 관련 타입·폴링을 지우며, `sendMessage`에 `skipAmplitude` 옵션을 둔다.
   - `frontend/src/SettingsPage.tsx`: 연결·다시 연결 버튼과 폴링을 지우고, "서버 키로 연결됨" / "키 없음 + 서버 환경 변수 설정 안내" 라벨만 둔다. 키 값은 보이지 않는다.
-- [ ] T013 [US3] [FE] 프론트 검사를 갱신한다. 번호는 frontend-dev가 정한다. (A2 검사)
+- [x] T013 [US3] [FE] 프론트 검사를 갱신한다. 번호는 frontend-dev가 정한다. (A2 검사)
   - 계약 파싱: 계약 v1.5 Settings·에러 예시 파싱 검사(기존 설정 검사 갱신).
   - Playwright: 고정 응답의 `amplitude` shape를 바꾸고 설정 시나리오를 갱신한다(두 상태 라벨, 연결 버튼 없음). 거절 안내 시나리오를 추가한다(503 → 안내 → "없이 진행" → 다시 보낸 요청 본문에 `skipAmplitude: true`, 입력값 보존).
 

@@ -28,6 +28,8 @@ export const REFINE = obj(jsonBlock('08b-questions.md', 1))
 export const REFINE_CHOICE = obj(jsonBlock('08b-questions.md', 3))
 // 08c: [1] 내보내기 기록 응답
 export const EXPORT_RECORD = obj(jsonBlock('08c-exports.md', 1))
+// 05: 사전 점검 거절 예시의 message
+export const AMPLITUDE_UNAVAILABLE_MESSAGE = String(obj(obj(JSON.parse(blocks('05-messages.md').find((b) => b.includes('"AMPLITUDE_UNAVAILABLE"')) ?? '{}')).error).message)
 
 const CHART_DIR = new URL('../../../specs/003-frontend-redesign/contracts/', import.meta.url)
 const CHART_EXAMPLES = blocks('chart-block.md', CHART_DIR).flatMap((b) => b.split('\n').filter((l) => l.startsWith('{')))
@@ -49,7 +51,8 @@ const now = () => new Date().toISOString()
 const sse = (events: [string, unknown][]) => events.map(([e, d]) => `event: ${e}\ndata: ${JSON.stringify(d)}\n\n`).join('')
 
 // 05-messages SSE 예시의 이벤트를 원형으로 사용
-const SSE_EXAMPLE = blocks('05-messages.md')[1].split('\n\n').filter(Boolean).map((b) => {
+// 블록 순서가 계약 추가로 바뀌어도 맞도록 내용으로 찾음
+const SSE_EXAMPLE = (blocks('05-messages.md').find((b) => b.startsWith('event: message_created')) ?? '').split('\n\n').filter(Boolean).map((b) => {
   const [ev, data] = b.split('\n')
   return [ev.slice('event: '.length), obj(JSON.parse(data.slice('data: '.length)))] as const
 })
@@ -79,6 +82,10 @@ type Options = {
   exportFail?: boolean
   // 대화 7 제목 교체
   title?: string
+  // 메시지 전송 사전 점검 거절(503 AMPLITUDE_UNAVAILABLE), skipAmplitude: true로 다시 보내면 통과
+  amplitudeUnavailable?: boolean
+  // 설정 응답의 Amplitude 상태 교체
+  amplitudeStatus?: 'configured' | 'missing'
 }
 
 // 대화 7(계약 상세 예시, 제안 두 개) + 전송 시나리오. 다른 대화는 빈 상태로 시작
@@ -127,7 +134,7 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
       if (opts.exportFail) return json(500, { error: { code: 'INTERNAL_ERROR', message: '내보내기 기록 저장 실패' } })
       return json(201, { ...EXPORT_RECORD, conversationId: Number(path.split('/')[3]), format: obj(req.postDataJSON()).format, createdAt: now() })
     }
-    if (method === 'GET' && path === '/api/settings') return json(200, SETTINGS)
+    if (method === 'GET' && path === '/api/settings') return json(200, opts.amplitudeStatus ? { ...obj(SETTINGS), amplitude: { status: opts.amplitudeStatus } } : SETTINGS)
     if (method === 'GET' && path === '/api/conversations') return json(200, opts.list ? { items: opts.list } : LIST)
     if (method === 'POST' && path === '/api/conversations') return json(201, CREATED)
     if (method === 'GET' && /^\/api\/conversations\/\d+$/.test(path)) {
@@ -162,6 +169,9 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
     }
     if (method === 'POST' && /^\/api\/conversations\/\d+\/messages$/.test(path)) {
       if (scenario === 'hang') return new Promise<void>(() => {})
+      if (opts.amplitudeUnavailable && obj(req.postDataJSON()).skipAmplitude !== true) {
+        return json(503, { error: { code: 'AMPLITUDE_UNAVAILABLE', message: AMPLITUDE_UNAVAILABLE_MESSAGE } })
+      }
       if (opts.sendDelayMs) await new Promise((r) => setTimeout(r, opts.sendDelayMs))
       if (opts.sendFailFirst && !sendFailed) { sendFailed = true; return json(403, { error: { code: 'BUDGET_EXCEEDED', message: 'LLM 예산 상한에 도달했습니다.' } }) }
       if (opts.conflictRace && ++posts >= 2) return json(409, { error: { code: 'RUN_IN_PROGRESS', message: '이 대화에서 이미 에이전트가 실행 중입니다.' } })
