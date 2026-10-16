@@ -37,13 +37,13 @@ description: "대화 전체 내보내기 구현 태스크"
 - [x] T002 [US1] [FE] `frontend/src/style.css` 끝에 `@media print` 블록과 `--print-*` 토큰을 둔다(research R2). (E1)
   - 흐름 풀기: `.app`·메인 열·`.scroll`의 `height: auto; max-height: none; overflow: visible; display: block`.
   - 숨김: 사이드바, Drawer, 입력창, 다듬기 카드, 상단 바 버튼·배지, 제안 카드 조작 버튼, `details.tools`, 메시지 사용량 줄(모델·토큰·비용), 코드 복사 버튼.
-  - 페이지: 메시지·제안 카드 `break-inside: avoid`. `pre`·`code`·표 셀은 줄 바꿈으로 넘치지 않게 하고, `canvas`는 `max-width: 100%; height: auto`. `@page { margin: 16mm }`.
+  - 페이지: 제안 카드·차트 컨테이너·`pre`만 `break-inside: avoid`(메시지 전체에는 걸지 않음), 메시지 머리 `break-after: avoid`. `pre`·`code`·표 셀은 줄 바꿈으로 넘치지 않게 하고, `canvas`는 `max-width: 100%; height: auto`. `@page { margin: 16mm }`.
   - 밝게: 색 토큰을 `--print-*` 밝은 값으로 다시 정의하고 `color-scheme: light`. 다크 정의보다 뒤에 둔다.
 - [x] T003 [US1] [FE] 인쇄 머리글 요소(대화 제목, 생성일, 내보낸 날짜)를 대화 화면에 두고 화면에서는 숨긴다. 주소·호스트명은 넣지 않는다 (E1)
 - [x] T004 [US1] [FE] `frontend/src/print.ts`(신규): `startPrint()`가 기록(T011) 후 `window.print()`를 부른다. `beforeprint`에서 닫힌 `.proposal-card details`를 기록해 열고, `afterprint`에서 그것만 닫는다(research R2) (E1)
 - [x] T005 [US1] [FE] `frontend/src/ChartBlock.tsx`: `beforeprint`/`afterprint`와 `matchMedia('print')`를 듣는다(research R3). (E1)
-  - 인쇄 전: 애니메이션을 끄고 `--print-chart-1`~`4`·`--print-text`·`--print-grid`에서 색을 읽어 인쇄 폭 상수로 `resize` + `update('none')`.
-  - 인쇄 후: 화면 색·원래 애니메이션 설정으로 되돌리고 `resize()`.
+  - 인쇄 전: 애니메이션을 끄고 `responsive: false`로 둔다. `--print-chart-1`~`4`·`--print-text`·`--print-grid`에서 색을 읽어 인쇄 폭 상수로 `resize` + `update('none')`.
+  - 인쇄 후: `afterprint`와 `matchMedia('print')` false 중 나중 것 이후 한 번만, 다음 프레임에 화면 토큰을 읽어 색·애니메이션·`responsive`를 되돌리고 `resize()`.
 
 ---
 
