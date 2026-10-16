@@ -110,6 +110,14 @@ FUNNEL["data"][0]["cumulativeRaw"] = [20, 5]
 small = amplitude.amplitude_query(kind="funnel", events=[{"event_type": "scan_start"}, {"event_type": "scan_complete"}],
                                   start="2026-10-01", end="2026-10-13")
 assert "⚠ 1단계 표본 20명 (<30) — 비율 해석 불가, 절대수로 보고" in small, small
+GROUPED = {"data": [{"events": ["scan_start", "scan_complete"], "cumulativeRaw": [80, 40], "cumulative": [1.0, 0.5], "meta": {"segment": "ios"}},
+                    {"events": ["scan_start", "scan_complete"], "cumulativeRaw": [20, 5], "cumulative": [1.0, 0.25], "meta": {"segment": "android"}}]}
+ROUTES["/api/2/funnels"] = GROUPED
+grp = amplitude.amplitude_query(kind="funnel", events=[{"event_type": "scan_start"}, {"event_type": "scan_complete"}],
+                                start="2026-10-01", end="2026-10-12", group_by="platform")
+assert grp.splitlines()[0] == "scan_start → scan_complete: 세그먼트 2개", grp.splitlines()[0]
+assert "| ios | 80 (100.0%) | 40 (50.0%) |" in grp and "⚠ 1단계 표본 <30 세그먼트: ['android']" in grp, grp
+ROUTES["/api/2/funnels"] = FUNNEL
 ret = amplitude.amplitude_query(kind="retention", events=[{"event_type": "scan_start"}, {"event_type": "app_open"}],
                                 start="2026-10-01", end="2026-10-02")
 assert "| cohort (n) | D0 | D1 |" in ret and "| 2026-10-01 (50) | 96.0% | 20.0% |" in ret, ret
@@ -122,7 +130,7 @@ two = amplitude.amplitude_query(kind="segmentation", events=[{"event_type": "sca
                                 start="2026-10-01", end="2026-10-02", group_by="platform")
 assert two.splitlines()[1] == "| date | scan_start/ios | scan_complete/ios |", two
 ROUTES["/api/2/events/segmentation"] = SEG
-ok("세그멘테이션·퍼널·리텐션 압축표 머리 행·요약 줄, 첫 줄(resultSummary) 수치, 날짜 YYYYMMDD, 기본 n·cs, 표본 30 미만 경고")
+ok("세그멘테이션·퍼널·리텐션 압축표 머리 행·요약 줄, 첫 줄(resultSummary) 수치, 날짜 YYYYMMDD, 기본 n·cs, 표본 30 미만 경고, group_by 퍼널")
 
 # --- 도구: 인자 오류는 Amplitude 요청 0회
 reset()
