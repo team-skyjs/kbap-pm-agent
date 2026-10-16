@@ -13,3 +13,11 @@
 | F2 대화 목록 | 완료 | 동일 | 목록: 실제(B2) 확인 | check-f2 | 68ffe70 |
 | F5 설정 | 완료 | 동일 | settings·저장소·sync·택사노미: 실제(B4 fake) 확인, Amplitude connect: 실제(B7 fake) 확인 | check-f5 | f08981f |
 | F6 Pages 배포 | 완료(로컬) | .github/workflows/pages.yml | 운영 URL 왕복은 B8 대기 | check-f6 | 70c56b4. 레포 Variables에 VITE_API_BASE_URL 필요, Pages source = GitHub Actions |
+
+## 005 대화 내보내기 (feat/conversation-export)
+
+실행: `cd frontend && npm run dev`, 대화 상단 바 "내보내기" → PDF로 인쇄 / Markdown 파일. 검사: `npm run check -- f10`, `npm run check:ui`(us13 포함).
+
+| 모듈 | 상태 | 실행 | 연동 상태 | 검사 | 비고 |
+|------|------|------|----------|------|------|
+| E1 내보내기(버튼·인쇄·Markdown·기록 호출) | 완료 | 대화 상단 바 | 기록 호출: 고정 응답(백엔드 기록 엔드포인트 완료 전) | check-f10, us13 | 인쇄 머리글은 제목·날짜만. Markdown은 화면 대화 상세로만 생성 |

@@ -7,10 +7,22 @@ import type { ChartSpec } from './chartBlock.ts'
 // 선·막대에 필요한 부분만 등록해 번들 크기 제한
 Chart.register(LineController, BarController, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Legend, Tooltip, Title)
 
+// A4 세로에서 인쇄 여백을 뺀 본문 폭 근사. 인쇄 미리보기는 캔버스를 다시 그리지 않아 이 폭으로 미리 그림
+const PRINT_WIDTH = 680
+
 // 차트 색은 디자인 토큰에서만 읽음, 토큰이 없으면 Chart.js 기본값
-function tokens() {
+// 인쇄 직전에도 화면 매체 값이 읽히므로 인쇄는 항상 밝은 --print-* 토큰을 씀
+function tokens(print = false) {
   const css = getComputedStyle(document.documentElement)
   const v = (name: string) => css.getPropertyValue(name).trim() || undefined
+  if (print) {
+    return {
+      font: v('--font-sans'),
+      text: v('--print-text'),
+      grid: v('--print-grid'),
+      series: [v('--print-chart-1'), v('--print-chart-2'), v('--print-chart-3'), v('--print-chart-4')],
+    }
+  }
   return {
     font: v('--font-sans'),
     text: v('--color-text'),
@@ -19,8 +31,8 @@ function tokens() {
   }
 }
 
-function applyColors(chart: Chart, spec: ChartSpec) {
-  const t = tokens()
+function paint(chart: Chart, print: boolean) {
+  const t = tokens(print)
   chart.data.datasets.forEach((ds, i) => {
     const c = t.series[i]
     ds.borderColor = c
@@ -35,6 +47,10 @@ function applyColors(chart: Chart, spec: ChartSpec) {
     if (scale.ticks) scale.ticks.color = t.text
     if (scale.grid) scale.grid.color = t.grid
   }
+}
+
+function applyColors(chart: Chart, spec: ChartSpec) {
+  paint(chart, false)
   chart.update(spec.x.length > 100 ? 'none' : undefined)
 }
 
@@ -69,8 +85,55 @@ export default function ChartBlock({ spec }: { spec: ChartSpec }) {
     const mq = matchMedia('(prefers-color-scheme: dark)')
     const onTheme = () => applyColors(chart, spec)
     mq.addEventListener('change', onTheme)
+
+    // 인쇄 직전: 애니메이션 없이 밝은 색·인쇄 폭으로 다시 그림, 직후: 화면 색·원래 설정·컨테이너 크기로 복원
+    const screenAnimation = chart.options.animation
+    const mqPrint = matchMedia('print')
+    let printing = false
+    let afterSeen = false
+    const onBeforePrint = () => {
+      if (printing) return
+      printing = true
+      afterSeen = false
+      // 인쇄 매체에서 크기 감시가 컨테이너 폭으로 다시 키우지 않도록 끔
+      chart.options.responsive = false
+      // 애니메이션 중에는 크기 변경이 다음 그리기로 미뤄지므로 먼저 멈추고, 미뤄져 있던 크기 변경은 update로 먼저 비운 뒤
+      // 마지막에 인쇄 폭으로 맞춤(순서가 바뀌면 남아 있던 컨테이너 폭이 덮어씀)
+      chart.stop()
+      chart.options.animation = false
+      paint(chart, true)
+      chart.update('none')
+      chart.resize(PRINT_WIDTH, chart.height)
+    }
+    // 복원은 afterprint와 화면 매체 복귀가 모두 끝난 뒤 한 번, 다음 프레임에서 화면 토큰을 읽어 함
+    // (afterprint가 인쇄 매체 중에 오면 인쇄용 색이 읽히므로). 인쇄 매체가 아니었으면 afterprint만으로 충분
+    const scheduleRestore = () => requestAnimationFrame(() => {
+      if (!printing || mqPrint.matches) return
+      printing = false
+      afterSeen = false
+      chart.options.responsive = true
+      chart.options.animation = screenAnimation
+      paint(chart, false)
+      chart.resize()
+      chart.update('none')
+    })
+    const onAfterPrint = () => {
+      if (!printing) return
+      afterSeen = true
+      if (!mqPrint.matches) scheduleRestore()
+    }
+    const onPrintMedia = (e: MediaQueryListEvent) => {
+      if (e.matches) onBeforePrint()
+      else if (afterSeen) scheduleRestore()
+    }
+    addEventListener('beforeprint', onBeforePrint)
+    addEventListener('afterprint', onAfterPrint)
+    mqPrint.addEventListener('change', onPrintMedia)
     return () => {
       mq.removeEventListener('change', onTheme)
+      removeEventListener('beforeprint', onBeforePrint)
+      removeEventListener('afterprint', onAfterPrint)
+      mqPrint.removeEventListener('change', onPrintMedia)
       chart.destroy()
     }
   }, [spec])

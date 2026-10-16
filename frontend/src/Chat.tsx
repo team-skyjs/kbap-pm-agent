@@ -7,6 +7,9 @@ import {
 import ProposalCard from './ProposalCard.tsx'
 import RefineCard from './RefineCard.tsx'
 import { useRefine } from './refine.ts'
+import ExportMenu from './ExportMenu.tsx'
+import { localStamp } from './exportMarkdown.ts'
+import { installPrintSupport, today } from './print.ts'
 import { SessionBanner, Topbar } from './Shell.tsx'
 
 const SOURCE_LABEL: Record<ToolCall['source'], string> = { amplitude: 'Amplitude', code: '코드', taxonomy: '택사노미' }
@@ -117,9 +120,10 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   const refine = useRefine({ conversationId: id, input, setInput, send: (c) => { void submit(c) } })
 
   const applied = useRef(0)
+  // 호출자가 재조회 완료를 기다릴 수 있도록 promise 반환
   const load = useCallback(() => {
     const seq = ++loadSeq.current
-    getConversation(id).then((d) => {
+    return getConversation(id).then((d) => {
       // 늦게 도착한 이전 응답이 새 상태를 덮지 않도록 버림
       if (seq < applied.current) return
       applied.current = seq
@@ -128,6 +132,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   }, [id])
 
   useEffect(() => { setDetail(null); setNotice(''); load() }, [load])
+  useEffect(() => installPrintSupport(), [])
 
   const running = detail?.messages.some((m) => m.status === 'running') ?? false
 
@@ -192,8 +197,8 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
       const end = await sendMessage(id, content, onEvent)
       setInput('')
       if (end === 'disconnected') setNotice('스트림이 끊겨 저장된 상태를 다시 불러왔습니다.')
-      // 종료 후 항상 상세 재조회: 서버가 채운 제목과 저장 상태 반영
-      load()
+      // 종료 후 항상 상세 재조회: 서버가 채운 제목과 저장 상태 반영, 끝날 때까지 실행 중으로 둠(내보내기 비활성 유지)
+      await load()
     } catch (e) {
       // 스트림 시작 전 에러(실행 중, 예산 초과, 입력 오류 등)는 입력창 아래에 안내
       refine.sendFailed()
@@ -255,10 +260,17 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   const backToInput = (f: () => void) => () => { f(); inputRef.current?.focus() }
   return (
     <>
-      <Topbar title={detail.title ?? '새 대화'} />
+      <Topbar title={detail.title ?? '새 대화'}>
+        <ExportMenu detail={detail} disabled={disabled || detail.messages.length === 0} />
+      </Topbar>
       {sessionExpired && <SessionBanner />}
       <div className="scroll" ref={scrollRef} onScroll={onScroll} tabIndex={0} role="region" aria-label="대화 내용">
         <div className="thread chat">
+          {/* 인쇄에서만 보이는 머리글: 제목·날짜만(주소·호스트명 없음) */}
+          <header className="print-header" data-conversation-id={detail.id}>
+            <h1>{detail.title ?? '새 대화'}</h1>
+            <p>대화 생성 {localStamp(detail.createdAt)} · 내보낸 날짜 <span data-print-date>{today()}</span></p>
+          </header>
           {detail.messages.length === 0 && <p className="muted empty">질문을 입력하세요. 예: 스캔 퍼널에서 가장 큰 이탈 지점 찾아서 개선안 제안해줘</p>}
           {detail.messages.map((m, i) => (
             <MessageView

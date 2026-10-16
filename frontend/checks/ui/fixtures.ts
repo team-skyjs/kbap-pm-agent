@@ -26,6 +26,8 @@ export const SETTINGS = jsonBlock('02-objects.md', 3)
 // 08b: [1] 다듬기 응답, [3] 선택 응답
 export const REFINE = obj(jsonBlock('08b-questions.md', 1))
 export const REFINE_CHOICE = obj(jsonBlock('08b-questions.md', 3))
+// 08c: [1] 내보내기 기록 응답
+export const EXPORT_RECORD = obj(jsonBlock('08c-exports.md', 1))
 
 const CHART_DIR = new URL('../../../specs/003-frontend-redesign/contracts/', import.meta.url)
 const CHART_EXAMPLES = blocks('chart-block.md', CHART_DIR).flatMap((b) => b.split('\n').filter((l) => l.startsWith('{')))
@@ -73,6 +75,10 @@ type Options = {
   sendFailFirst?: boolean
   // 메시지 전송 응답 지연(ms), 전송 확인 전 구간 확인용
   sendDelayMs?: number
+  // 내보내기 기록 500(내보내기 자체는 계속되어야 함)
+  exportFail?: boolean
+  // 대화 7 제목 교체
+  title?: string
 }
 
 // 대화 7(계약 상세 예시, 제안 두 개) + 전송 시나리오. 다른 대화는 빈 상태로 시작
@@ -117,6 +123,10 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
       if (opts.choiceFail) return json(500, { error: { code: 'INTERNAL_ERROR', message: '선택 기록 저장 실패' } })
       return json(200, { ...REFINE_CHOICE, refinementId: Number(path.split('/')[4]), choice: obj(req.postDataJSON()).choice, chosenAt: now() })
     }
+    if (method === 'POST' && /^\/api\/conversations\/\d+\/exports$/.test(path)) {
+      if (opts.exportFail) return json(500, { error: { code: 'INTERNAL_ERROR', message: '내보내기 기록 저장 실패' } })
+      return json(201, { ...EXPORT_RECORD, conversationId: Number(path.split('/')[3]), format: obj(req.postDataJSON()).format, createdAt: now() })
+    }
     if (method === 'GET' && path === '/api/settings') return json(200, SETTINGS)
     if (method === 'GET' && path === '/api/conversations') return json(200, opts.list ? { items: opts.list } : LIST)
     if (method === 'POST' && path === '/api/conversations') return json(201, CREATED)
@@ -138,7 +148,7 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
       if (opts.completeAfterPoll && readsAfterSend >= 0 && ++readsAfterSend > 1) {
         for (const m of msgs) if (m.status === 'running') Object.assign(m, { status: 'completed', content: String(exampleEvent('final').content), toolCalls: arr(m.toolCalls).map((t) => ({ ...obj(t), status: 'succeeded', durationMs: 8, resultSummary: '완료' })) })
       }
-      return json(200, { ...detail, id, title: id === 7 ? detail.title : null, messages: msgs })
+      return json(200, { ...detail, id, title: id === 7 ? (opts.title ?? detail.title) : null, messages: msgs })
     }
     if (method === 'PATCH' && /^\/api\/proposals\/\d+$/.test(path)) {
       const body = obj(req.postDataJSON())

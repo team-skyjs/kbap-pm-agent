@@ -1,4 +1,4 @@
-# 01 CTO — API 계약서 v1.3
+# 01 CTO — API 계약서 v1.4
 
 작성일: 2026-10-15 · 이 문서가 FE·BE·QA의 유일한 경계 기준이다. 변경은 CTO만 하고, 바뀌면 상단 변경 이력에 남긴다.
 
@@ -11,6 +11,7 @@
 | 2026-10-15 | v1.3 | 질문 마법사(specs/004-question-wizard): `POST /api/questions/refine`(질문 다듬기)와 `POST /api/questions/refine/{refinementId}/choice`(선택 기록)를 추가했다. 에러 코드 `REFINEMENT_NOT_FOUND`를 추가하고 시연 모드 동작도 정했다. 기존 엔드포인트 shape는 그대로다. v1.2는 접근 제한 PR(미머지)이 쓰는 번호라 건너뛴다 |
 | 2026-10-15 | v1.3 (문구) | PRD 보강 반영: 택사노미 이름 4,000자 상한과 잘림 시 요약 표시 규칙. shape 변경 없음 |
 | 2026-10-15 | v1.3 (문구 2) | PRD 3차 반영: "입력창에 넣기"의 기록 시점(전송 시 refined, 전송 없이 비우거나 대화 이탈 시 cancelled), `refined` 범위 밖이면 502, 택사노미 상한 시 질문과 겹치는 이름 우선. shape 변경 없음 |
+| 2026-10-17 | v1.4 | 대화 내보내기(specs/005-conversation-export): `POST /api/conversations/{conversationId}/exports`(내보내기 기록)를 추가했다. 기존 shape는 그대로다 |
 
 ## 공통
 
