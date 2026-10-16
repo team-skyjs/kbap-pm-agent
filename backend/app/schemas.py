@@ -229,6 +229,10 @@ class PatchProposalIn(M):
     note: str | None = Field(default=None, max_length=1000)
 
 
+class CreateExportIn(M):
+    format: Literal["pdf", "markdown"]
+
+
 # --- 질문 다듬기
 class RefineResult(M):
     """다듬기 모델의 구조화 출력. 두 문장 이내 규칙은 한국어 문장 분리가 불안정해 프롬프트로만 강제"""

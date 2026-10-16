@@ -91,3 +91,12 @@ CREATE TABLE IF NOT EXISTS question_refinements (
   INDEX idx_choice (choice),
   CONSTRAINT fk_qr_conv FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 내보내기 시작 1회 = 1행. 파일은 프론트가 만들고 서버는 형식별 건수 집계용 기록만
+CREATE TABLE IF NOT EXISTS conversation_exports (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  conversation_id BIGINT NOT NULL,
+  format ENUM('pdf','markdown') NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  CONSTRAINT fk_ce_conv FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

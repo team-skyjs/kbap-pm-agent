@@ -12,7 +12,7 @@ from app.db import iso
 from app.errors import ApiError
 from pydantic import TypeAdapter
 
-from app.schemas import CreateConversationIn, Evidence, Measurement, PatchProposalIn, SendMessageIn
+from app.schemas import CreateConversationIn, CreateExportIn, Evidence, Measurement, PatchProposalIn, SendMessageIn
 
 log = logging.getLogger("app.conversations")
 PING_SECONDS = 15
@@ -109,6 +109,14 @@ def get_conversation(conversation_id: int):
     c = _conv_or_404(conversation_id)
     return {"id": c["id"], "title": c["title"], "createdAt": iso(c["created_at"]), "updatedAt": iso(c["updated_at"]),
             "messages": messages("conversation_id = %s", (conversation_id,))}
+
+
+@router.post("/conversations/{conversation_id}/exports", status_code=201)
+def create_export(conversation_id: int, body: CreateExportIn):
+    _conv_or_404(conversation_id)
+    eid = db.x("INSERT INTO conversation_exports (conversation_id, format) VALUES (%s, %s)", (conversation_id, body.format))
+    r = db.one("SELECT * FROM conversation_exports WHERE id = %s", (eid,))
+    return {"exportId": r["id"], "conversationId": r["conversation_id"], "format": r["format"], "createdAt": iso(r["created_at"])}
 
 
 @router.patch("/proposals/{proposal_id}")

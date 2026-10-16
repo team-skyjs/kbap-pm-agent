@@ -62,8 +62,8 @@ description: "대화 전체 내보내기 구현 태스크"
 
 ## Phase 4: User Story 3 — 내보내기 기록 (P2) (E2)
 
-- [ ] T009 [US3] [BE] `backend/schema.sql`에 `conversation_exports`(data-model.md, `conversation_id` FK `ON DELETE CASCADE`, `format ENUM('pdf','markdown') NOT NULL`, `created_at DATETIME(3)`)를 추가한다. `backend/app/conversations.py`에 `POST /api/conversations/{conversation_id}/exports`를 만든다. `format`이 두 값 밖이면 400 `VALIDATION_ERROR`, 없는 대화는 404 `CONVERSATION_NOT_FOUND`, 성공은 201 `{exportId, conversationId, format, createdAt}`(계약 v1.4 `08c-exports.md`)다 (E2)
-- [ ] T010 [US3] [BE] `backend/checks/check_b11.py`(신규): 201 응답 키가 계약 예시와 같고 행이 하나 생긴다. 잘못된 형식은 400, 없는 대화는 404다. pdf 1·markdown 2를 넣은 뒤 data-model.md의 형식별 건수 SQL 결과가 맞다 (E2 검사)
+- [x] T009 [US3] [BE] `backend/schema.sql`에 `conversation_exports`(data-model.md, `conversation_id` FK `ON DELETE CASCADE`, `format ENUM('pdf','markdown') NOT NULL`, `created_at DATETIME(3)`)를 추가한다. `backend/app/conversations.py`에 `POST /api/conversations/{conversation_id}/exports`를 만든다. `format`이 두 값 밖이면 400 `VALIDATION_ERROR`, 없는 대화는 404 `CONVERSATION_NOT_FOUND`, 성공은 201 `{exportId, conversationId, format, createdAt}`(계약 v1.4 `08c-exports.md`)다 (E2)
+- [x] T010 [US3] [BE] `backend/checks/check_b11.py`(신규): 201 응답 키가 계약 예시와 같고 행이 하나 생긴다. 잘못된 형식은 400, 없는 대화는 404다. pdf 1·markdown 2를 넣은 뒤 data-model.md의 형식별 건수 SQL 결과가 맞다 (E2 검사)
 - [ ] T011 [P] [US3] [FE] `frontend/src/api.ts`에 `recordExport(conversationId, format)`(응답 타입 `ExportRecord`, 기존 파서 방식)를 둔다. `print.ts`·Markdown 내려받기가 기다리지 않고 부르며 실패는 무시한다 (E1)
 
 ---
