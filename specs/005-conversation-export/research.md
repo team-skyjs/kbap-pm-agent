@@ -20,6 +20,7 @@ NEEDS CLARIFICATION은 없다. 이 문서는 내보내기 기록(R1), 인쇄 레
   - **숨김**: 사이드바, Drawer, 입력창(composer), 다듬기 카드, 상단 바의 버튼·배지, 제안 카드의 채택·보류 버튼, 도구 진행 행(`details.tools`), 메시지의 사용량 줄(모델·토큰·비용, Markdown 규격과 같은 기준), 코드 복사 버튼, 세션·오류 배너의 조작 버튼.
   - **보이기**: 인쇄 머리글 요소(화면에서는 `display: none`). 내용은 대화 제목, 생성일, 내보낸 날짜다.
   - **끊김 방지**: 제안 카드의 머리와 각 절(`.card-head`, `.card-section`), 차트 컨테이너(`.md-chart`), 코드 블록(`pre`), 표 행(`tr`)에 `break-inside: avoid`. 카드 전체가 아니라 절 단위인 이유는 네 절을 다 편 카드가 한 쪽을 넘을 수 있어서다(team-lead 결정). 메시지 블록 전체에는 걸지 않는다. 긴 답변이 통째로 다음 쪽으로 밀려 쪽마다 큰 빈칸이 생기기 때문이다(QA 1b0dda9: 메시지 10개 → 15쪽). 화면에 메시지 머리(역할·시각) 줄이 없으므로, 질문(`.msg.user`)과 카드 제목에 `break-after: avoid`를 둬 다음 내용과 떨어지지 않게 한다(frontend-dev f9cb344, 메시지 10개 A4가 26쪽에서 20쪽).
+  - **읽기 다듬기**(designer 74dbb33): 카드 절의 요약(`summary`)과 제목 요소에 `break-after: avoid`, 문단 `orphans: 3; widows: 3`, 인쇄에서 질문 메시지에 테두리를 둔다(화면의 배경색이 인쇄에서 옅어져 구분이 약해지므로).
   - **넘침 방지**: `pre, code`에 `white-space: pre-wrap; overflow-wrap: anywhere`, 표 감싸개에 `overflow: visible`, 표에 `table-layout: fixed; width: 100%`, 셀 `overflow-wrap: anywhere`.
   - **밝게**: 같은 블록에서 `:root`의 색 토큰을 밝은 값으로 다시 정의하고 `color-scheme: light`. 다크 테마 정의(`prefers-color-scheme: dark`)보다 뒤에 둬 덮어쓴다. 값은 `--print-*` 토큰을 참조한다(원시 값 금지, FR-001).
   - **페이지**: `@page { margin: 16mm }`.
