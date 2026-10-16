@@ -10,6 +10,7 @@
 | PATCH | `/api/proposals/{proposalId}` | 필요 | JSON |
 | POST | `/api/questions/refine` | 필요 | JSON |
 | POST | `/api/questions/refine/{refinementId}/choice` | 필요 | JSON |
+| POST | `/api/conversations/{conversationId}/exports` | 필요 | JSON 201 |
 | GET | `/api/settings` | 필요 | JSON |
 | PUT | `/api/settings/repository` | 필요 | JSON |
 | POST | `/api/settings/repository/sync` | 필요 | JSON |

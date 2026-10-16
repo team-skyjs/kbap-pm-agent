@@ -1,4 +1,4 @@
-# 01 CTO — API 계약서 v1.3
+# 01 CTO — API 계약서 v1.4
 
 작성일: 2026-10-15 · 이 문서가 FE·BE·QA의 유일한 경계 기준이다. 변경은 CTO만 하고, 바뀌면 상단 변경 이력에 남긴다.
 
@@ -11,6 +11,7 @@
 | 2026-10-15 | v1.3 | 질문 마법사(specs/004-question-wizard): `POST /api/questions/refine`(질문 다듬기)와 `POST /api/questions/refine/{refinementId}/choice`(선택 기록)를 추가했다. 에러 코드 `REFINEMENT_NOT_FOUND`를 추가하고 시연 모드 동작도 정했다. 기존 엔드포인트 shape는 그대로다. v1.2는 접근 제한 PR(미머지)이 쓰는 번호라 건너뛴다 |
 | 2026-10-15 | v1.3 (문구) | PRD 보강 반영: 택사노미 이름 4,000자 상한과 잘림 시 요약 표시 규칙. shape 변경 없음 |
 | 2026-10-15 | v1.3 (문구 2) | PRD 3차 반영: "입력창에 넣기"의 기록 시점(전송 시 refined, 전송 없이 비우거나 대화 이탈 시 cancelled), `refined` 범위 밖이면 502, 택사노미 상한 시 질문과 겹치는 이름 우선. shape 변경 없음 |
+| 2026-10-17 | v1.4 | 대화 내보내기(specs/005-conversation-export): `POST /api/conversations/{conversationId}/exports`(내보내기 기록)를 추가했다. 기존 shape는 그대로다 |
 
 ## 공통
 
@@ -471,6 +472,20 @@ data: {"error":{"code":"UPSTREAM_ERROR","message":"LLM 공급자 응답 오류�
 - 에러: `VALIDATION_ERROR`, `REFINEMENT_NOT_FOUND`.
 - 비고: 다시 부르면 마지막 값으로 덮어쓰고 `chosenAt`을 갱신한다. 프론트는 선택이 확정될 때 한 번만 부른다. 보내기 두 개와 닫기는 클릭 시점, "입력창에 넣기"는 클릭이 아니라 그 뒤 전송·비우기·대화 이탈·새 다듬기 시작 시점이다. 기록 실패는 전송을 막지 않는다. 프론트는 실패를 무시하고 메시지 전송을 이어 간다.
 
+### POST /api/conversations/{conversationId}/exports
+- 용도: 사용자가 대화를 내보냈다는 사실(형식)을 기록한다. 내보내기 건수·형식 집계용이며 화면에는 보이지 않는다. 내보내기 자체(PDF 인쇄, Markdown 파일 생성)는 프론트가 하고 서버는 파일을 만들지 않는다.
+- 요청:
+```json
+{"format": "markdown"}
+```
+  - `format`: `"pdf"`(인쇄 대화상자를 열었을 때. 실제 저장 여부는 알 수 없다) | `"markdown"`(파일 내려받기를 시작했을 때).
+- 응답 201:
+```json
+{"exportId": 12, "conversationId": 7, "format": "markdown", "createdAt": "2026-10-17T03:20:45.118Z"}
+```
+- 에러: `VALIDATION_ERROR`(형식 밖 값, 본문 오류), `CONVERSATION_NOT_FOUND`. 공통 인증 규칙(`ACCESS_TOKEN`)은 다른 `/api` 요청과 같다.
+- 비고: 프론트는 내보내기를 시작하면서 한 번 부르고 결과를 기다리지 않는다. 기록 실패는 내보내기를 막지 않는다. 시연 모드도 실제로 기록한다(외부 호출이 없다).
+
 ## 엔드포인트 요약
 
 | 메서드 | 경로 | 인증 | 응답 |
@@ -483,6 +498,7 @@ data: {"error":{"code":"UPSTREAM_ERROR","message":"LLM 공급자 응답 오류�
 | PATCH | `/api/proposals/{proposalId}` | 필요 | JSON |
 | POST | `/api/questions/refine` | 필요 | JSON |
 | POST | `/api/questions/refine/{refinementId}/choice` | 필요 | JSON |
+| POST | `/api/conversations/{conversationId}/exports` | 필요 | JSON 201 |
 | GET | `/api/settings` | 필요 | JSON |
 | PUT | `/api/settings/repository` | 필요 | JSON |
 | POST | `/api/settings/repository/sync` | 필요 | JSON |
