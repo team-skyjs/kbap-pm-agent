@@ -100,16 +100,17 @@ export default function ChartBlock({ spec }: { spec: ChartSpec }) {
       chart.update('none')
       chart.resize(PRINT_WIDTH, chart.height)
     }
-    const onAfterPrint = () => {
-      if (!printing) return
+    const restoreScreen = () => {
       printing = false
       chart.options.animation = screenAnimation
       paint(chart, false)
       chart.resize()
       chart.update('none')
     }
+    const onAfterPrint = () => { if (printing) restoreScreen() }
     const mqPrint = matchMedia('print')
-    const onPrintMedia = (e: MediaQueryListEvent) => (e.matches ? onBeforePrint() : onAfterPrint())
+    // afterprint가 인쇄 매체가 남아 있는 동안 오면 인쇄용 색을 읽으므로, 화면 매체로 돌아오면 항상 화면 색으로 다시 칠함
+    const onPrintMedia = (e: MediaQueryListEvent) => (e.matches ? onBeforePrint() : restoreScreen())
     addEventListener('beforeprint', onBeforePrint)
     addEventListener('afterprint', onAfterPrint)
     mqPrint.addEventListener('change', onPrintMedia)

@@ -120,11 +120,41 @@ test('인쇄 매체: 스크롤 영역이 문서 흐름으로 풀리고 조작 �
   await shot(page, 'us13-print', info)
 })
 
+test('인쇄 뒤 매체 복귀 순서와 무관하게 차트가 화면 색·크기로 돌아옴(afterprint가 인쇄 매체 중에 와도)', async ({ page }) => {
+  await mockApi(page, { assistantContent: MARKDOWN_SAMPLE })
+  await page.goto('./#/conversations/7')
+  const canvas = page.locator('figure.md-chart canvas').first()
+  await expect(canvas).toBeVisible()
+  // 등장 애니메이션이 끝난 화면 이미지를 기준으로
+  const image = () => canvas.evaluate((c) => (c instanceof HTMLCanvasElement ? c.toDataURL() : ''))
+  const settled = async () => {
+    let prev = ''
+    await expect.poll(async () => { const now = await image(); const same = now === prev; prev = now; return same }).toBe(true)
+    return prev
+  }
+  const screen = await settled()
+
+  await page.evaluate(() => dispatchEvent(new Event('beforeprint')))
+  await page.emulateMedia({ media: 'print' })
+  // 매체 변경 이벤트는 다음 렌더링 단계에 전달되므로 인쇄 매체가 실제로 적용된 뒤에 afterprint를 보냄
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+  expect(await page.evaluate(() => matchMedia('print').matches)).toBe(true)
+  await page.evaluate(() => dispatchEvent(new Event('afterprint')))
+  await page.emulateMedia({ media: 'screen' })
+  await expect.poll(image).toBe(screen)
+})
+
 test('인쇄 직전: 제안 카드 절이 모두 열리고 차트가 인쇄 폭, 직후: 원래대로', async ({ page }) => {
   await mockApi(page, { assistantContent: MARKDOWN_SAMPLE })
   await page.goto('./#/conversations/7')
   const canvas = page.locator('figure.md-chart canvas').first()
   await expect(canvas).toBeVisible()
+  // 캔버스가 화면에 붙은 뒤 차트 생성·인쇄 이벤트 연결(effect)이 끝날 때까지: 그려진 픽셀이 생기면 완료
+  await expect.poll(() => canvas.evaluate((c) => {
+    const ctx = c instanceof HTMLCanvasElement ? c.getContext('2d') : null
+    if (!ctx || !(c instanceof HTMLCanvasElement)) return 0
+    return ctx.getImageData(0, 0, c.width, c.height).data.filter((_, i) => i % 4 === 3 && _ > 0).length
+  })).toBeGreaterThan(100)
   const openStates = () => page.locator('details.card-section').evaluateAll((els) => els.map((el) => el instanceof HTMLDetailsElement && el.open))
   const before = await openStates()
   expect(before.filter(Boolean).length).toBeLessThan(before.length)

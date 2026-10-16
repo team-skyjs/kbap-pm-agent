@@ -377,7 +377,9 @@ button:disabled { cursor: default; opacity: 0.5; }
   .print-header h1 { margin: 0 0 var(--space-1); font-size: var(--text-lg); line-height: var(--leading-tight); }
   .print-header p { margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); }
 
-  .msg, .card { break-inside: avoid; }
+  /* 긴 답변을 통째로 다음 쪽으로 밀면 빈 쪽이 생기므로 끊김 방지는 카드·질문에만, 질문은 답과 같은 쪽에 붙임 */
+  .card, .msg.user { break-inside: avoid; }
+  .msg.user { break-after: avoid; }
   .card-section > summary::before { content: none; }
   pre, code { white-space: pre-wrap; overflow-wrap: anywhere; }
   .card td code { white-space: pre-wrap; }
