@@ -91,7 +91,8 @@ function messageBlock(m: Message): string {
 export function toMarkdown(detail: ConversationDetail, now: Date): string {
   const messages = [...detail.messages].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   const head = [
-    `# ${detail.title ?? '새 대화'}`,
+    // 제목의 줄바꿈이 Markdown 제목을 깨지 않도록 공백 한 칸으로 접음
+    `# ${(detail.title ?? '새 대화').replace(/\s+/g, ' ')}`,
     `- 대화 생성: ${localStamp(detail.createdAt)}\n- 내보낸 날짜: ${ymd(now, '-')}\n- 메시지: ${messages.length}개`,
     '---',
   ]

@@ -20,9 +20,15 @@ function captureExports(page: Page) {
   return formats
 }
 
-// 대화상자를 열지 않도록 window.print를 호출 횟수 기록으로 바꿈
+// 대화상자를 열지 않도록 window.print를 바꿈: 호출 횟수를 남기고 실제 인쇄처럼 beforeprint·afterprint를 보냄
 async function stubPrint(page: Page) {
-  await page.addInitScript(() => { window.print = () => { document.body.dataset.printed = String(Number(document.body.dataset.printed ?? 0) + 1) } })
+  await page.addInitScript(() => {
+    window.print = () => {
+      document.body.dataset.printed = String(Number(document.body.dataset.printed ?? 0) + 1)
+      dispatchEvent(new Event('beforeprint'))
+      dispatchEvent(new Event('afterprint'))
+    }
+  })
 }
 const printed = (page: Page) => page.evaluate(() => Number(document.body.dataset.printed ?? 0))
 
@@ -82,9 +88,33 @@ for (const exportFail of [false, true]) {
     await item(page, 'PDF로 인쇄').click()
     await expect.poll(() => printed(page)).toBe(1)
     await expect.poll(() => formats).toEqual(['pdf'])
+    // 기록은 beforeprint 한 곳이라 메뉴 경로도 정확히 한 건
+    await page.waitForLoadState('networkidle')
+    expect(formats).toEqual(['pdf'])
     await expect(exportBtn(page)).toBeFocused()
   })
 }
+
+test('Ctrl+P 경로(beforeprint만): 기록 pdf 한 건', async ({ page }) => {
+  const formats = captureExports(page)
+  await mockApi(page)
+  await page.goto('./#/conversations/7')
+  await expect(page.locator('.print-header')).toBeAttached()
+  await page.evaluate(() => { dispatchEvent(new Event('beforeprint')); dispatchEvent(new Event('afterprint')) })
+  await expect.poll(() => formats).toEqual(['pdf'])
+  await page.waitForLoadState('networkidle')
+  expect(formats).toEqual(['pdf'])
+})
+
+test('줄바꿈이 든 제목도 Markdown 제목 한 줄', async ({ page }) => {
+  await mockApi(page, { title: '스캔 퍼널\n이탈  개선안' })
+  await page.goto('./#/conversations/7')
+  await exportBtn(page).click()
+  const download = page.waitForEvent('download')
+  await item(page, 'Markdown 파일').click()
+  const text = readFileSync(await (await download).path(), 'utf8')
+  expect(text.split('\n')[0]).toBe('# 스캔 퍼널 이탈 개선안')
+})
 
 test('Markdown 본문에 chart 블록 원문이 그대로 남음', async ({ page }) => {
   await mockApi(page, { assistantContent: MARKDOWN_SAMPLE })

@@ -58,7 +58,7 @@ export default function ExportMenu({ detail, disabled }: { detail: ConversationD
       </button>
       {open && (
         <div ref={menu} id={menuId} role="menu" aria-label="내보내기 형식" className="export-list">
-          <button type="button" role="menuitem" onClick={() => { close(true); startPrint(detail.id) }}>PDF로 인쇄</button>
+          <button type="button" role="menuitem" onClick={() => { close(true); void startPrint(detail) }}>PDF로 인쇄</button>
           <button type="button" role="menuitem" onClick={() => { close(true); downloadMarkdown(detail) }}>Markdown 파일</button>
         </div>
       )}

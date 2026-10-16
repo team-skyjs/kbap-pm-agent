@@ -77,6 +77,8 @@ type Options = {
   sendDelayMs?: number
   // 내보내기 기록 500(내보내기 자체는 계속되어야 함)
   exportFail?: boolean
+  // 대화 7 제목 교체
+  title?: string
 }
 
 // 대화 7(계약 상세 예시, 제안 두 개) + 전송 시나리오. 다른 대화는 빈 상태로 시작
@@ -146,7 +148,7 @@ export async function mockApi(page: Page, opts: Options = {}): Promise<void> {
       if (opts.completeAfterPoll && readsAfterSend >= 0 && ++readsAfterSend > 1) {
         for (const m of msgs) if (m.status === 'running') Object.assign(m, { status: 'completed', content: String(exampleEvent('final').content), toolCalls: arr(m.toolCalls).map((t) => ({ ...obj(t), status: 'succeeded', durationMs: 8, resultSummary: '완료' })) })
       }
-      return json(200, { ...detail, id, title: id === 7 ? detail.title : null, messages: msgs })
+      return json(200, { ...detail, id, title: id === 7 ? (opts.title ?? detail.title) : null, messages: msgs })
     }
     if (method === 'PATCH' && /^\/api\/proposals\/\d+$/.test(path)) {
       const body = obj(req.postDataJSON())

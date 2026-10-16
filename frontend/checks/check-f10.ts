@@ -51,6 +51,9 @@ assert(withChart.includes(chartContent), 'chart 블록·표 원문 그대로')
 const failed = toMarkdown({ ...detail, messages: [{ ...agentMsg, status: 'failed', errorCode: 'UPSTREAM_ERROR', content: '', proposals: [] }] }, now)
 assert(failed.includes(`## 에이전트 · ${localStamp(agentMsg.createdAt)}\n\n> 실패: UPSTREAM_ERROR`))
 
+// 제목의 줄바꿈·연속 공백은 한 칸으로
+assert(toMarkdown({ ...detail, title: '스캔 퍼널\n이탈  개선안' }, now).startsWith('# 스캔 퍼널 이탈 개선안\n'))
+
 // 제목 없음
 assert(toMarkdown({ ...detail, title: null }, now).startsWith('# 새 대화\n'))
 
