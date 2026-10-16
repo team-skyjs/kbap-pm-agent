@@ -19,7 +19,7 @@ NEEDS CLARIFICATION은 없다. 이 문서는 내보내기 기록(R1), 인쇄 레
   - **흐름 풀기**: `.app`, `.app` 안 메인 열, `.scroll`에 `height: auto; max-height: none; overflow: visible; display: block`.
   - **숨김**: 사이드바, Drawer, 입력창(composer), 다듬기 카드, 상단 바의 버튼·배지, 제안 카드의 채택·보류 버튼, 도구 진행 행(`details.tools`), 메시지의 사용량 줄(모델·토큰·비용, Markdown 규격과 같은 기준), 코드 복사 버튼, 세션·오류 배너의 조작 버튼.
   - **보이기**: 인쇄 머리글 요소(화면에서는 `display: none`). 내용은 대화 제목, 생성일, 내보낸 날짜다.
-  - **끊김 방지**: 제안 카드, 차트 컨테이너, 코드 블록(`pre`)에 `break-inside: avoid`. 메시지 블록 전체에는 걸지 않는다. 긴 답변이 통째로 다음 쪽으로 밀려 쪽마다 큰 빈칸이 생기기 때문이다(QA 1b0dda9: 메시지 10개 → 15쪽). 메시지 머리(역할·시각)에는 `break-after: avoid`.
+  - **끊김 방지**: 제안 카드, 차트 컨테이너, 코드 블록(`pre`), 표 행(`tr`)에 `break-inside: avoid`. 메시지 블록 전체에는 걸지 않는다. 긴 답변이 통째로 다음 쪽으로 밀려 쪽마다 큰 빈칸이 생기기 때문이다(QA 1b0dda9: 메시지 10개 → 15쪽). 메시지 머리(역할·시각)에는 `break-after: avoid`.
   - **넘침 방지**: `pre, code`에 `white-space: pre-wrap; overflow-wrap: anywhere`, 표 감싸개에 `overflow: visible`, 표에 `table-layout: fixed; width: 100%`, 셀 `overflow-wrap: anywhere`.
   - **밝게**: 같은 블록에서 `:root`의 색 토큰을 밝은 값으로 다시 정의하고 `color-scheme: light`. 다크 테마 정의(`prefers-color-scheme: dark`)보다 뒤에 둬 덮어쓴다. 값은 `--print-*` 토큰을 참조한다(원시 값 금지, FR-001).
   - **페이지**: `@page { margin: 16mm }`.
@@ -32,7 +32,7 @@ NEEDS CLARIFICATION은 없다. 이 문서는 내보내기 기록(R1), 인쇄 레
 - Decision: `ChartBlock`이 `window`의 `beforeprint`/`afterprint`와 `matchMedia('print')` change를 듣는다.
   - 인쇄 전: `animation: false`로 두고, 색을 `--print-chart-1`~`4`·`--print-text`·`--print-grid` 토큰(항상 밝은 값)에서 읽는다. `chart.resize(PRINT_WIDTH, 높이)` 후 `update('none')`. `PRINT_WIDTH`는 A4 세로에서 여백 16mm를 뺀 본문 폭에 맞춘 상수 하나(약 680px)다.
   - 인쇄 중 크기 고정: 인쇄 전 `options.responsive = false`로 둔다. 그래야 인쇄 매체에서 크기 감시가 차트를 화면 폭으로 다시 키우지 않는다(QA 1b0dda9: 미디어만 바꾸면 1280px로 커져 글자가 절반 크기).
-  - 인쇄 후: 화면 토큰 색, 원래 애니메이션·`responsive` 설정으로 되돌리고 `resize()`(컨테이너 크기)한다. 되돌리기는 `afterprint`와 `matchMedia('print')`가 false로 바뀐 때 중 **나중 것** 이후에 한다(둘 다 받으면 한 번만). 토큰은 다음 프레임(`requestAnimationFrame`)에 읽어 화면 매체 값이 확실할 때 쓴다(QA-14).
+  - 인쇄 후: 화면 토큰 색, 원래 애니메이션·`responsive` 설정으로 되돌리고 `resize()`(컨테이너 크기)한다. 되돌리기는 print 미디어가 화면으로 돌아왔을 때(`matchMedia('print')`가 false) 한다. 토큰은 그 시점에 읽어 화면 매체 값을 쓴다. `afterprint`와 미디어 해제 순서가 어느 쪽이든 결과가 같다(QA 2003354에서 두 순서 모두 확인, QA-14).
   - 인쇄 CSS: `canvas { max-width: 100% !important; height: auto !important }`로 비트맵이 폭을 넘지 않게 한다.
 - Alternatives considered: 인쇄 전에 캔버스를 이미지로 바꿔 끼우기(DOM 교체·복원이 더 복잡), 인쇄용 별도 차트 렌더(코드 중복).
 - 가정: 위 상수 폭과 CSS 축소로 A4·Letter 모두 읽을 수 있다. Chrome 미리보기로 확인한다(SC-001, 수동).
