@@ -117,6 +117,10 @@ grp = amplitude.amplitude_query(kind="funnel", events=[{"event_type": "scan_star
                                 start="2026-10-01", end="2026-10-12", group_by="platform")
 assert grp.splitlines()[0] == "scan_start → scan_complete: 세그먼트 2개", grp.splitlines()[0]
 assert "| ios | 80 (100.0%) | 40 (50.0%) |" in grp and "⚠ 1단계 표본 <30 세그먼트: ['android']" in grp, grp
+GROUPED["data"] = GROUPED["data"][:1]
+one = amplitude.amplitude_query(kind="funnel", events=[{"event_type": "scan_start"}, {"event_type": "scan_complete"}],
+                                start="2026-10-01", end="2026-10-11", group_by="platform")
+assert one.splitlines()[0] == "scan_start → scan_complete: 세그먼트 1개" and "| ios | 80 (100.0%) | 40 (50.0%) |" in one, one
 ROUTES["/api/2/funnels"] = FUNNEL
 ret = amplitude.amplitude_query(kind="retention", events=[{"event_type": "scan_start"}, {"event_type": "app_open"}],
                                 start="2026-10-01", end="2026-10-02")

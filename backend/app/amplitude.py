@@ -213,9 +213,9 @@ def series_table(data: dict, title: str, names: list[str]) -> str:
     return head + "\n" + "\n".join(rows) + "\n요약: " + _summary(x, labels, series)
 
 
-def funnel_table(data, title: str) -> str:
+def funnel_table(data, title: str, grouped: bool) -> str:
     funnels = data if isinstance(data, list) else []
-    if len(funnels) > 1:  # group_by: 세그먼트별 퍼널
+    if grouped and funnels:  # group_by: 세그먼트별 퍼널(세그먼트가 하나여도 이름 유지)
         ev = funnels[0].get("events", [])
         rows = ["| segment | " + " | ".join(f"{e} (conv%)" for e in ev) + " |", "|---|" + "---|" * len(ev)]
         small = []
@@ -307,7 +307,7 @@ def amplitude_query(kind: Literal["segmentation", "funnel", "retention"], events
         p = [("e", _event_json(e)) for e in a.events]
         p += [("start", s), ("end", t), ("n", a.n or "active"), ("cs", str(a.conversion_window_seconds or 2_592_000))]
         p += [("g", a.group_by)] if a.group_by else []
-        return funnel_table(_get("/api/2/funnels", p)["data"], title)
+        return funnel_table(_get("/api/2/funnels", p)["data"], title, a.group_by is not None)
     p = [("se", _event_json(a.events[0])), ("re", _event_json(a.events[1])), ("start", s), ("end", t), ("i", str(a.interval or 1))]
     return retention_table(_get("/api/2/retention", p)["data"], title)
 
