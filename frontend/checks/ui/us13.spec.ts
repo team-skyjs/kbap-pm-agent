@@ -113,6 +113,11 @@ test('인쇄 매체: 스크롤 영역이 문서 흐름으로 풀리고 조작 �
   expect(scroll.overflowY).toBe('visible')
   expect(scroll.sh).toBeLessThanOrEqual(scroll.ch + 1)
 
+  // 배경 없이도 질문·답 구분(테두리), 카드 절·표 행은 쪽 경계에서 갈리지 않음
+  expect(await page.locator('.msg.user').first().evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe('solid')
+  for (const sel of ['details.card-section', '.card tr']) {
+    expect(await page.locator(sel).first().evaluate((el) => getComputedStyle(el).breakInside), sel).toBe('avoid')
+  }
   await expect(page.locator('.print-header')).toBeVisible()
   await expect(page.locator('.print-header')).toContainText('스캔 퍼널 이탈 지점 개선안')
   await expect(page.locator('.print-header')).not.toContainText(/https?:\/\/|localhost/)
