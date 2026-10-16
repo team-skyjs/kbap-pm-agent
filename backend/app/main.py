@@ -7,13 +7,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app import amplitude, conversations, db, refine, settings
+from app import conversations, db, refine, settings
 from app.config import env
 from app.errors import ApiError, err
 
 log = logging.getLogger("app")
 VERSION = "0.1.0"
-OPEN_PATHS = {"/api/health", "/api/integrations/amplitude/callback"}
+OPEN_PATHS = {"/api/health"}
 
 
 
@@ -93,5 +93,4 @@ def health():
 
 app.include_router(conversations.router)
 app.include_router(settings.router)
-app.include_router(amplitude.router)
 app.include_router(refine.router)

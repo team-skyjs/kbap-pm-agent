@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  connectAmplitude, describe, getSettings, getToken, putRepository, putTaxonomy, setToken, syncRepository,
+  describe, getSettings, getToken, putRepository, putTaxonomy, setToken, syncRepository,
   type Settings,
 } from './api.ts'
 
@@ -14,13 +14,9 @@ export default function SettingsPage() {
   const [token, setTokenInput] = useState(getToken())
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState<Record<string, string>>({})
-  const poll = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const load = () => getSettings().then((x) => { setS(x); setLoadError('') }, (e) => setLoadError(describe(e)))
-  useEffect(() => {
-    void load()
-    return () => { if (poll.current) clearInterval(poll.current) }
-  }, [])
+  useEffect(() => { void load() }, [])
   useEffect(() => {
     if (s?.repository && !url) { setUrl(s.repository.url); setBranch(s.repository.branch) }
   }, [s])
@@ -54,34 +50,6 @@ export default function SettingsPage() {
     setS((x) => (x ? { ...x, taxonomy } : x))
     return `업로드했습니다: 이벤트 ${taxonomy.eventCount}개`
   })
-
-  function connect() {
-    // 팝업 차단 회피: 클릭 시점에 빈 탭부터 열기
-    const tab = window.open('', '_blank')
-    void run('amplitude', async () => {
-      try {
-        const { authorizationUrl } = await connectAmplitude()
-        if (tab) tab.location.href = authorizationUrl
-        else window.open(authorizationUrl, '_blank')
-      } catch (e) {
-        tab?.close()
-        throw e
-      }
-      // 승인 완료는 응답으로 알 수 없어 settings 재조회로 확인 (3초 간격, 최대 2분)
-      if (poll.current) clearInterval(poll.current)
-      let tries = 0
-      poll.current = setInterval(async () => {
-        tries++
-        const x = await getSettings().catch(() => null)
-        if (x) setS(x)
-        if (x?.amplitude.status === 'connected' || tries >= 40) {
-          if (poll.current) clearInterval(poll.current)
-          setMsg((m) => ({ ...m, amplitude: x?.amplitude.status === 'connected' ? '연결되었습니다.' : '2분 안에 승인이 확인되지 않았습니다. 다시 시도하세요.' }))
-        }
-      }, 3000)
-      return '새 탭에서 Amplitude 승인을 마치세요. 상태를 확인하는 중…'
-    })
-  }
 
   function saveToken() {
     setToken(token.trim())
@@ -155,14 +123,12 @@ export default function SettingsPage() {
           <section>
             <h2>
               Amplitude{' '}
-              <span className={`status ${s.amplitude.status === 'connected' ? 'ok' : ''}`}>{s.amplitude.status === 'connected' ? '연결됨' : '미연결'}</span>
+              <span className={`status ${s.amplitude.status === 'configured' ? 'ok' : ''}`}>{s.amplitude.status === 'configured' ? '서버 키로 연결됨' : '키 없음'}</span>
             </h2>
-            <dl className="metric">
-              <dt>서버</dt><dd><code>{s.amplitude.serverUrl}</code></dd>
-              {s.amplitude.status === 'connected' && <><dt>연결 시각</dt><dd>{time(s.amplitude.connectedAt)}</dd></>}
-            </dl>
-            <button type="button" className="btn primary" disabled={busy !== ''} onClick={connect}>{s.amplitude.status === 'connected' ? '다시 연결' : '연결'}</button>
-            {feedback('amplitude')}
+            {/* 키는 서버 환경 변수로만 관리, 화면에서는 상태만 */}
+            {s.amplitude.status === 'missing' && (
+              <p className="muted">서버 환경 변수 <code>AMPLITUDE_API_KEY</code>와 <code>AMPLITUDE_SECRET_KEY</code>를 설정한 뒤 서버를 다시 시작하세요. 키가 없으면 Amplitude 없이 답합니다.</p>
+            )}
           </section>
         </>
       )}

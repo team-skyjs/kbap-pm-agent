@@ -80,6 +80,17 @@
 | 2026-10-17 | QA-14·UI-6 최종 (f9cb344, CTO 결정 반영: 인쇄 중 responsive:false·작은 단위만 avoid·tr avoid·복원은 afterprint와 미디어 해제 둘 다 뒤 다음 프레임) | 확인됨 | 커밋본 check 9 OK, check:ui 523 통과·71 건너뜀·실패 0. 차트 색 복원: afterprint가 print 미디어 중에 오는 순서, 미디어가 먼저 풀리는 순서, 미디어 변화 없이 이벤트만 오는 경우 모두 인쇄 전과 같음. 뷰포트 1280에서 print 미디어 에뮬레이션 시 캔버스 680x280(2003354는 1280x280로 재확대). A4 PDF 10쪽, 빈칸 쪽 0, 퍼널 표 행 갈림 쪽 3·5·7·9 → 없음. 실제 fake 왕복 인쇄·Markdown·기록 실패 0. 관찰(결함 아님): afterprint 없이 print 미디어만 오가면(DevTools 미디어 에뮬레이션) 차트가 인쇄 색으로 남음. 실제 인쇄는 afterprint를 보냄 |
 | 2026-10-17 | 인쇄 다듬기 (74dbb33: 절 요약·답 제목 break-after avoid, p orphans·widows 3, 인쇄 질문 1px 테두리) | 통과 | 커밋본 check 9 OK, check:ui 523 통과·71 건너뜀·실패 0. 같은 대화 A4 PDF 10쪽(변화 없음), 빈칸 쪽 0, 표 행 갈림 없음, 질문 테두리 보임. 차트 색 복원 세 경우 모두 인쇄 전과 같음, 뷰포트 1280 인쇄 캔버스 680x280. fake 왕복 인쇄·Markdown·기록 실패 0. 열린 결함 0 |
 | 2026-10-17 | PR #18 Codex 4건 (fc246e0) | 통과 | 커밋본 check 9 OK, check:ui 541 통과·71 건너뜀·실패 0. 실제 fake 왕복(print()가 beforeprint·afterprint를 보내는 실제 Chrome 흉내): 메뉴 PDF 기록 정확히 1건, beforeprint 직접(Ctrl+P) 1건 추가, Markdown 1건(대화당 pdf,pdf,markdown, 요청 3회·중복 없음). 화면에서 만든 새 대화 첫 답변 직후 내보내기: 인쇄 머리글·Markdown 제목이 실제 제목. 줄바꿈 제목은 Markdown 머리글 "# 스캔 퍼널 이탈 둘째 줄 질문" 한 줄, 인쇄 머리글 h1도 한 줄(white-space normal). 같은 검사가 74dbb33에서는 Ctrl+P 기록 없음·Markdown 제목 두 줄로 실패 |
+| 2026-10-17 | 006 A2 프론트 (bb6a94c) | 통과(정적·검사), 백엔드 왕복은 A1 커밋 대기 | 커밋본 check 9 OK, check:ui 568 통과·71 건너뜀·실패 0. 계약 v1.5와 정적 대조: Settings.amplitude 파서가 {status: configured|missing}만 받음, sendMessage는 skipAmplitude가 참일 때만 필드를 보냄, AMPLITUDE_UNAVAILABLE 에러 코드·안내 추가, connectAmplitude 제거, 설정 라벨 '서버 키로 연결됨'·'키 없음'과 서버 변수 안내(키 값 표시 없음), 503이면 서버 메시지 그대로·입력 유지·'Amplitude 없이 진행' 재전송 |
+| 2026-10-17 | 006 A1 백엔드 (cc9221e) T014 | 통과, 경계면 20항목 실패 0 | 커밋본 이미지·별도 DB, 가짜 Amplitude(AMPLITUDE_REST_BASE). 키 없음 settings {status: missing}·키 있음 configured(응답에 키 없음). 메시지 503 AMPLITUDE_UNAVAILABLE 네 이유(키 없음, 401·403 인증, 429 한도, 연결 실패) 문구가 계약과 글자 단위로 같고 거절 시 메시지 0·llm_usage 0. skipAmplitude 문자열·숫자·null 400. 삭제된 connect·callback 404 NOT_FOUND. 사전 점검은 /api/2/taxonomy/event 한 경로·Basic 인증. 로그에 키 없음. 기동 멱등: 열 삭제·OAuth 행 2개 넣고 두 번 기동 → 열 enum('used','unavailable','skipped') 복구·행 0·오류 없음. fake 모드 Amplitude 호출 0·상태 NULL, API에 amplitude_status 없음. check_b1~b6·b9~b12 OK(b7 삭제 확인), 계약 diff 0. MCP 흔적: 코드·설정·계약 분할본 0(문서 이력만), backend/app은 OAuth 행 삭제 문자열 1건. mcp 패키지는 openai-agents의 간접 의존으로 남음 |
+| 2026-10-17 | 006 T015 실제 키 (cc9221e, 도구 직접 호출) | 일부 실패, 결함 2 | 로컬 .env 프로젝트 키, Amplitude 호출 8회 모두 200(틀린 키 1회는 401 → "인증에 실패했습니다" 거절). 이벤트 목록 50개, category·description 필드 이름 일치(값이 있는 이벤트에서 표시), 이벤트 속성 type·사용자 속성 목록 정상. 세그멘테이션(uniques 7일)·퍼널(scan_start→scan_complete, 7일 창, 표본 30 미만 경고)·리텐션 모두 성공하고 압축표 형식. 결함: 리텐션 D열이 하루씩 밀림(QA-15), 세그멘테이션 시리즈 이름이 "0"(QA-16). 에이전트 질문 경로(amplitude_status='used')는 LLM 비용 때문에 돌리지 않음 |
+| 2026-10-17 | 006 A2 실제 왕복·ui-review·회귀 (HEAD 9a1e1c4 = bb6a94c·cc9221e) T016 | 통과 | 커밋본 프론트 + cc9221e 이미지(real·키 없음 / 가짜 키 / fake). 라이트·다크 × 1280·375: 설정 '키 없음'+변수 이름 안내 / '서버 키로 연결됨', 연결 버튼 없음, axe 0. 키 없이 질문 → 503 서버 문구 그대로·입력 유지·메시지 저장 0, 'Amplitude 없이 진행'을 키보드로 → 본문 [{content}, {content, skipAmplitude:true}], 다음 전송 뒤 버튼 사라짐, 답 행 amplitude_status='skipped'(LLM 키 없어 failed). 회귀: check 9 OK, check:ui 568 통과·71 건너뜀·실패 0, check_b1~b6·b9~b12 OK, 질문→제안→채택→새로고침·409 유지. data-model 상태 조회 SQL: completed+상태 행 0(실제 실행은 LLM 없이 failed, fake는 NULL)으로 규칙과 일치. 커밋 44개 diff·메시지에 키 값·운영 호스트 0 |
+| 2026-10-17 | QA-15·QA-16 재검증 (43cdf08) | 확인됨 | 커밋본 check_b1~b6·b9~b12 OK, 계약 diff 0. 실제 키(Amplitude 3회): 같은 리텐션 조회가 모든 코호트 D0 100%, 합산 "D0 100.0% (52/52), D1 11.8% (4/34), D2 14.3% (4/28)"로 앞서 분석한 실제 값과 일치, 미완 칸은 빈칸. 단일 이벤트 세그멘테이션 머리 `| date | app_opened |`, group_by(platform)는 `| date | Android | iOS |`(형식 파일 규칙과 같음) |
+| 2026-10-17 | T015 실제 질문 1회 (43cdf08, team-lead 승인, QA 로컬 DB) | 통과, 결함 1(낮음) | 질문 "최근 7일 스캔 성공률 알려줘", Sonnet 5.5, 35초. 도구 7회(amplitude_context 3, amplitude_query 4) 모두 succeeded, 인자 오류·재시도 0. 세그멘테이션 인자에 events·filters(success is/is not true)·metric totals·기간을 올바르게 씀. 답 본문에 실제 수치(성공률 57.1% = 8/14, 시작 대비 44.4% = 8/18, 일별 표·chart 블록), 표 합계·비율이 서로 맞음. 제안 카드는 없음(조회 질문). messages.amplitude_status='used'. llm_usage: agent 5행, 입력 42,782·출력 2,402 토큰, $0.1096. 로그에 키 없음. 결함 QA-17 |
+| 2026-10-17 | QA-17 재검증 (6c4910f) | 확인됨 | 커밋본 check_b6·b12 OK(b12에 네 종류 첫 줄·SSE resultSummary 수치 단언). 공통 래퍼가 결과 첫 줄 500자를 resultSummary로 저장. 실제 응답 모양 가짜 서버로 첫 줄 확인: 세그멘테이션 "… scan_start 합 20 · 마지막 11", 리텐션 "합산 n=23: D0 100.0%, D1 21.7% · 코호트 2개", 목록 "이벤트 2개 (Amplitude 2, 택사노미 0)", 속성 "이벤트 속성 1개, 사용자 속성 1개", 퍼널은 b12 단언 "scan_start 100명 → scan_complete 41명, 전환율 41.0%". fake 모드는 Amplitude 도구를 부르지 않아 화면 왕복 대신 저장 문자열로 확인. 관찰: 형식 파일(e92090e)의 첫 줄 문구(세그멘테이션 합·평균·최대, 리텐션 D1·D7)와 구현 문구(합·마지막, D0·D1)가 조금 다름, 수치는 들어감 |
+| 2026-10-17 | QA-17 첫 줄 형식 정렬 (5aefd4d, 형식 파일 e92090e·dad5d18 기준) | 확인됨 | 커밋본 check_b6·b12 OK. 실제 응답 모양 가짜 서버로 첫 줄: 세그멘테이션 "segmentation scan_start 2026-10-10~2026-10-16: 합 20 · 평균 2.9 · 최대 11(2026-10-16)", 리텐션 "합산 n=23: D1 21.7%"(D0 없음, 없는 D7 생략), 목록·속성 개수 줄이 형식 파일과 글자 단위로 같음. 퍼널 "scan_start → scan_complete: 100 → 41 (41.0%)"는 b12 단언. 01885f8의 문구 차이 관찰 해소. 열린 결함 0 |
+| 2026-10-17 | 형식 파일 dad5d18 기준 재대조 (5aefd4d) | 통과, 관찰 3 | 리텐션 코호트 수 줄이 표 아래·합산 줄 앞에 있음. group_by 퍼널 첫 줄 "{첫} → {끝}: 세그먼트 N개"는 코드상 형식과 같음. 관찰(결함 아님): (1) 리텐션 코호트 줄이 문서의 "코호트 N개 (표본 0 코호트 M개 생략)" 앞에 제목("retention app_opened, app_opened 2026-10-14~2026-10-16: ")을 붙임. (2) 속성 맥락 첫 줄이 문서의 "이벤트 속성 M개…로 시작"과 달리 "**scan_complete** 이벤트 속성…"으로 이벤트 이름부터 시작. (3) group_by 퍼널은 b12 단언이 없고, 실제 응답이 세그먼트마다 퍼널 하나·meta.segment라는 구현 가정이 실제 키로 확인되지 않음(실제 조회 1회면 확인 가능) |
+| 2026-10-17 | group_by 퍼널 실제 조회 1회 (fcb0946, team-lead 승인) | 통과 | GET /api/2/funnels 1회(e·e·start·end·n·cs·g), 200. 응답 data는 세그먼트마다 퍼널 하나인 배열(2개), 이름은 meta.segment(같은 값이 groupValue에도 있음), 각 항목에 events·cumulativeRaw·cumulative. 구현 가정과 같음. 구현 출력 첫 줄 "scan_start → scan_complete: 세그먼트 2개", 세그먼트 행(Android 8→5 62.5%, iOS 2→2), 표본 30 미만 경고 정상. check_b12 OK(fcb0946 단언 포함). 관찰: 세그먼트가 하나뿐이면 배열 길이 1이라 그룹 없는 퍼널 경로로 가서 세그먼트 이름이 표시되지 않음 |
+| 2026-10-17 | group_by 퍼널 세그먼트 1개 (387621d) | 확인됨 | 분기가 배열 길이에서 group_by 인자 유무로 바뀜. 커밋본 check_b6·b12 OK, b12가 세그먼트 1개일 때 첫 줄 "scan_start → scan_complete: 세그먼트 1개"와 한 행(ios)을 단언. 앞 행의 관찰 해소 |
 
 ## 결함
 
@@ -238,3 +249,30 @@
 - 수정 방향: 프론트·디자이너. avoid를 `.card`·`.msg.user`와 작은 블록(표 행, 근거 항목)에만 두고 `.msg.assistant`에서는 뺀다. 사용자 질문이 쪽 끝에 홀로 남지 않게 하려면 `.msg.user { break-after: avoid }`를 고려한다
 - 수신: frontend-dev, frontend-designer
 - 상태: 확인됨 (f9cb344 최종: .card-head·.card-section·.md-chart·pre·tr만 avoid, .msg.user·.card-head·.card h4는 break-after: avoid. A4 15쪽 → 10쪽, 빈칸 쪽 5 → 0, 표 행 갈림 4쪽 → 0)
+
+### QA-15: 리텐션 표의 D열이 하루씩 밀려 D1이 늘 100%로 보고된다
+- 모듈: backend / 006 A1 (amplitude.retention_table)
+- 경계면: Amplitude REST 응답 ↔ 모델에게 주는 결과 표(contracts/amplitude-tools.md 리텐션)
+- 기대: `| cohort (n) | D0 … D14 |`와 `합산(combined):`의 Dn이 실제 n일째 복귀율이다
+- 실제: 실제 `/api/2/retention` 응답의 코호트 배열은 첫 칸이 코호트 크기, 둘째 칸부터 Day 0이다. 마지막 날 코호트(Oct 16)가 [61/61, 61/61(미완), 0/61(미완)], Oct 14 코호트가 [10/10, 10/10, 3/10, 2/10(미완), 0/10(미완)]이라 둘째 칸이 Day 0, 셋째 칸이 Day 1이어야 날짜가 맞는다. 구현은 첫 칸을 D0으로 세서, 모든 코호트의 D1이 100%이고 미래 날짜 칸에 수가 있다. 합산 줄도 "D1 100.0% (52/52), D2 11.8% (4/34)"로 나오는데 실제는 D0 100%, D1 11.8%다. 모델이 이 표로 리텐션을 답하면 잘못된 수치가 근거로 들어간다. check_b12의 가짜 응답이 첫 칸을 D0으로 만들어 잡지 못했다
+- 수정 방향: 백엔드. values·combined 배열의 첫 칸을 코호트 크기로 보고 둘째 칸부터 D0으로 쓴다(코호트 n은 첫 칸 outof). check_b12의 RET 가짜 응답을 실제 모양(첫 칸 = 크기)으로 바꾼다. 실제 키 재확인은 내가 1회 한다
+- 수신: backend-dev (cto 참조)
+- 상태: 확인됨 (43cdf08: 첫 칸은 코호트 크기 n, 둘째 칸부터 D0. 실제 키로 D0 100%·D1 11.8% 확인, check_b12 가짜 응답을 실제 모양으로)
+
+### QA-16: 이벤트 하나짜리 세그멘테이션 표의 시리즈 이름이 "0"이다
+- 모듈: backend / 006 A1 (amplitude._labels, series_table)
+- 경계면: Amplitude REST 응답 ↔ 결과 표
+- 기대: `| date | 시리즈... |`의 시리즈 이름으로 모델이 어떤 이벤트(또는 group_by 값)인지 알 수 있다
+- 실제: group_by 없이 이벤트 하나(app_opened)를 조회하면 실제 응답 seriesLabels가 [0]이라 표 머리가 `| date | 0 |`, 요약이 `0: 합 103 …`이다. 이벤트 두 개면 0·1로 나올 것이라 어느 쪽이 어느 이벤트인지 모델이 추측해야 한다
+- 수정 방향: 백엔드. group_by가 없으면 시리즈 이름을 events 순서의 event_type으로 쓴다(seriesLabels가 정수일 때). check_b12 SEG 가짜 응답에 정수 라벨 경우를 추가한다
+- 수신: backend-dev
+- 상태: 확인됨 (43cdf08: 정수 라벨은 이벤트 이름, group_by는 그룹 값. 실제 키로 확인)
+
+### QA-17: Amplitude 도구 호출의 resultSummary가 표 제목 줄뿐이라 화면 도구 목록에 수치가 없다
+- 모듈: backend / 006 A1 (Amplitude 도구 결과 → tool_calls.result_summary)
+- 경계면: GET /api/conversations/{id}의 `toolCalls[].resultSummary` ↔ 화면 도구 호출 목록
+- 기대: 계약 예시처럼 요약에 핵심 수치가 들어간다(예: "scan_start 2,418명 → scan_complete(success=true) 999명, 전환율 41.3%", 최대 500자)
+- 실제: 실제 질문 1회의 amplitude_query 4건이 모두 `**segmentation scan_complete 2026-10-10~2026-10-16 (7 rows × 1 series)**` 같은 제목 한 줄이다. 표와 `요약:` 줄은 저장되지 않아 화면에서 도구를 펼쳐도 수치를 볼 수 없고, 답의 수치를 도구 결과와 대조할 수도 없다. amplitude_context도 "이벤트 50개 (…)"·"**scan_complete** 이벤트 속성" 한 줄이다
+- 수정 방향: 백엔드. 요약을 제목 줄 대신 결과 문자열 앞 500자(또는 `요약:` 줄 우선)로 만든다. 다음 사이클로 미뤄도 답 자체에는 영향이 없다
+- 수신: backend-dev
+- 상태: 확인됨 (6c4910f 수치 추가, 5aefd4d 형식 파일 문구 정렬. 네 종류 첫 줄 대조 완료)

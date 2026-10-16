@@ -1,14 +1,14 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.0 → 1.3.0   (개정 2026-10-15)
-Bump rationale (MINOR): 기술 제약의 FE↔BE 줄과 비목표 줄에 API 접근 통제(공유 접근 토큰)를 명시.
-  사유: 사용자 결정 — 프론트는 GitHub Pages를 유지하고, API는 환경변수 ACCESS_TOKEN으로 잠근다.
-  v1.2.0(프론트 홈서버 이전·Cloudflare Access)은 feat/access-gate에만 있고 main에 들어온 적 없어 결번 처리.
-Modified principles: 없음.
-Modified sections: 기술 제약 — FE↔BE 줄, 비목표 줄.
+Version change: 1.3.0 → 1.3.1   (개정 2026-10-17)
+Bump rationale (PATCH): 기술 제약의 Amplitude 줄 문구 교체. 조회 전용 원칙은 그대로이고 경로만 바뀐다.
+  사유: Amplitude MCP OAuth가 갱신 토큰을 발급하지 않아(만료 24시간) 서버 무인 운영이 불가능하다.
+  Dashboard REST·Taxonomy API 프로젝트 키로 바꾼다(ADR-34, specs/006-amplitude-rest).
+Modified principles: III 첫 문장의 "Amplitude MCP" → "Amplitude"(문구만, 규칙 변화 없음).
+Modified sections: 기술 제약 — Amplitude 줄, FE↔BE 줄의 토큰 예외(삭제된 Amplitude 콜백 언급 제거).
 Templates reviewed: ✅ 변경 불필요.
-Follow-up: docs/prd/PRD-access-gate.md 상태를 보류로.
+Follow-up: 없음.
 -->
 
 # K-Bap PM Agent Constitution
@@ -43,7 +43,7 @@ Spec Kit 단계에서는 `specs/<feature>/contracts/`로 복제·동기화한다
 
 ### III. 갈아끼울 수 있는 외부 연동
 
-LLM, Amplitude MCP, GitHub 저장소 접근은 각각 한 지점(seam)을 통해서만 호출한다.
+LLM, Amplitude, GitHub 저장소 접근은 각각 한 지점(seam)을 통해서만 호출한다.
 
 - 실행 모드 설정 하나(`AGENT_MODE=fake`)로 외부 연동 전부를 계약서 예시 값으로 대체할 수 있어야
   한다(MUST). 프론트 연동과 QA는 외부 키 없이 완료 가능해야 한다.
@@ -89,9 +89,9 @@ PRD 5·7.3·8절과 CTO ADR(`_workspace/01_cto_tech-decisions.md`)에서 확정�
 - 프론트: TypeScript, React, Vite 정적 SPA. GitHub Pages 프로젝트 페이지(`/kbap-pm-agent/`)에
   배포하므로 해시 라우팅을 쓰고 백엔드 주소는 빌드 시 환경변수로 받는다.
 - FE↔BE: HTTPS 공개 엔드포인트(터널). 에이전트 응답은 POST 응답 자체를 SSE 스트림으로 보낸다. API 접근 통제는
-  공유 접근 토큰(환경변수 ACCESS_TOKEN, 헬스·Amplitude 콜백 제외 전 경로에 Bearer 요구)으로 한다. 값은 Secret에만
+  공유 접근 토큰(환경변수 ACCESS_TOKEN, 헬스 제외 전 경로에 Bearer 요구)으로 한다. 값은 Secret에만
   두고 프론트는 설정 화면 입력값을 브라우저 저장소에만 보관한다.
-- Amplitude: 공식 원격 MCP(조회 전용). 이벤트 전송·택사노미 자동 수정은 하지 않는다.
+- Amplitude: Dashboard REST·Taxonomy API 프로젝트 키(서버 env, 조회 전용). 이벤트 전송·택사노미 자동 수정은 하지 않는다.
 - 비목표(v1): 앱 안의 사용자 인증·권한·멀티테넌시, 백엔드 코드 분석, 코드 자동 수정·PR 생성,
   능동 모드(먼저 제안). 공유 접근 토큰은 운영에서 켜 두며(2026-10-15), 비워 두면 꺼진다.
 
@@ -116,4 +116,4 @@ PRD 5·7.3·8절과 CTO ADR(`_workspace/01_cto_tech-decisions.md`)에서 확정�
 - plan.md의 Constitution Check는 원칙 I~V 각각에 대해 준수 여부와, 위반 시 정당화를 적어야 한다.
 - 복잡도(추상화, 새 의존성, 새 테이블)는 plan.md의 Complexity Tracking에 이유를 적어야 한다.
 
-**Version**: 1.3.0 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-15
+**Version**: 1.3.1 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-17

@@ -16,10 +16,12 @@ export type ErrorCode =
   | 'RUN_IN_PROGRESS'
   | 'UPSTREAM_ERROR'
   | 'INTERNAL_ERROR'
+  | 'AMPLITUDE_UNAVAILABLE'
 
 const ERROR_CODES = [
   'VALIDATION_ERROR', 'UNAUTHORIZED', 'BUDGET_EXCEEDED', 'CONVERSATION_NOT_FOUND', 'PROPOSAL_NOT_FOUND', 'REFINEMENT_NOT_FOUND',
   'NOT_FOUND', 'REPOSITORY_NOT_CONFIGURED', 'RUN_IN_PROGRESS', 'UPSTREAM_ERROR', 'INTERNAL_ERROR',
+  'AMPLITUDE_UNAVAILABLE',
 ] as const
 
 // 서버 코드에 프론트 자체 사유 두 개 추가
@@ -427,8 +429,11 @@ export async function sendMessage(
   conversationId: number,
   content: string,
   onEvent: (e: StreamEvent) => void,
+  // skipAmplitude: 사전 점검(AMPLITUDE_UNAVAILABLE)을 건너뛰고 Amplitude 없이 실행. 기본은 필드를 보내지 않음
+  opts: { skipAmplitude?: boolean } = {},
 ): Promise<'final' | 'error' | 'disconnected'> {
-  const res = await rawFetch(`/api/conversations/${conversationId}/messages`, 'POST', JSON.stringify({ content }))
+  const body = opts.skipAmplitude ? { content, skipAmplitude: true } : { content }
+  const res = await rawFetch(`/api/conversations/${conversationId}/messages`, 'POST', JSON.stringify(body))
   await throwIfError(res)
   if (!res.body) return 'disconnected'
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
@@ -465,6 +470,7 @@ const ERROR_TEXT: Record<ClientErrorCode, string> = {
   RUN_IN_PROGRESS: '이 대화에서 이미 응답을 만드는 중입니다. 끝난 뒤 다시 보내세요.',
   UPSTREAM_ERROR: '외부 서비스(LLM·GitHub·Amplitude) 오류로 중단했습니다.',
   INTERNAL_ERROR: '서버 내부 오류로 중단했습니다.',
+  AMPLITUDE_UNAVAILABLE: 'Amplitude를 조회할 수 없습니다.',
   NETWORK_ERROR: '백엔드에 연결할 수 없습니다.',
   BAD_RESPONSE: '서버 응답 형식이 계약과 다릅니다.',
 }
@@ -505,7 +511,8 @@ export type TaxonomyStatus = { eventCount: number; uploadedAt: string }
 export type Settings = {
   repository: Repository | null
   taxonomy: TaxonomyStatus | null
-  amplitude: { status: 'connected' | 'disconnected'; serverUrl: string; connectedAt: string | null }
+  // 서버 환경 변수에 키가 둘 다 있으면 configured. 키 값은 내려오지 않음
+  amplitude: { status: 'configured' | 'missing' }
   models: { agent: string; codeSummary: string }
   agentMode: 'real' | 'fake'
   budget: { limitUsd: number; spentUsd: number }
@@ -540,20 +547,13 @@ export function parseSettings(v: unknown): Settings {
   return {
     repository: objOrNull(o, 'repository', p, parseRepository),
     taxonomy: objOrNull(o, 'taxonomy', p, parseTaxonomyStatus),
-    amplitude: {
-      status: oneOf(a, 'status', ['connected', 'disconnected'] as const, `${p}.amplitude`),
-      serverUrl: str(a, 'serverUrl', `${p}.amplitude`),
-      connectedAt: strOrNull(a, 'connectedAt', `${p}.amplitude`),
-    },
+    amplitude: { status: oneOf(a, 'status', ['configured', 'missing'] as const, `${p}.amplitude`) },
     models: { agent: str(m, 'agent', `${p}.models`), codeSummary: str(m, 'codeSummary', `${p}.models`) },
     agentMode: oneOf(o, 'agentMode', ['real', 'fake'] as const, p),
     budget: { limitUsd: num(b, 'limitUsd', `${p}.budget`), spentUsd: num(b, 'spentUsd', `${p}.budget`) },
   }
 }
 
-export function parseAuthorizationUrl(v: unknown): { authorizationUrl: string } {
-  return { authorizationUrl: str(obj(v, 'connect'), 'authorizationUrl', 'connect') }
-}
 
 // ---------- 설정 엔드포인트 ----------
 
@@ -562,7 +562,6 @@ export const getSettings = () => request('GET', '/api/settings', parseSettings)
 export const putRepository = (url: string, branch: string) =>
   request('PUT', '/api/settings/repository', (v) => parseRepository(v), branch ? { url, branch } : { url })
 export const syncRepository = () => request('POST', '/api/settings/repository/sync', (v) => parseRepository(v))
-export const connectAmplitude = () => request('POST', '/api/integrations/amplitude/connect', parseAuthorizationUrl)
 
 // 고른 .json 파일 내용을 그대로 본문으로 전송, 검증은 서버 몫
 export async function putTaxonomy(fileText: string): Promise<TaxonomyStatus> {

@@ -78,8 +78,10 @@ def script(provider: str, steps, delay: float = 0.0):
             transport=httpx.MockTransport(handler)))
 
 
-def sse(c, cid: int, content: str = "질문") -> list[tuple[str, dict]]:
-    with c.stream("POST", f"/api/conversations/{cid}/messages", json={"content": content}) as r:
+def sse(c, cid: int, content: str = "질문", skip_amplitude: bool = True) -> list[tuple[str, dict]]:
+    """메시지 전송 SSE 이벤트 목록. 기본은 Amplitude 사전 점검을 건너뜀(점검·도구는 check_b12 몫)"""
+    body = {"content": content, "skipAmplitude": True} if skip_amplitude else {"content": content}
+    with c.stream("POST", f"/api/conversations/{cid}/messages", json=body) as r:
         assert r.status_code == 200, r.read()
         evs, ev = [], None
         for line in r.iter_lines():

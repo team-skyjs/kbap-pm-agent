@@ -28,8 +28,6 @@ try:
     assert r.headers.get("access-control-allow-origin") is None  # Origin 없는 요청
     r = c.get("/api/nope", headers={"Authorization": "Bearer s3cret"})
     assert r.status_code == 404, r.text
-    r = c.get("/api/integrations/amplitude/callback")
-    assert r.status_code != 401
     r = c.options("/api/conversations", headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "GET"})
     assert r.status_code == 200
     ok("ACCESS_TOKEN 설정: health 200, /api/nope 401, 토큰 있으면 404, preflight 통과")
