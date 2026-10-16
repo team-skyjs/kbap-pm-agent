@@ -74,6 +74,7 @@
 | 2026-10-15 | 마지막 회귀 (b83894e = 62d36b2 포함) | 통과 | 커밋본: check 8 OK, check:ui 424 통과·71 건너뜀·실패 0. 실제 fake 왕복: 시연 1~8 실패 0, 넣기 뒤 새 다듬기·이동 cancelled, SC-005 흐름 유지. 전송 실패 실측(별도 DB에 예산 초과 행을 잠시 넣어 403 유도): 409 중 개선안으로 보내기 → 기록 없음·개선안이 입력창에 남음·다시 보내면 refined, 예산 초과 중 원문으로 보내기 → 기록 없음·이후 무관한 전송에도 기록 없음, 넣기 뒤 예산 실패 → 기록 없음·입력창 유지·다시 보내면 refined. 열린 결함 0 |
 | 2026-10-15 | 최종 회귀 (3a75c5f = ac9181f 카드 재오픈·b551a53 compare_refine·3a75c5f busy 중 닫기 무시) | 통과, 결함 1(낮음, 다음 사이클) | 커밋본: check 8 OK, check:ui 433 통과·71 건너뜀·실패 0, check_b1~b7·b9·b10 OK, 계약 diff 0, compare_refine 구문 OK. 실제 fake 왕복: 시연 1~8 실패 0, 넣기 뒤 새 다듬기·이동 cancelled, SC-005 유지. 전송 실패: 409 중 개선안으로 보내기 → 같은 카드 재오픈·기록 없음·입력창 원문 → 재시도 refined 1건(선택 POST ["refined"]). 예산 실패 원문으로 보내기 → 카드 재오픈·기록 없음 → 재시도 original. 넣기 뒤 예산 실패 → 입력창 유지 → 재시도 refined. 응답 지연 중 Enter 직후 ESC → 닫기 비활성·카드 유지·기록 없음, 서버 확인 뒤 original 1건. 결함 UI-5 |
 | 2026-10-17 | 005 E2 내보내기 기록 백엔드 (3c28f88) T014 | 통과(프론트 본문 대조는 커밋 대기) | 커밋본 이미지·별도 DB(fake): pdf·markdown 201, 응답 키 {exportId, conversationId, format, createdAt} = 계약 v1.4 예시, createdAt ISO 밀리초 Z, 행 생성·형식 일치. 형식 밖·대문자·누락·숫자·null·깨진 JSON·배열 본문 400 VALIDATION_ERROR(공통 에러 형식), 없는 대화 404 CONVERSATION_NOT_FOUND, 경로 abc 400, 오류 요청은 행 없음, FK ON DELETE CASCADE, 대화 상세 shape 불변. ACCESS_TOKEN 설정 시 토큰 없음 401·있음 201, CORS preflight 200. check_b1~b7·b9·b10·b11 OK, 계약 diff 0. 프론트 api.ts recordExport(작업 트리, 미커밋): 본문 {format}, 파서 네 키·enum이 계약과 일치 |
+| 2026-10-17 | 005 E1 내보내기 프론트 (1b0dda9) T013·T014·T015 | 통과, 결함 2(낮음), 수동 인쇄 미리보기 미검증 | 커밋본: check f1~f5·f7~f10 OK, check:ui 514 통과·71 건너뜀·실패 0. 실제 fake 백엔드(3c28f88 이미지·별도 DB) 왕복: 메시지 0·실행 중 비활성, PDF로 인쇄 → window.print 1회·기록 본문 {"format":"pdf"}, Markdown → `{제목}-YYYYMMDD.md`·기록 본문 {"format":"markdown"}·주소 없음·메시지 수·chart 블록 보존, DB pdf·markdown. 인쇄 상태(beforeprint + print 미디어): 카드 절 32/32 펼침, 머리글 제목·생성·내보낸 날짜, 사이드바·입력창·다듬기·채택·도구 행·메뉴·상단바 숨김, 다크에서도 흰 배경·어두운 글자. 취소(afterprint) 뒤 카드 접힘·차트 크기 복원. Chrome 인쇄 렌더링(A4 폭) PDF 15쪽: 차트 밝은 색·글자 판독 가능, 카드 쪼개짐 없음, 표·코드 가로 넘침 없음. 화면 ui-review 라이트·다크 × 1280·375: 메뉴 키보드(Enter 열기·첫 항목 포커스·화살표·ESC 복귀), axe 0, 대비 4.5 이상, 화면 안. 회귀: check_b1~b7·b9~b11 OK, 계약 diff 0, 질문→제안→채택→새로고침 유지. 결함 QA-14, UI-6. 인쇄 대화상자 자체는 자동화가 막혀(모달이 페이지 스크립트를 멈춤, 헤드리스는 afterprint 미발생) 수동 확인 필요 |
 
 ## 결함
 
@@ -214,3 +215,21 @@
 - 수정 방향: 프론트. 실행 중에도 포커스 가능한 요소(카드 닫기는 busy라 비활성이므로 카드 제목에 tabIndex=-1을 주고 포커스, 또는 #chat-hint 안내로 포커스)를 정하고, 실행이 끝나 버튼이 살아나면 개선안으로 보내기로 옮긴다. us12에 409 재오픈 포커스 케이스를 추가한다
 - 수신: frontend-dev, frontend-designer
 - 상태: 열림 (낮음, 다음 사이클. 프론트 동결)
+
+### QA-14: 인쇄 후 차트 색 복원이 afterprint와 print 미디어 해제 순서에 달려 있다
+- 모듈: frontend / 005 E1 (ChartBlock.tsx onAfterPrint)
+- 경계면: 화면 상태 복원 (FR-005 "끝나면 화면 상태로 돌아온다")
+- 기대: 인쇄 대화상자를 닫으면 차트가 화면 테마 색으로 돌아온다
+- 실제: onAfterPrint가 `paint(chart, false)`로 화면 토큰(--color-text·--chart-*)을 읽는데, 그 순간 print 미디어가 아직 적용돼 있으면 @media print가 덮어쓴 밝은 인쇄 값이 읽힌다. 이어서 미디어가 screen으로 바뀌어도 `printing`이 이미 false라 onPrintMedia가 아무것도 하지 않는다. 재현(다크): beforeprint → print 미디어 → afterprint → screen 미디어 순서면 차트 제목·범례·눈금이 어두운 글자로 남아 다크 배경에서 안 보인다(4초 뒤에도 유지). 미디어를 먼저 screen으로 돌린 뒤 afterprint면 정상. 실제 Chrome 인쇄 미리보기 순서는 자동화로 확인하지 못했다(대화상자가 스크립트를 멈추고, 헤드리스는 afterprint를 보내지 않음)
+- 수정 방향: 프론트. 복원 그리기를 순서와 무관하게 만든다. 예: onAfterPrint에서 `requestAnimationFrame`(또는 print 미디어가 false가 될 때)까지 미뤄 화면 값을 읽거나, onPrintMedia(false)는 printing 여부와 상관없이 화면 색으로 다시 칠한다. us13에 "afterprint가 print 미디어 중에 와도 복원" 케이스를 추가한다
+- 수신: frontend-dev
+- 상태: 열림 (낮음)
+
+### UI-6: 인쇄에서 긴 에이전트 메시지가 통째로 다음 쪽으로 밀려 쪽마다 큰 빈칸이 생긴다
+- 모듈: frontend / 005 E1 (style.css @media print `.msg { break-inside: avoid }`)
+- 경계면: 인쇄 결과 (FR-007, SC-001)
+- 기대: 메시지·카드는 가능한 한 잘리지 않되 쪽을 낭비하지 않는다
+- 실제: 한 쪽보다 긴 에이전트 메시지(카드 2장 포함 약 1,500px)에 break-inside: avoid가 걸려 Chrome이 메시지를 다음 쪽 처음으로 민다. A4 PDF에서 1쪽은 머리글과 첫 질문만 있고 나머지가 비었고, 질문 다음 쪽마다 같은 현상이라 메시지 10개가 15쪽이 됐다. 긴 메시지는 어차피 쪽 경계에서 나뉘므로 avoid가 이득 없이 빈칸만 만든다
+- 수정 방향: 프론트·디자이너. avoid를 `.card`·`.msg.user`와 작은 블록(표 행, 근거 항목)에만 두고 `.msg.assistant`에서는 뺀다. 사용자 질문이 쪽 끝에 홀로 남지 않게 하려면 `.msg.user { break-after: avoid }`를 고려한다
+- 수신: frontend-dev, frontend-designer
+- 상태: 열림 (낮음)

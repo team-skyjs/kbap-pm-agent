@@ -76,8 +76,8 @@ description: "대화 전체 내보내기 구현 태스크"
   - Markdown: 다운로드 이벤트의 파일 이름 형식과 내용(상태 라벨, 네 절)을 확인한다.
   - 버튼·기록: 메시지 0개·실행 중이면 비활성이다. 기록 POST 본문의 `format`이 맞고, 기록 500이어도 내려받기와 `window.print` 호출(스텁)이 된다.
 - [ ] T013 [QA] E1 검증: `check-f10`·`us13`을 실행한다. Chrome 인쇄 미리보기에서 quickstart 시나리오 2~4(긴 대화 전체, 카드 네 절, 차트 가독성, 다크→밝게, 취소 후 복원)를 수동으로 확인하고, ui-review(인쇄 결과)를 한다. 차트·끊김 결과를 CTO에 보낸다(ADR-32 가정 확인) (E1 QA)
-- [ ] T014 [QA] E2 검증: `check_b11.py`를 실행하고, 계약 diff 0(`cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md`)을 확인한다. 프론트 기록 호출 본문을 계약과 대조한다 (E2 QA)
-- [ ] T015 [QA] 회귀: `npm run check`(f1~f10), `npm run check:ui` 전체, 백엔드 `check_b1`~`check_b11` 순차 실행, 질문 → 제안 → 채택 흐름 유지를 본다(SC-005)
+- [x] T014 [QA] E2 검증: `check_b11.py`를 실행하고, 계약 diff 0(`cat specs/001-pm-agent-prototype/contracts/0*.md | diff - _workspace/01_cto_api-contract.md`)을 확인한다. 프론트 기록 호출 본문을 계약과 대조한다 (E2 QA)
+- [x] T015 [QA] 회귀: `npm run check`(f1~f10), `npm run check:ui` 전체, 백엔드 `check_b1`~`check_b11` 순차 실행, 질문 → 제안 → 채택 흐름 유지를 본다(SC-005)
 
 ---
 
