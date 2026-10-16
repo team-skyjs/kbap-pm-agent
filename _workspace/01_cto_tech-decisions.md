@@ -362,7 +362,8 @@
   - Taxonomy 필드: `event_type`·`category.name`·`description`, 이벤트 속성 `event_property`·`type`, 사용자 속성 `user_property`가 구현과 같다.
   - 틀린 키: 401로 거절된다.
   - 형식 수정 두 가지: 리텐션 배열의 첫 칸은 코호트 크기라 D0은 둘째 칸부터다(QA-15). 단일 이벤트 세그멘테이션의 시리즈 이름이 `0`이면 이벤트 이름으로 바꾼다(QA-16). `contracts/amplitude-tools.md`에 반영했다.
-  - 남은 확인: 에이전트 질문 경로(LLM 포함)의 실제 실행은 비용 때문에 하지 않았다.
+  - 재확인(43cdf08): 리텐션은 모든 코호트 D0 100%이고, 합산 줄도 같은 규칙이다. 시리즈 이름은 단일 이벤트면 이벤트 이름, group_by면 그룹 값으로 나온다.
+  - 에이전트 경로: 실제 질문 1회($0.11)에서 모델이 `amplitude_context` 3회·`amplitude_query` 4회를 인자 오류 없이 불렀다. 답에 실제 수치가 들어갔고 `amplitude_status`는 `used`로 기록됐다.
 
 ### ADR-36: 메시지 사전 점검·건너뛰기·실행별 Amplitude 상태 기록 (006)
 - 결정:
