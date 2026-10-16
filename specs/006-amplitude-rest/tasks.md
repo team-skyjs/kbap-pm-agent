@@ -115,7 +115,7 @@ T004·T009·T010이 구현과 검사를 맡는다. 조회 한 줄은 data-model.
 
 ## Phase 7: 검증
 
-- [ ] T014 [QA] A1 교차 검증: (A1 QA)
+- [x] T014 [QA] A1 교차 검증: (A1 QA)
   - 실행·대조: `check_b12.py`를 순차 실행하고, curl 응답을 계약 v1.5(설정 `amplitude`, 503 에러 형식, 삭제된 두 경로 404)와 대조한다.
   - 계약: diff 0.
   - 잔재: `rg -n "mcp|oauth|AMPLITUDE_MCP" backend/app`에 결과가 없다(주석의 이력 언급 제외).
@@ -125,7 +125,7 @@ T004·T009·T010이 구현과 검사를 맡는다. 조회 한 줄은 data-model.
   - 응답 필드: Taxonomy API 응답 필드 이름이 구현과 맞다.
   - 설정·거절: 설정이 `configured`이고, 틀린 키면 "인증에 실패했습니다" 거절이다.
   - 키가 없으면 "미검증"으로 리포트한다.
-- [ ] T016 [QA] A2 + 회귀:
+- [x] T016 [QA] A2 + 회귀:
   - 검사: `npm run check`, `npm run check:ui` 전체, 백엔드 `check_b1`~`check_b12` 순차(b7 제외)를 실행한다.
   - 상태 조회: data-model.md 조회 SQL로 상태별 건수가 맞다.
   - 흐름: 질문 → 제안 → 채택 흐름이 유지된다(SC-005). ui-review(설정 화면, 거절 안내).

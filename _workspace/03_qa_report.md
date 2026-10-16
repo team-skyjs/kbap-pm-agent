@@ -216,6 +216,37 @@ cd frontend && npm run check && npx playwright test checks/ui/us13.spec.ts
 ```
 형식별 건수는 `specs/005-conversation-export/data-model.md`의 SQL 한 줄로 본다.
 
+## 006 Amplitude 서버 고정 인증 — 2026-10-17 (feat/amplitude-rest, 백엔드 cc9221e·프론트 bb6a94c)
+
+### 요약: 통과 2 / 실패 1 / 미검증 1
+
+통과는 A1 경계면(T014)과 A2·회귀(T016)다. 실패는 실제 키 확인(T015)에서 나온 리텐션 표 결함(QA-15 높음)이다. 미검증은 에이전트 질문 경로 전체(LLM 포함, `amplitude_status='used'`)로, 비용 때문에 돌리지 않았다. QA-16(세그멘테이션 시리즈 이름 "0", 낮음)도 열려 있다.
+
+| 기준 | 결과 | 값 |
+|---|---|---|
+| 설정 상태 (US3) | 통과 | 키 둘 다 있으면 configured, 아니면 missing, 응답에 키 없음. 화면 라벨 '서버 키로 연결됨'·'키 없음'+변수 안내, 연결 버튼 없음 |
+| 사전 점검·거절 (US2) | 통과 | 503 AMPLITUDE_UNAVAILABLE 네 이유 문구가 계약과 같음, 거절 시 메시지·llm_usage 0, 화면은 서버 문구·입력 유지, 'Amplitude 없이 진행' 재전송 본문 skipAmplitude:true |
+| 상태 기록 (US4) | 통과 | skipped 기록 확인, fake는 NULL, API에 노출 없음. 열 추가·OAuth 행 삭제가 두 번 기동에도 멱등 |
+| MCP 제거 | 통과 | 코드·설정·계약 분할본에 흔적 0(문서 이력만), 삭제 경로 404, check_b7 삭제 |
+| 실제 Amplitude (T015) | 실패 | 8회 모두 200. 목록·속성 필드 이름, 세그멘테이션·퍼널 표 정상. 리텐션 D열이 하루씩 밀림(QA-15) |
+| 비밀·운영 정보 | 통과 | 로그·응답·커밋 44개 diff·메시지에 키 값·운영 호스트 0 |
+| 기능 회귀 (SC-005) | 통과 | check 9, check:ui 568 통과·71 건너뜀·실패 0, check_b1~b6·b9~b12, 계약 diff 0, 질문→제안→채택 흐름 유지 |
+
+### 미검증 항목과 이유
+- **에이전트 질문 경로(실제 LLM + 실제 Amplitude):** 모델이 도구를 골라 수치 근거를 쓰고 `amplitude_status='used'`가 되는지는 LLM 비용이 들어 돌리지 않았다. 도구 자체는 실제 키로 직접 호출해 확인했다.
+
+### 남은 위험
+- **리텐션 수치가 틀리게 보고된다(QA-15, 수정 대기).** 고치기 전에는 리텐션 질문의 답을 믿으면 안 된다.
+- **mcp 패키지가 openai-agents의 간접 의존으로 설치된다.** 코드에서는 쓰지 않는다.
+- **GitHub 변수에 AMPLITUDE_MCP_URL이 남아 있다.** 배포 워크플로는 더 이상 읽지 않는다. 정리는 team-lead 몫이다.
+
+### 실행 방법
+```bash
+cd backend && uv run python checks/check_b12.py
+cd frontend && npm run check && npx playwright test checks/ui/us14.spec.ts
+```
+상태별 건수는 `specs/006-amplitude-rest/data-model.md`의 SQL 한 줄로 본다.
+
 ## 실행 방법 (사용자가 직접 재현)
 
 아래의 `pm-agent.example.com`은 예시 도메인이다. 실제 운영 주소는 GitHub Variables `PUBLIC_BASE_URL`에만 둔다.
