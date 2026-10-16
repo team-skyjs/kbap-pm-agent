@@ -56,7 +56,7 @@ NEEDS CLARIFICATION: 없음.
 | IV. 비용 상한 | 준수 (강화) | 사전 점검이 모델 호출 전에 막아 Amplitude 없는 헛실행 비용이 사라진다. 사전 점검 자체는 LLM을 부르지 않는다. 결과 크기 상한(`clip`, 31행)으로 입력 토큰을 묶는다. |
 | V. 모듈마다 검사 하나 | 준수 | A1(b12), A2(프론트 검사) 모듈마다 검사와 QA가 있다. 실제 키 확인은 수동 태스크로 분리했다. |
 
-기술 제약 절과의 대조: 헌법 v1.3.0 기술 제약은 "Amplitude: 공식 원격 MCP(조회 전용)"이다. 이번 결정(REST 조회 전용)과 문구가 어긋난다. "조회 전용"은 유지되고 경로만 바뀐다. 거버넌스상 기술 제약 문구 개정이 필요하며 team-lead에 개정안을 전달한다(PATCH: "공식 원격 MCP" → "Dashboard REST·Taxonomy API 프로젝트 키").
+기술 제약 절과의 대조: 헌법 v1.3.1(f488739)에서 Amplitude 줄을 "Dashboard REST·Taxonomy API 프로젝트 키(서버 env, 조회 전용)"로 고쳤다. 원칙 III과 FE↔BE 줄의 MCP·콜백 언급도 정리했다. 이번 결정과 일치한다.
 
 ## Project Structure
 

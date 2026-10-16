@@ -163,5 +163,5 @@ T004·T009·T010이 구현과 검사를 맡는다. 조회 한 줄은 data-model.
 
 ## 선행 조건 (team-lead)
 
-- 헌법 v1.3.0 기술 제약의 "Amplitude: 공식 원격 MCP(조회 전용)"를 "Amplitude: Dashboard REST·Taxonomy API 프로젝트 키(조회 전용)"로 고치는 PATCH 개정이 필요하다. 거버넌스상 병합 전에 한다.
+- [x] 헌법 기술 제약 Amplitude 줄 개정: v1.3.1(f488739)에서 해소했다.
 - 운영 Secrets `AMPLITUDE_API_KEY`·`AMPLITUDE_SECRET_KEY` 등록은 배포 전에 한다(값은 레포 밖).
