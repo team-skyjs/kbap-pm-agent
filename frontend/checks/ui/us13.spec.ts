@@ -103,7 +103,7 @@ test('인쇄 매체: 스크롤 영역이 문서 흐름으로 풀리고 조작 �
   await page.emulateMedia({ media: 'print' })
 
   const display = (sel: string) => page.locator(sel).first().evaluate((el) => getComputedStyle(el).display)
-  for (const sel of ['#sidebar', '.topbar', '.chat-input-wrap', '.decision', 'details.tools', '.md-code-copy']) {
+  for (const sel of ['#sidebar', '.topbar', '.chat-input-wrap', '.decision', 'details.tools', '.md-code-copy', '.usage']) {
     expect(await display(sel), sel).toBe('none')
   }
   const app = await page.locator('.app').evaluate((el) => ({ overflow: getComputedStyle(el).overflow, h: el.getBoundingClientRect().height, vh: innerHeight }))
