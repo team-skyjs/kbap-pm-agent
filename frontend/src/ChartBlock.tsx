@@ -88,10 +88,15 @@ export default function ChartBlock({ spec }: { spec: ChartSpec }) {
 
     // 인쇄 직전: 애니메이션 없이 밝은 색·인쇄 폭으로 다시 그림, 직후: 화면 색·원래 설정·컨테이너 크기로 복원
     const screenAnimation = chart.options.animation
+    const mqPrint = matchMedia('print')
     let printing = false
+    let afterSeen = false
     const onBeforePrint = () => {
       if (printing) return
       printing = true
+      afterSeen = false
+      // 인쇄 매체에서 크기 감시가 컨테이너 폭으로 다시 키우지 않도록 끔
+      chart.options.responsive = false
       // 애니메이션 중에는 크기 변경이 다음 그리기로 미뤄지므로 먼저 멈추고, 미뤄져 있던 크기 변경은 update로 먼저 비운 뒤
       // 마지막에 인쇄 폭으로 맞춤(순서가 바뀌면 남아 있던 컨테이너 폭이 덮어씀)
       chart.stop()
@@ -100,17 +105,27 @@ export default function ChartBlock({ spec }: { spec: ChartSpec }) {
       chart.update('none')
       chart.resize(PRINT_WIDTH, chart.height)
     }
-    const restoreScreen = () => {
+    // 복원은 afterprint와 화면 매체 복귀가 모두 끝난 뒤 한 번, 다음 프레임에서 화면 토큰을 읽어 함
+    // (afterprint가 인쇄 매체 중에 오면 인쇄용 색이 읽히므로). 인쇄 매체가 아니었으면 afterprint만으로 충분
+    const scheduleRestore = () => requestAnimationFrame(() => {
+      if (!printing || mqPrint.matches) return
       printing = false
+      afterSeen = false
+      chart.options.responsive = true
       chart.options.animation = screenAnimation
       paint(chart, false)
       chart.resize()
       chart.update('none')
+    })
+    const onAfterPrint = () => {
+      if (!printing) return
+      afterSeen = true
+      if (!mqPrint.matches) scheduleRestore()
     }
-    const onAfterPrint = () => { if (printing) restoreScreen() }
-    const mqPrint = matchMedia('print')
-    // afterprint가 인쇄 매체가 남아 있는 동안 오면 인쇄용 색을 읽으므로, 화면 매체로 돌아오면 항상 화면 색으로 다시 칠함
-    const onPrintMedia = (e: MediaQueryListEvent) => (e.matches ? onBeforePrint() : restoreScreen())
+    const onPrintMedia = (e: MediaQueryListEvent) => {
+      if (e.matches) onBeforePrint()
+      else if (afterSeen) scheduleRestore()
+    }
     addEventListener('beforeprint', onBeforePrint)
     addEventListener('afterprint', onAfterPrint)
     mqPrint.addEventListener('change', onPrintMedia)
