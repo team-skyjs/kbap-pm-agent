@@ -167,11 +167,18 @@ def _num(v) -> str:
     return str(v)
 
 
-def _labels(data: dict, n: int) -> list[str]:
-    raw = data.get("seriesLabels") or []
-    # [세그먼트 인덱스, 값] 형태면 인덱스 제거
-    raw = [l[1:] if isinstance(l, list) and len(l) > 1 and isinstance(l[0], int) else l for l in raw]
-    return [("/".join(map(str, l)) if isinstance(l, list) else str(l)) for l in raw] or [f"s{i}" for i in range(n)]
+def _labels(data: dict, n: int, names: list[str]) -> list[str]:
+    """seriesLabels는 group_by 없으면 이벤트 인덱스(정수), 있으면 [이벤트 인덱스, 값...]. 인덱스는 events 순서의 이름으로"""
+    out = []
+    for l in data.get("seriesLabels") or []:
+        if isinstance(l, int):
+            out.append(names[l] if 0 <= l < len(names) else str(l))
+        elif isinstance(l, list) and len(l) > 1 and isinstance(l[0], int):
+            prefix = f"{names[l[0]]}/" if len(names) > 1 and 0 <= l[0] < len(names) else ""
+            out.append(prefix + "/".join(map(str, l[1:])))
+        else:
+            out.append("/".join(map(str, l)) if isinstance(l, list) else str(l))
+    return out or [f"s{i}" for i in range(n)]
 
 
 def _summary(x: list, labels: list[str], series: list) -> str:
@@ -187,9 +194,9 @@ def _summary(x: list, labels: list[str], series: list) -> str:
     return "\n".join(out)
 
 
-def series_table(data: dict, title: str) -> str:
+def series_table(data: dict, title: str, names: list[str]) -> str:
     series = data.get("series") or []
-    labels = _labels(data, len(series))
+    labels = _labels(data, len(series), names)
     x = data.get("xValues") or []
     rows = ["| date | " + " | ".join(labels) + " |", "|---|" + "---|" * len(labels)]
     for i, d in enumerate(x[:MAX_ROWS]):
@@ -231,18 +238,21 @@ def _pct(c):
 
 
 def retention_table(data: dict, title: str) -> str:
-    """series[0] = {values: {cohort: [cell]}, dates, combined: [cell]}, cell = {count, outof, incomplete}. 표본 0 코호트 생략."""
+    """series[0] = {values: {cohort: [cell]}, dates, combined: [cell]}, cell = {count, outof, incomplete}. 표본 0 코호트 생략.
+    배열 첫 칸은 코호트 크기, 둘째 칸부터 D0(실제 응답 확인)"""
     s0 = (data.get("series") or [{}])[0]
-    values, combined = s0.get("values") or {}, s0.get("combined") or []
+    raw_values, raw_combined = s0.get("values") or {}, s0.get("combined") or []
+    size = {d: (v[0].get("outof") or 0) if v else 0 for d, v in raw_values.items()}
+    values, combined = {d: v[1:] for d, v in raw_values.items()}, raw_combined[1:]
     ndays = max([len(combined)] + [len(v) for v in values.values()])
     days = [f"D{i}" for i in range(ndays)]
     show = min(ndays, 15)  # ponytail: 코호트 표는 D0~D14만(토큰), 합산 줄은 전체 기간
-    cohorts = [d for d in reversed(s0.get("dates") or list(values)) if any(c.get("outof") for c in values.get(d, []))]
+    cohorts = [d for d in reversed(s0.get("dates") or list(values)) if size.get(d)]
     rows = ["| cohort (n) | " + " | ".join(days[:show]) + " |", "|---|" + "---|" * show]
     for d in cohorts[:MAX_ROWS]:
         cells = values[d][:show]
-        rows.append(f"| {d} ({cells[0]['outof'] if cells else 0}) | " + " | ".join("" if _pct(c) is None else f"{_pct(c)}%" for c in cells) + " |")
-    nout = combined[0]["outof"] if combined else 0
+        rows.append(f"| {d} ({size[d]}) | " + " | ".join("" if _pct(c) is None else f"{_pct(c)}%" for c in cells) + " |")
+    nout = (raw_combined[0].get("outof") or 0) if raw_combined else 0
     avg = [(i, _pct(c), c) for i, c in enumerate(combined)]
     return (f"**{title}** 코호트 {len(cohorts)}개 (표본 0 코호트 {len(values) - len(cohorts)}개 생략), 합산 모수 n={nout}\n"
             + "\n".join(rows) + "\n합산(combined): "
@@ -279,7 +289,7 @@ def amplitude_query(kind: Literal["segmentation", "funnel", "retention"], events
         p = [("e", _event_json(a.events[0]))] + ([("e2", _event_json(a.events[1]))] if len(a.events) > 1 else [])
         p += [("m", a.metric or "uniques")] + ([("formula", a.formula)] if a.formula else [])
         p += [("start", s), ("end", t), ("i", str(a.interval or 1)), ("n", a.n or "any")] + ([("g", a.group_by)] if a.group_by else [])
-        return series_table(_get("/api/2/events/segmentation", p)["data"], title)
+        return series_table(_get("/api/2/events/segmentation", p)["data"], title, [e.event_type for e in a.events])
     if a.kind == "funnel":
         p = [("e", _event_json(e)) for e in a.events]
         p += [("start", s), ("end", t), ("n", a.n or "active"), ("cs", str(a.conversion_window_seconds or 2_592_000))]

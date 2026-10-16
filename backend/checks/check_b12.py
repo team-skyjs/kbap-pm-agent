@@ -40,12 +40,14 @@ c = client()
 assert c.put("/api/settings/taxonomy", json=TAXONOMY_BODY).status_code == 200
 
 # --- 가짜 Amplitude
-SEG = {"data": {"series": [[10, 20, 0]], "seriesLabels": [[0, "scan_start"]], "xValues": ["2026-10-01", "2026-10-02", "2026-10-03"]}}
+SEG = {"data": {"series": [[10, 20, 0]], "seriesLabels": [0], "xValues": ["2026-10-01", "2026-10-02", "2026-10-03"]}}
 FUNNEL = {"data": [{"events": ["scan_start", "scan_complete"], "cumulativeRaw": [100, 41], "cumulative": [1.0, 0.41]}]}
 cell = lambda n, o: {"count": n, "outof": o, "incomplete": False}  # noqa: E731
+# 실제 응답: 배열 첫 칸 = 코호트 크기, 둘째 칸부터 D0
 RET = {"data": {"series": [{"dates": ["2026-10-01", "2026-10-02"],
-                            "values": {"2026-10-01": [cell(50, 50), cell(10, 50)], "2026-10-02": [cell(0, 0), cell(0, 0)]},
-                            "combined": [cell(50, 50), cell(10, 50)]}]}}
+                            "values": {"2026-10-01": [cell(50, 50), cell(48, 50), cell(10, 50)],
+                                       "2026-10-02": [cell(0, 0), cell(0, 0), cell(0, 0)]},
+                            "combined": [cell(50, 50), cell(48, 50), cell(10, 50)]}]}}
 EVENTS = {"data": [{"event_type": "scan_complete", "category": {"name": "scan"}, "description": "Amplitude 쪽 설명"},
                    {"event_type": "app_open", "category": None, "description": "앱 실행"}]}
 EPROPS = {"data": [{"event_type": "scan_complete", "event_property": "success", "description": "Amplitude 쪽"},
@@ -92,7 +94,8 @@ reset()
 seg = amplitude.amplitude_query(kind="segmentation", events=[{"event_type": "scan_start"}], start="2026-10-01", end="2026-10-03")
 lines = seg.splitlines()
 assert lines[0] == "**segmentation scan_start 2026-10-01~2026-10-03 (3 rows × 1 series)**", lines[0]
-assert lines[1] == "| date | scan_start |" and lines[3] == "| 2026-10-01 | 10 |", lines[:4]
+assert lines[1] == "| date | scan_start |", lines[1]  # 정수 라벨 0 → 이벤트 이름
+assert lines[3] == "| 2026-10-01 | 10 |", lines[:4]
 assert lines[-1] == "요약: scan_start: 합 30 · 평균 10.0 · 최대 20(2026-10-02) · 최소 0 · 마지막 0 · 0인 날 1/3", lines[-1]
 p = dict(reqs[0].url.params)
 assert (p["start"], p["end"], p["m"], p["i"], p["n"]) == ("20261001", "20261003", "uniques", "1", "any"), p
@@ -108,9 +111,15 @@ small = amplitude.amplitude_query(kind="funnel", events=[{"event_type": "scan_st
 assert "⚠ 1단계 표본 20명 (<30) — 비율 해석 불가, 절대수로 보고" in small, small
 ret = amplitude.amplitude_query(kind="retention", events=[{"event_type": "scan_start"}, {"event_type": "app_open"}],
                                 start="2026-10-01", end="2026-10-02")
-assert "| cohort (n) | D0 | D1 |" in ret and "| 2026-10-01 (50) | 100.0% | 20.0% |" in ret, ret
+assert "| cohort (n) | D0 | D1 |" in ret and "| 2026-10-01 (50) | 96.0% | 20.0% |" in ret, ret
 assert "표본 0 코호트 1개 생략" in ret and "2026-10-02 (" not in ret
-assert ret.splitlines()[-1] == "합산(combined): D0 100.0% (50/50), D1 20.0% (10/50)", ret
+assert ret.splitlines()[-1] == "합산(combined): D0 96.0% (48/50), D1 20.0% (10/50)", ret
+SEG2 = {"data": {"series": [[1, 2], [3, 4]], "seriesLabels": [[0, "ios"], [1, "ios"]], "xValues": ["2026-10-01", "2026-10-02"]}}
+ROUTES["/api/2/events/segmentation"] = SEG2
+two = amplitude.amplitude_query(kind="segmentation", events=[{"event_type": "scan_start"}, {"event_type": "scan_complete"}],
+                                start="2026-10-01", end="2026-10-02", group_by="platform")
+assert two.splitlines()[1] == "| date | scan_start/ios | scan_complete/ios |", two
+ROUTES["/api/2/events/segmentation"] = SEG
 ok("세그멘테이션·퍼널·리텐션 압축표 머리 행·요약 줄, 날짜 YYYYMMDD, 기본 n·cs, 표본 30 미만 경고")
 
 # --- 도구: 인자 오류는 Amplitude 요청 0회
