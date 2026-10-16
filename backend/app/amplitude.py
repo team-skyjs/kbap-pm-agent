@@ -203,7 +203,10 @@ def series_table(data: dict, title: str, names: list[str]) -> str:
         rows.append(f"| {d} | " + " | ".join(_num(s[i] if i < len(s) else None) for s in series) + " |")
     if len(x) > MAX_ROWS:
         rows.append(f"| … {len(x) - MAX_ROWS} rows 생략 (요약 통계는 전체 기준) |")
-    return f"**{title} ({len(x)} rows × {len(series)} series)**\n" + "\n".join(rows) + "\n요약: " + _summary(x, labels, series)
+    nums = [f"{lab} 합 {_num(sum(v for v in sr if isinstance(v, (int, float))))} · 마지막 {_num(sr[-1] if sr else None)}"
+            for lab, sr in list(zip(labels, series))[:3]]
+    head = f"**{title} ({len(x)} rows × {len(series)} series)** " + ", ".join(nums)  # 첫 줄 = 화면 도구 목록 요약
+    return head + "\n" + "\n".join(rows) + "\n요약: " + _summary(x, labels, series)
 
 
 def funnel_table(data, title: str) -> str:
@@ -229,7 +232,9 @@ def funnel_table(data, title: str) -> str:
         c = f"{cum[i] * 100:.1f}%" if i < len(cum) and cum[i] is not None else ""
         sc = "100%" if i == 0 else (f"{raw[i] / raw[i - 1] * 100:.1f}%" if i < len(raw) and raw[i - 1] else "")
         rows.append(f"| {i + 1} | {e} | {_num(raw[i] if i < len(raw) else None)} | {c} | {sc} |")
-    text = f"**{title}**\n" + "\n".join(rows)
+    steps = " → ".join(f"{e} {_num(raw[i] if i < len(raw) else None)}명" for i, e in enumerate(ev))
+    total = f", 전환율 {raw[-1] / raw[0] * 100:.1f}%" if len(raw) == len(ev) > 1 and raw[0] else ""
+    text = f"**{title}** {steps}{total}\n" + "\n".join(rows)
     return text + (f"\n⚠ 1단계 표본 {raw[0]}명 (<30) — 비율 해석 불가, 절대수로 보고" if raw and raw[0] < 30 else "")
 
 
@@ -254,7 +259,8 @@ def retention_table(data: dict, title: str) -> str:
         rows.append(f"| {d} ({size[d]}) | " + " | ".join("" if _pct(c) is None else f"{_pct(c)}%" for c in cells) + " |")
     nout = (raw_combined[0].get("outof") or 0) if raw_combined else 0
     avg = [(i, _pct(c), c) for i, c in enumerate(combined)]
-    return (f"**{title}** 코호트 {len(cohorts)}개 (표본 0 코호트 {len(values) - len(cohorts)}개 생략), 합산 모수 n={nout}\n"
+    head = ", ".join(f"D{i} {a}%" for i, a, _ in avg if a is not None and i in (0, 1, 7))
+    return (f"**{title}** 합산 n={nout}: {head or '값 없음'} · 코호트 {len(cohorts)}개 (표본 0 코호트 {len(values) - len(cohorts)}개 생략)\n"
             + "\n".join(rows) + "\n합산(combined): "
             + ", ".join(f"D{i} {a}% ({c['count']}/{c['outof']})" for i, a, c in avg if a is not None and i in (0, 1, 2, 3, 7, 14, 30)))
 
@@ -319,7 +325,7 @@ def amplitude_context(event_type: str | None = None) -> str:
     tprops = {p["name"]: p for p in tax.get(event_type, {}).get("properties", [])}
     props = _get("/api/2/taxonomy/event-property", [("event_type", event_type)]).get("data", [])
     users = _get("/api/2/taxonomy/user-property").get("data", [])
-    rows = [f"**{event_type}** 이벤트 속성", "| property | type | 설명 |", "|---|---|---|"]
+    rows = ["| property | type | 설명 |", "|---|---|---|"]
     for p in props:
         name = p.get("event_property", "")
         t = tprops.get(name, {})
@@ -328,4 +334,5 @@ def amplitude_context(event_type: str | None = None) -> str:
         if name not in {p.get("event_property") for p in props}:
             rows.append(f"| {name} | {t.get('type') or ''} | {t.get('description') or ''} (택사노미에만) |")
     names = sorted(u["user_property"] for u in users if u.get("user_property") and not u.get("is_hidden") and not u.get("deleted"))
-    return "\n".join(rows) + "\n사용자 속성: " + (", ".join(names) or "없음")
+    head = f"**{event_type}** 이벤트 속성 {len(rows) - 2}개, 사용자 속성 {len(names)}개"
+    return head + "\n" + "\n".join(rows) + "\n사용자 속성: " + (", ".join(names) or "없음")
