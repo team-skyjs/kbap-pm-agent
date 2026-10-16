@@ -81,6 +81,8 @@
 | 2026-10-17 | 인쇄 다듬기 (74dbb33: 절 요약·답 제목 break-after avoid, p orphans·widows 3, 인쇄 질문 1px 테두리) | 통과 | 커밋본 check 9 OK, check:ui 523 통과·71 건너뜀·실패 0. 같은 대화 A4 PDF 10쪽(변화 없음), 빈칸 쪽 0, 표 행 갈림 없음, 질문 테두리 보임. 차트 색 복원 세 경우 모두 인쇄 전과 같음, 뷰포트 1280 인쇄 캔버스 680x280. fake 왕복 인쇄·Markdown·기록 실패 0. 열린 결함 0 |
 | 2026-10-17 | PR #18 Codex 4건 (fc246e0) | 통과 | 커밋본 check 9 OK, check:ui 541 통과·71 건너뜀·실패 0. 실제 fake 왕복(print()가 beforeprint·afterprint를 보내는 실제 Chrome 흉내): 메뉴 PDF 기록 정확히 1건, beforeprint 직접(Ctrl+P) 1건 추가, Markdown 1건(대화당 pdf,pdf,markdown, 요청 3회·중복 없음). 화면에서 만든 새 대화 첫 답변 직후 내보내기: 인쇄 머리글·Markdown 제목이 실제 제목. 줄바꿈 제목은 Markdown 머리글 "# 스캔 퍼널 이탈 둘째 줄 질문" 한 줄, 인쇄 머리글 h1도 한 줄(white-space normal). 같은 검사가 74dbb33에서는 Ctrl+P 기록 없음·Markdown 제목 두 줄로 실패 |
 | 2026-10-17 | 006 A2 프론트 (bb6a94c) | 통과(정적·검사), 백엔드 왕복은 A1 커밋 대기 | 커밋본 check 9 OK, check:ui 568 통과·71 건너뜀·실패 0. 계약 v1.5와 정적 대조: Settings.amplitude 파서가 {status: configured|missing}만 받음, sendMessage는 skipAmplitude가 참일 때만 필드를 보냄, AMPLITUDE_UNAVAILABLE 에러 코드·안내 추가, connectAmplitude 제거, 설정 라벨 '서버 키로 연결됨'·'키 없음'과 서버 변수 안내(키 값 표시 없음), 503이면 서버 메시지 그대로·입력 유지·'Amplitude 없이 진행' 재전송 |
+| 2026-10-17 | 006 A1 백엔드 (cc9221e) T014 | 통과, 경계면 20항목 실패 0 | 커밋본 이미지·별도 DB, 가짜 Amplitude(AMPLITUDE_REST_BASE). 키 없음 settings {status: missing}·키 있음 configured(응답에 키 없음). 메시지 503 AMPLITUDE_UNAVAILABLE 네 이유(키 없음, 401·403 인증, 429 한도, 연결 실패) 문구가 계약과 글자 단위로 같고 거절 시 메시지 0·llm_usage 0. skipAmplitude 문자열·숫자·null 400. 삭제된 connect·callback 404 NOT_FOUND. 사전 점검은 /api/2/taxonomy/event 한 경로·Basic 인증. 로그에 키 없음. 기동 멱등: 열 삭제·OAuth 행 2개 넣고 두 번 기동 → 열 enum('used','unavailable','skipped') 복구·행 0·오류 없음. fake 모드 Amplitude 호출 0·상태 NULL, API에 amplitude_status 없음. check_b1~b6·b9~b12 OK(b7 삭제 확인), 계약 diff 0. MCP 흔적: 코드·설정·계약 분할본 0(문서 이력만), backend/app은 OAuth 행 삭제 문자열 1건. mcp 패키지는 openai-agents의 간접 의존으로 남음 |
+| 2026-10-17 | 006 T015 실제 키 (cc9221e, 도구 직접 호출) | 일부 실패, 결함 2 | 로컬 .env 프로젝트 키, Amplitude 호출 8회 모두 200(틀린 키 1회는 401 → "인증에 실패했습니다" 거절). 이벤트 목록 50개, category·description 필드 이름 일치(값이 있는 이벤트에서 표시), 이벤트 속성 type·사용자 속성 목록 정상. 세그멘테이션(uniques 7일)·퍼널(scan_start→scan_complete, 7일 창, 표본 30 미만 경고)·리텐션 모두 성공하고 압축표 형식. 결함: 리텐션 D열이 하루씩 밀림(QA-15), 세그멘테이션 시리즈 이름이 "0"(QA-16). 에이전트 질문 경로(amplitude_status='used')는 LLM 비용 때문에 돌리지 않음 |
 
 ## 결함
 
@@ -239,3 +241,21 @@
 - 수정 방향: 프론트·디자이너. avoid를 `.card`·`.msg.user`와 작은 블록(표 행, 근거 항목)에만 두고 `.msg.assistant`에서는 뺀다. 사용자 질문이 쪽 끝에 홀로 남지 않게 하려면 `.msg.user { break-after: avoid }`를 고려한다
 - 수신: frontend-dev, frontend-designer
 - 상태: 확인됨 (f9cb344 최종: .card-head·.card-section·.md-chart·pre·tr만 avoid, .msg.user·.card-head·.card h4는 break-after: avoid. A4 15쪽 → 10쪽, 빈칸 쪽 5 → 0, 표 행 갈림 4쪽 → 0)
+
+### QA-15: 리텐션 표의 D열이 하루씩 밀려 D1이 늘 100%로 보고된다
+- 모듈: backend / 006 A1 (amplitude.retention_table)
+- 경계면: Amplitude REST 응답 ↔ 모델에게 주는 결과 표(contracts/amplitude-tools.md 리텐션)
+- 기대: `| cohort (n) | D0 … D14 |`와 `합산(combined):`의 Dn이 실제 n일째 복귀율이다
+- 실제: 실제 `/api/2/retention` 응답의 코호트 배열은 첫 칸이 코호트 크기, 둘째 칸부터 Day 0이다. 마지막 날 코호트(Oct 16)가 [61/61, 61/61(미완), 0/61(미완)], Oct 14 코호트가 [10/10, 10/10, 3/10, 2/10(미완), 0/10(미완)]이라 둘째 칸이 Day 0, 셋째 칸이 Day 1이어야 날짜가 맞는다. 구현은 첫 칸을 D0으로 세서, 모든 코호트의 D1이 100%이고 미래 날짜 칸에 수가 있다. 합산 줄도 "D1 100.0% (52/52), D2 11.8% (4/34)"로 나오는데 실제는 D0 100%, D1 11.8%다. 모델이 이 표로 리텐션을 답하면 잘못된 수치가 근거로 들어간다. check_b12의 가짜 응답이 첫 칸을 D0으로 만들어 잡지 못했다
+- 수정 방향: 백엔드. values·combined 배열의 첫 칸을 코호트 크기로 보고 둘째 칸부터 D0으로 쓴다(코호트 n은 첫 칸 outof). check_b12의 RET 가짜 응답을 실제 모양(첫 칸 = 크기)으로 바꾼다. 실제 키 재확인은 내가 1회 한다
+- 수신: backend-dev (cto 참조)
+- 상태: 열림 (높음)
+
+### QA-16: 이벤트 하나짜리 세그멘테이션 표의 시리즈 이름이 "0"이다
+- 모듈: backend / 006 A1 (amplitude._labels, series_table)
+- 경계면: Amplitude REST 응답 ↔ 결과 표
+- 기대: `| date | 시리즈... |`의 시리즈 이름으로 모델이 어떤 이벤트(또는 group_by 값)인지 알 수 있다
+- 실제: group_by 없이 이벤트 하나(app_opened)를 조회하면 실제 응답 seriesLabels가 [0]이라 표 머리가 `| date | 0 |`, 요약이 `0: 합 103 …`이다. 이벤트 두 개면 0·1로 나올 것이라 어느 쪽이 어느 이벤트인지 모델이 추측해야 한다
+- 수정 방향: 백엔드. group_by가 없으면 시리즈 이름을 events 순서의 event_type으로 쓴다(seriesLabels가 정수일 때). check_b12 SEG 가짜 응답에 정수 라벨 경우를 추가한다
+- 수신: backend-dev
+- 상태: 열림 (낮음)
