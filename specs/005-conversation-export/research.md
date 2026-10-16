@@ -17,7 +17,7 @@ NEEDS CLARIFICATION은 없다. 이 문서는 내보내기 기록(R1), 인쇄 레
 - 원인(PRD 2절): `.app { height: var(--viewport-h); overflow: hidden }`(`--viewport-h: 100dvh`) 안의 `.scroll { overflow-y: auto }`가 문서 흐름 밖이라 한 화면 분량만 인쇄된다.
 - Decision: `style.css` 끝에 `@media print` 블록 하나를 둔다.
   - **흐름 풀기**: `.app`, `.app` 안 메인 열, `.scroll`에 `height: auto; max-height: none; overflow: visible; display: block`.
-  - **숨김**: 사이드바, Drawer, 입력창(composer), 다듬기 카드, 상단 바의 버튼·배지, 제안 카드의 채택·보류 버튼, 도구 진행 행(`details.tools`), 코드 복사 버튼, 세션·오류 배너의 조작 버튼.
+  - **숨김**: 사이드바, Drawer, 입력창(composer), 다듬기 카드, 상단 바의 버튼·배지, 제안 카드의 채택·보류 버튼, 도구 진행 행(`details.tools`), 메시지의 사용량 줄(모델·토큰·비용, Markdown 규격과 같은 기준), 코드 복사 버튼, 세션·오류 배너의 조작 버튼.
   - **보이기**: 인쇄 머리글 요소(화면에서는 `display: none`). 내용은 대화 제목, 생성일, 내보낸 날짜다.
   - **끊김 방지**: 메시지 블록과 제안 카드에 `break-inside: avoid`. 한 페이지보다 크면 브라우저가 나눈다.
   - **넘침 방지**: `pre, code`에 `white-space: pre-wrap; overflow-wrap: anywhere`, 표 감싸개에 `overflow: visible`, 표에 `table-layout: fixed; width: 100%`, 셀 `overflow-wrap: anywhere`.
