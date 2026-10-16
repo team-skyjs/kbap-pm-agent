@@ -22,6 +22,7 @@ npx playwright test -c playwright.config.ts us6 --project 1280-dark   # 일부�
   - 고정 응답은 한 번에 끝나는 응답이라 `sent`·`progress`는 스트림 종료 뒤 저장된 실행 중 상세로 상태를 재현한다. 스트림이 열린 동안의 화면은 `hang`으로 본다.
   - 옵션: `assistantContent`(대화 7 답변 본문 교체, 예: `MARKDOWN_SAMPLE`), `list`(대화 목록 교체), `completeAfterPoll`(진행 → 다음 주기 재조회에서 완료), `conflictRace`(409 안내 경합 재현).
   - 질문 다듬기: `refine`(`ok` = 계약 08b 예시, `fail` = 502 UPSTREAM_ERROR), `refineDelayMs`(다듬기 응답 지연, 기본 300ms, 진행 중 잠금 확인용), `choiceFail`(선택 기록 500, 전송은 계속되어야 함).
+  - 내보내기: `exportFail`(내보내기 기록 500, 내려받기·인쇄는 계속되어야 함), `sendDelayMs`(메시지 전송 응답 지연).
 - live: `CHECK_UI_LIVE=1 npm run check:ui`면 고정 응답 스펙은 그대로 돌고, `mockApi`를 부르지 않는 live 전용 테스트(us8의 진행 → 완료 한 경로)가 추가로 로컬 백엔드(`docker compose up`, fake 모드)를 쓴다. 백엔드와 같은 출처(dev 프록시)가 되는 접근 제한 병합 뒤부터 동작한다. 그 전에는 백엔드 CORS가 5173만 허용한다.
 - 토큰 401(`UNAUTHORIZED`)은 오류 상태(토큰·설정 안내)이고 세션 만료가 아니다. 세션 만료(`expired`, 로그인 HTML 401 → `SESSION_EXPIRED`) 스펙은 `test.fixme`이고 접근 제한 PR 병합 때 켠다.
 
@@ -50,3 +51,4 @@ npx playwright test -c playwright.config.ts us6 --project 1280-dark   # 일부�
 | us10 | 설정: 상태 라벨, 포커스 윤곽선, 토큰 저장, 375 넘침 |
 | us11 | 키보드만으로 질문→채택, axe 심각·중대 0(채팅·카드 펼침·Drawer·설정) |
 | us12 | 질문 다듬기: 버튼 활성 조건, 진행 중 잠금, 비교 카드, 네 선택(전송 본문·입력창·선택 기록 값), 실패 안내와 원문 유지, 선택 기록 실패에도 전송, 키보드·포커스, axe |
+| us13 | 대화 내보내기: 버튼 활성 조건·메뉴 키보드, Markdown 내려받기(이름·내용·기록), PDF 인쇄 호출·기록, 인쇄 매체(흐름 풀기·숨김·머리글·흰 배경), 인쇄 직전·직후(카드 절 열기·차트 인쇄 폭·복원) |

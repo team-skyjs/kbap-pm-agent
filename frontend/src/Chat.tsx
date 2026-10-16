@@ -7,6 +7,9 @@ import {
 import ProposalCard from './ProposalCard.tsx'
 import RefineCard from './RefineCard.tsx'
 import { useRefine } from './refine.ts'
+import ExportMenu from './ExportMenu.tsx'
+import { localStamp } from './exportMarkdown.ts'
+import { installPrintSupport, today } from './print.ts'
 import { SessionBanner, Topbar } from './Shell.tsx'
 
 const SOURCE_LABEL: Record<ToolCall['source'], string> = { amplitude: 'Amplitude', code: '코드', taxonomy: '택사노미' }
@@ -128,6 +131,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   }, [id])
 
   useEffect(() => { setDetail(null); setNotice(''); load() }, [load])
+  useEffect(() => installPrintSupport(), [])
 
   const running = detail?.messages.some((m) => m.status === 'running') ?? false
 
@@ -255,10 +259,17 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   const backToInput = (f: () => void) => () => { f(); inputRef.current?.focus() }
   return (
     <>
-      <Topbar title={detail.title ?? '새 대화'} />
+      <Topbar title={detail.title ?? '새 대화'}>
+        <ExportMenu detail={detail} disabled={disabled || detail.messages.length === 0} />
+      </Topbar>
       {sessionExpired && <SessionBanner />}
       <div className="scroll" ref={scrollRef} onScroll={onScroll} tabIndex={0} role="region" aria-label="대화 내용">
         <div className="thread chat">
+          {/* 인쇄에서만 보이는 머리글: 제목·날짜만(주소·호스트명 없음) */}
+          <header className="print-header">
+            <h1>{detail.title ?? '새 대화'}</h1>
+            <p>대화 생성 {localStamp(detail.createdAt)} · 내보낸 날짜 <span data-print-date>{today()}</span></p>
+          </header>
           {detail.messages.length === 0 && <p className="muted empty">질문을 입력하세요. 예: 스캔 퍼널에서 가장 큰 이탈 지점 찾아서 개선안 제안해줘</p>}
           {detail.messages.map((m, i) => (
             <MessageView

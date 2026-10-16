@@ -599,3 +599,22 @@ export const refineQuestion = (conversationId: number | null, question: string) 
   request('POST', '/api/questions/refine', parseRefineResponse, { conversationId, question })
 export const recordRefineChoice = (refinementId: number, choice: RefineChoice) =>
   request('POST', `/api/questions/refine/${refinementId}/choice`, parseRefineChoiceResponse, { choice })
+
+// ---------- POST /api/conversations/{conversationId}/exports ----------
+
+export type ExportFormat = 'pdf' | 'markdown'
+export type ExportRecord = { exportId: number; conversationId: number; format: ExportFormat; createdAt: string }
+
+export function parseExportRecord(v: unknown): ExportRecord {
+  const p = 'export'
+  const o = obj(v, p)
+  return {
+    exportId: num(o, 'exportId', p),
+    conversationId: num(o, 'conversationId', p),
+    format: oneOf(o, 'format', ['pdf', 'markdown'] as const, p),
+    createdAt: str(o, 'createdAt', p),
+  }
+}
+
+export const recordExport = (conversationId: number, format: ExportFormat) =>
+  request('POST', `/api/conversations/${conversationId}/exports`, parseExportRecord, { format })

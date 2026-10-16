@@ -4,7 +4,7 @@ import { readdirSync } from 'node:fs'
 
 const only = process.argv[2]
 const files = readdirSync(new URL('.', import.meta.url))
-  .filter((f) => /^check-f\d\.ts$/.test(f))
+  .filter((f) => /^check-f\d+\.ts$/.test(f))
   // check-f6은 빌드 산출물이 필요해 이름 지정 시에만 실행
   .filter((f) => (only ? f === `check-${only}.ts` : f !== "check-f6.ts"))
   .sort()
