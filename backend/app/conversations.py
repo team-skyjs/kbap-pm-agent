@@ -7,7 +7,8 @@ import time
 from fastapi import APIRouter, Body
 from fastapi.responses import StreamingResponse
 
-from app import agent, budget, db
+from app import agent, amplitude, budget, db
+from app.config import is_fake
 from app.db import iso
 from app.errors import ApiError
 from pydantic import TypeAdapter
@@ -158,25 +159,29 @@ def send_message(conversation_id: int, body: SendMessageIn):
     if db.one("SELECT id FROM messages WHERE conversation_id = %s AND status = 'running'", (conversation_id,)):
         raise ApiError(409, "RUN_IN_PROGRESS", "이 대화에서 이미 에이전트가 실행 중입니다. 끝난 뒤 다시 보내 주세요.")
     budget.check()
+    skip = body.skip_amplitude
+    if not is_fake() and not skip:
+        amplitude.preflight()  # 조회 불가면 모델 호출·메시지 저장 전에 503
     # ponytail: 확인과 삽입 사이 경쟁 미방지(사용자 2명). 필요하면 conversations 행 SELECT ... FOR UPDATE
     uid = db.x("INSERT INTO messages (conversation_id, role, status, content) VALUES (%s, 'user', 'completed', %s)",
                (conversation_id, body.content))
     if c["title"] is None:
         db.x("UPDATE conversations SET title = %s WHERE id = %s", (body.content[:40], conversation_id))
-    aid = db.x("INSERT INTO messages (conversation_id, role, status, content) VALUES (%s, 'assistant', 'running', '')",
-               (conversation_id,))
+    amp_status = None if is_fake() else ("skipped" if skip else "used")  # 시연 모드는 집계 제외
+    aid = db.x("""INSERT INTO messages (conversation_id, role, status, content, amplitude_status)
+                  VALUES (%s, 'assistant', 'running', '', %s)""", (conversation_id, amp_status))
     db.x("UPDATE conversations SET updated_at = NOW(3) WHERE id = %s", (conversation_id,))
     created = {"userMessage": message(uid), "assistantMessageId": aid}
-    return StreamingResponse(_stream(aid, conversation_id, body.content, created), media_type="text/event-stream",
+    return StreamingResponse(_stream(aid, conversation_id, body.content, created, skip), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-async def _stream(aid: int, conversation_id: int, content: str, created: dict):
+async def _stream(aid: int, conversation_id: int, content: str, created: dict, skip_amplitude: bool):
     queue: asyncio.Queue = asyncio.Queue()
 
     async def pump():
         try:
-            async for ev in agent.run_agent(aid, conversation_id, content):
+            async for ev in agent.run_agent(aid, conversation_id, content, skip_amplitude):
                 await queue.put(ev)
         except Exception:
             log.exception("agent run failed")

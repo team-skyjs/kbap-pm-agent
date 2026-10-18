@@ -2,12 +2,16 @@
 // 대화 상세·생성 예시의 파서 통과
 import assert from 'node:assert/strict'
 import {
-  createSseParser, parseConversationDetail, parseConversationSummary, parseSseBlock,
+  errorText, parseErrorBody, createSseParser, parseConversationDetail, parseConversationSummary, parseSseBlock,
   type ConversationDetail, type Message, type StreamEvent,
 } from '../src/api.ts'
 import { blocks, jsonBlock } from './contract.ts'
 
-const [, stream, errorStream] = blocks('05-messages.md')
+// 블록 순서가 계약 추가로 바뀌어도 맞도록 내용으로 찾음
+const all = blocks('05-messages.md')
+const stream = all.find((b) => b.startsWith('event: message_created'))
+const errorStream = all.find((b) => b.startsWith('event: error'))
+assert(stream && errorStream)
 const withPing = stream.replace('event: tool_call', ': ping\n\nevent: tool_call')
 
 // 7바이트씩 잘라 넣어 청크 경계 재현
@@ -47,3 +51,11 @@ assert.equal(detail.messages[1].proposals[0].type, 'improvement')
 // 실행 중 메시지 형태(content "", proposals [], usage null) 통과
 const running = parseConversationDetail({ ...detail, messages: [{ ...detail.messages[1], status: 'running', content: '', proposals: [], usage: null }] })
 assert.equal(running.messages[0].status, 'running')
+
+// 사전 점검 거절(503 AMPLITUDE_UNAVAILABLE): 계약 예시가 에러 파서를 통과하고 이유 문구가 그대로 남음
+const amp = all.map((b) => b.trim()).find((b) => b.includes('"AMPLITUDE_UNAVAILABLE"'))
+assert(amp)
+const ampErr = parseErrorBody(JSON.parse(amp))
+assert.equal(ampErr.error.code, 'AMPLITUDE_UNAVAILABLE')
+assert(ampErr.error.message.startsWith('Amplitude 조회 불가: '))
+assert(errorText(ampErr.error.code).startsWith('Amplitude를 조회할 수 없습니다.'))

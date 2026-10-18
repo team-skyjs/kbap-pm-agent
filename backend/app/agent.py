@@ -14,8 +14,11 @@ import functools
 import inspect
 import uuid
 
+from pydantic_core import to_jsonable_python
+
 from app import budget, db
 from app.config import env, is_fake, num
+from app.errors import ToolError
 
 log = logging.getLogger("app.agent")
 
@@ -88,8 +91,8 @@ SYSTEM_PROMPT = """너는 K-Bap 앱 팀의 PM 에이전트다. PM 질문에 답�
 4. 택사노미에 정의는 있으나 코드에서 호출을 찾지 못한 이벤트는 근거 summary에 "정의는 있으나 코드에서 발견되지 않음"이라고 쓴다. 코드에만 있고 택사노미 정의가 없는 이벤트는 "코드에만 존재, 정의 없음"이라고 쓴다.
 5. 쓸 수 없는 소스(아래 상태가 '없음'이거나 도구 호출이 실패한 소스)가 있으면 content에 어떤 근거가 빠졌는지 명시한다.
 6. 코드는 find_event_calls, search_code로 위치를 좁힌 뒤 read_code로 필요한 줄만 읽는다. 파일 전체를 읽으려 하지 않는다.
-7. Amplitude 도구는 조회에만 쓴다. 차트를 만들거나 수정·저장하지 않는다.
-8. Amplitude 조회는 필요한 범위만 요청한다. 시계열은 timeSeriesLimit로 최근 구간만, groupByLimit은 작게, includeAdditionalInfo는 끈다.
+7. Amplitude 도구(amplitude_query, amplitude_context)는 조회에만 쓴다. 차트를 만들거나 수정·저장하지 않는다.
+8. Amplitude 조회는 필요한 범위만 요청한다. 기간은 90일 이내로 질문에 필요한 만큼만, 31일을 넘으면 interval은 7 이상, group_by는 꼭 필요할 때만 쓴다. 이벤트 이름은 amplitude_context나 택사노미에서 확인한 실제 이름만 쓰고(커스텀 이벤트는 ce: 접두어), 세그멘테이션의 n은 any·active, new는 퍼널에서만 쓴다.
 9. 마크다운 굵게(**) 바로 뒤에 조사를 붙이지 말고 한 칸 띄어 쓴다. 예: "**41.3%** 로", "**scan_complete** 이벤트".
 10. 시계열 지표(날짜별 수치)를 답할 때는 본문에 chart 코드 블록을 함께 쓴다. 형식:
 ```chart
@@ -159,16 +162,15 @@ def clip(text: str) -> str:
 def wrap(fn, emit, source: str, name: str | None = None):
     """공통 도구 래퍼: tool_call 이벤트 → 실행 → tool_result 이벤트. 예외는 failed로 알린 뒤 다시 던져
     각 SDK가 오류 결과로 모델에 반환(도구 하나가 실패해도 실행 계속). functools.wraps로 원래 시그니처·docstring을
-    도구 스키마의 원천으로 유지(MCP 도구는 런타임이 스키마를 따로 전달)."""
+    도구 스키마의 원천으로 유지."""
     tool_name = name or fn.__name__
     sig = inspect.signature(fn)
     is_async = inspect.iscoroutinefunction(fn)
 
     @functools.wraps(fn)
     async def tool(*args, **kwargs):
-        args_in = {}
-        for k, v in sig.bind(*args, **kwargs).arguments.items():  # **kwargs 매개변수(MCP 도구)는 펼침
-            args_in.update(v) if sig.parameters[k].kind is inspect.Parameter.VAR_KEYWORD else args_in.__setitem__(k, v)
+        # SDK가 인자를 Pydantic 모델로 바꿔 넘기는 경우가 있어 JSON 가능한 값으로(tool_calls.input 저장용)
+        args_in = to_jsonable_python(sig.bind(*args, **kwargs).arguments)
         key = uuid.uuid4().hex
         await emit({"type": "tool_call", "key": key, "source": source, "name": tool_name, "input": args_in})
         try:
@@ -176,7 +178,7 @@ def wrap(fn, emit, source: str, name: str | None = None):
             out = await fn(*args, **kwargs) if is_async else await asyncio.to_thread(fn, *args, **kwargs)
             text = out if isinstance(out, str) else str(out)
         except Exception as e:
-            msg = f"도구 오류: {type(e).__name__}: {str(e)[:300]}"
+            msg = str(e)[:500] if isinstance(e, ToolError) else f"도구 오류: {type(e).__name__}: {str(e)[:300]}"
             await emit({"type": "tool_result", "key": key, "status": "failed", "summary": msg, "text": msg})
             raise
         await emit({"type": "tool_result", "key": key, "status": "succeeded",
@@ -208,7 +210,18 @@ def partial_content(reason: str, results: list[tuple[str, str]]) -> str:
     return "\n".join(lines if results else [reason, "", "조회한 결과가 없습니다."])
 
 
-async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
+def _amplitude_tools(skip: bool) -> tuple[list, str]:
+    """(도구 함수 목록, 소스 상태 문구). 실제 모드에서 키 없음은 사전 점검이 막으므로 상태 문구로만 남김"""
+    from app import amplitude
+    if skip:
+        return [], "Amplitude 없음(사용자가 건너뜀)"
+    if not amplitude.configured():
+        return [], "Amplitude 없음(키 없음)"
+    return [amplitude.amplitude_query, amplitude.amplitude_context], "Amplitude 있음"
+
+
+async def _real(message_id: int, conversation_id: int, skip_amplitude: bool) -> AsyncIterator[dict]:
+    from app import amplitude
     from pydantic import ValidationError
 
     from app.schemas import AgentAnswer
@@ -221,8 +234,9 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
         return
     queue: asyncio.Queue = asyncio.Queue()
     specs, status = _code_tools()
-    tools = [wrap(f, queue.put, src) for f, src in specs]
-    system = f"{SYSTEM_PROMPT}\n오늘 날짜(UTC): {datetime.date.today().isoformat()}\n{status}"
+    amp_fns, amp_status = _amplitude_tools(skip_amplitude)
+    tools = [wrap(f, queue.put, src) for f, src in specs + [(f, "amplitude") for f in amp_fns]]
+    system = f"{SYSTEM_PROMPT}\n오늘 날짜(UTC): {datetime.date.today().isoformat()}\n{status}, {amp_status}"
 
     def usage(input_tokens: int, output_tokens: int) -> None:
         budget.record("agent", agent_model(), input_tokens, output_tokens, message_id)
@@ -230,6 +244,7 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
     task = asyncio.create_task(mod.run(model, system, _history(conversation_id), tools, queue.put, usage))
     results: list[tuple[str, str]] = []  # (도구 이름, 결과 요약), 상한 도달 시 부분 답에 사용
     names: dict[str, str] = {}
+    amp_keys: set[str] = set()
     reason = None
     try:
         async with asyncio.timeout(timeout):
@@ -245,8 +260,13 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
                     ev = getter.result()
                 if ev["type"] == "tool_call":
                     names[ev["key"]] = ev["name"]
+                    if ev["source"] == "amplitude":
+                        amp_keys.add(ev["key"])
                 elif ev["type"] == "tool_result":
                     results.append((names.get(ev["key"], "?"), ev["summary"]))
+                    if ev["key"] in amp_keys and ev["status"] == "failed" and ev["text"].startswith(amplitude.AUTH_FAILED):
+                        # 점검 뒤 실행 중 인증이 끊긴 실행: 전환 후 0이어야 하는 측정값
+                        db.x("UPDATE messages SET amplitude_status = 'unavailable' WHERE id = %s", (message_id,))
                 yield ev
     except TimeoutError:
         reason = f"실행 시간 상한({timeout:g}초)에 도달해 여기까지의 조회 결과로 답합니다."
@@ -278,8 +298,8 @@ async def _real(message_id: int, conversation_id: int) -> AsyncIterator[dict]:
     yield {"type": "final", "content": answer.content, "proposals": [p.model_dump(by_alias=True) for p in answer.proposals]}
 
 
-async def run_agent(message_id: int, conversation_id: int, content: str) -> AsyncIterator[dict]:
-    source = _fake(message_id) if is_fake() else _real(message_id, conversation_id)
+async def run_agent(message_id: int, conversation_id: int, content: str, skip_amplitude: bool = False) -> AsyncIterator[dict]:
+    source = _fake(message_id) if is_fake() else _real(message_id, conversation_id, skip_amplitude)
     async for ev in source:
         yield ev
 

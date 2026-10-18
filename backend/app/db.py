@@ -41,12 +41,17 @@ def init() -> None:
 
 
 def migrate() -> None:
-    """기존 DB 보정. CREATE TABLE IF NOT EXISTS는 이미 있는 테이블의 ENUM을 바꾸지 않아 조건부 ALTER로 확장.
-    값이 이미 있으면 건너뜀(멱등). 기동 시 init()에서 요청을 받기 전에 실행"""
+    """기존 DB 보정. CREATE TABLE IF NOT EXISTS는 이미 있는 테이블을 바꾸지 않아 조건부 ALTER로 확장.
+    이미 반영됐으면 건너뜀(멱등). 기동 시 init()에서 요청을 받기 전에 실행"""
     col = one("""SELECT COLUMN_TYPE FROM information_schema.COLUMNS
                  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'llm_usage' AND COLUMN_NAME = 'purpose'""")
     if col and "'refine'" not in col["COLUMN_TYPE"]:
         x("ALTER TABLE llm_usage MODIFY purpose ENUM('agent','code_summary','refine') NOT NULL")
+    if not one("""SELECT 1 FROM information_schema.COLUMNS
+                  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'messages' AND COLUMN_NAME = 'amplitude_status'"""):
+        x("ALTER TABLE messages ADD COLUMN amplitude_status ENUM('used','unavailable','skipped') NULL")
+    # 이전 연결 방식의 상태·토큰 행 제거(읽기+쓰기 권한으로 발급된 토큰이 남지 않게)
+    x("DELETE FROM app_settings WHERE k IN ('amplitude', 'amplitude_oauth')")
 
 
 def q(sql: str, args=()) -> list[dict]:

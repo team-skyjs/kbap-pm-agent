@@ -2,7 +2,7 @@
 라우트는 dict를 직접 생성, 이 모델은 계약 검증(검사 스크립트)과 에이전트 최종 응답 강제(AgentAnswer)용."""
 from typing import Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -191,9 +191,7 @@ class Taxonomy(M):
 
 
 class Amplitude(M):
-    status: Literal["connected", "disconnected"]
-    server_url: str
-    connected_at: str | None
+    status: Literal["configured", "missing"]
 
 
 class Models(M):
@@ -222,6 +220,7 @@ class CreateConversationIn(M):
 
 class SendMessageIn(M):
     content: str = Field(min_length=1, max_length=4000)
+    skip_amplitude: StrictBool = False
 
 
 class PatchProposalIn(M):

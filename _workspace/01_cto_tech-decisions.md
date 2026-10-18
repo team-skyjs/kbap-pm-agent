@@ -42,7 +42,7 @@
 - 이유: Amplitude 원격 MCP는 OAuth만 받는다(API 키 미지원). 사용자 2명·인증 없음이므로 연결은 "서버 단위 1개"로 충분하다.
 - 버린 대안: Amplitude Dashboard REST API 직접 호출(kbap-amplitude 방식). 검증된 코드가 있지만 PRD가 공식 MCP를 명시했고 택사노미·차트 도구를 공짜로 얻는다. MCP 연결이 막히면 kbap-amplitude `amp.py`를 도구로 감싸는 것이 즉시 쓸 수 있는 대체 경로다.
 - 바꾸면 영향: Amplitude 도구 공급 함수 하나와 settings의 `amplitude` 상태 필드.
-- 상태: 가정 — 동적 클라이언트 등록 지원은 Amplitude 공식 문서가 아닌 서드파티(Nango) 문서로만 확인했다. B7 첫날 실연결로 검증한다. (2026-10-15 영향 범위 갱신: `langchain-mcp-adapters` 제거. OAuth는 MCP SDK `OAuthClientProvider` 그대로이고, 도구 공급은 ADR-20의 두 런타임이 이 provider 하나를 공유한다. Anthropic 런타임은 `anthropic.lib.tools.mcp.async_mcp_tool`, OpenAI 런타임은 `MCPServerStreamableHttp(params={"url", "auth"})`를 쓴다. Anthropic MCP 커넥터는 쓰지 않는다. 근거는 research.md R8)
+- 상태: 대체됨(→ADR-34) — 2026-10-17 운영 확인: MCP OAuth가 갱신 토큰을 발급하지 않아(만료 24시간, refresh 없음) 서버 무인 운영이 불가능하다. Dashboard REST·Taxonomy API 프로젝트 키로 바꾼다.
 
 ### ADR-4: 추론 모델은 `init_chat_model` 문자열 하나로 교체
 - 결정: 모델은 환경변수 `AGENT_MODEL`(예: `anthropic:claude-sonnet-5-5`, `openai:gpt-6-luna`)과 `CODE_SUMMARY_MODEL`로 지정하고 `langchain.chat_models.init_chat_model`로 생성한다. 코드에 공급자 분기를 두지 않는다.
@@ -142,7 +142,7 @@
 - 이유: 헌법 원칙 III("외부 연동 전부를 계약서 예시 값으로 대체")과 FR-011, SC-005. ADR-10은 GitHub를 `file://`로 시험하게 해 외부 키 없는 시연과 어긋났다.
 - 버린 대안: ADR-10 유지(헌법 위반), 연동별 인터페이스+가짜 구현(원칙 II 위반).
 - 바꾸면 영향: 저장소·Amplitude 함수 각각에 분기 하나. `file://` 클론은 real 모드 시험 수단으로 남는다.
-- 상태: 확정 (2026-10-15 영향 범위 갱신: fake 분기는 `agent.py`에서 런타임 선택 전에 탄다. 두 런타임은 fake 모드에서 호출되지 않는다. 키 없는 런타임 검증은 각 SDK 클라이언트에 `httpx.MockTransport`를 주입하는 검사 스크립트로 한다(ADR-20). 운영 코드에 가짜 런타임은 두지 않는다)
+- 상태: 확정 (2026-10-15 영향 범위 갱신: fake 분기는 `agent.py`에서 런타임 선택 전에 탄다. 두 런타임은 fake 모드에서 호출되지 않는다. 키 없는 런타임 검증은 각 SDK 클라이언트에 `httpx.MockTransport`를 주입하는 검사 스크립트로 한다(ADR-20). 운영 코드에 가짜 런타임은 두지 않는다) 일부 대체(→ADR-34, 2026-10-17): Amplitude seam은 MCP OAuth가 아니라 REST 키 조회다. 시연 모드에서 Amplitude는 호출하지 않고 메시지 사전 점검을 통과시킨다. 검사는 `httpx.MockTransport`로 가짜 응답을 준다.
 
 ### ADR-16: 에이전트 실행 시간 상한 `AGENT_TIMEOUT_SECONDS`(기본 170초)
 - 결정: 모델 호출 턴 상한(ADR-2)에 더해 실행 시간 상한을 둔다. 둘 중 하나에 닿으면 그때까지의 조회 결과로 `final`을 보내고 `content` 첫 문장에 중단 사유를 적는다. 개별 도구 실패는 실행을 멈추지 않는다.
@@ -207,7 +207,7 @@
 - 구현 확인(9e1c2c6): `openai-agents` 0.23.1의 `function_tool`, `max_turns`/`MaxTurnsExceeded`, `result.context_wrapper.usage`를 확인했다. 트레이싱은 끈다. 실행 내용(코드 발췌, 지표)이 OpenAI 트레이스로 나가지 않게 하기 위해서다. MCP 도구는 두 런타임 모두 공통 래퍼로 감싼다(Anthropic `async_mcp_tool` 미사용). Anthropic SDK의 전송 계층은 `httpx2`다.
 - 알려진 런타임 차이(QA eb7f906): 모델이 없는 도구 이름을 부르면 Anthropic tool runner는 오류 결과를 돌려주고 계속한다. openai-agents는 `ModelBehaviorError`로 실행 전체가 `error` `UPSTREAM_ERROR`다. 둘 다 계약 안이다. 앞은 도구 실패, 뒤는 "추론 모델 자체 실패"로 분류된다. 지금은 맞추지 않는다. T073 실제 실행에서 OpenAI 쪽에 반복되면 `ModelBehaviorError`를 잡아 부분 `final`(`partial_content()`)로 보내도록 바꾼다. 이때 계약 05 비고에 중단 사유 하나를 추가해야 한다.
 - 미검증: 실제 키 호출(T073). 구조화 출력이 `AgentAnswer` 스키마 제약을 받는지가 남았다.
-- 상태: 확정 (헌법 "기술 제약"의 "LangChain 1.x" 문구 개정이 선행돼야 한다. 거버넌스 규칙. team-lead에 개정안 전달)
+- 상태: 확정 (헌법 "기술 제약"의 "LangChain 1.x" 문구 개정이 선행돼야 한다. 거버넌스 규칙. team-lead에 개정안 전달) Amplitude MCP 연결 부분 대체(→ADR-34, 2026-10-17): 두 런타임의 MCP 세션·`MCPServerStreamableHttp`·OAuth provider 공유는 사라지고, Amplitude 도구는 코드 도구처럼 공통 래퍼로 감싼 Python 함수다.
 
 ### ADR-24: 답변 차트는 Chart.js v4(필요한 컨트롤러만, 지연 로드) (003 프론트 재설계)
 - 결정: `chart.js` v4에서 선·막대에 필요한 컨트롤러·스케일·요소·범례·툴팁·제목만 등록한다. 차트 블록이 처음 나올 때 동적 `import()`로 별도 청크를 받는다. 색은 CSS 토큰(`--chart-1`~`--chart-4`, `--chart-grid`, 글자색)에서 읽고, 시스템 테마가 바뀌면 다시 읽어 갱신한다. 캔버스 옆에 같은 데이터의 숨긴 표를 둔다(낭독기용).
@@ -328,6 +328,60 @@
 - 바꾸면 영향: 생성 함수와 규격 파일, 검사 f10.
 - 상태: 확정
 
+### ADR-34: Amplitude는 Dashboard REST·Taxonomy API를 프로젝트 키 Basic 인증으로 부른다 (ADR-3 대체, ADR-15·20 일부 대체, 006)
+- 결정:
+  - **환경 변수**: `AMPLITUDE_API_KEY`·`AMPLITUDE_SECRET_KEY`(GitHub Secrets), `AMPLITUDE_REST_BASE`(Variables, 기본 `https://amplitude.com`, EU는 `https://analytics.eu.amplitude.com`)다. 둘 중 하나라도 비면 "키 없음"이다. 키는 `httpx.BasicAuth`로만 쓰고 응답·로그·`tool_calls.input`에 넣지 않는다(헌법 원칙 III).
+  - **조회 전용**: 허용 경로 6개(세그멘테이션·퍼널·리텐션·Taxonomy 이벤트·이벤트 속성·사용자 속성)의 GET만 부른다. 그 밖의 경로·메서드는 호출 전에 예외다. 시크릿 키에는 쓰기 권한도 있어서 코드로 막는다.
+  - **MCP 제거**: `amplitude.py`의 OAuth provider·DB 토큰 저장소·connect/callback 라우트, 두 런타임의 MCP 세션 코드, env `AMPLITUDE_MCP_URL`·`AMPLITUDE_TOOLS`를 지운다. 기동 시 `app_settings`의 `amplitude`·`amplitude_oauth` 행을 삭제한다(읽기+쓰기 권한으로 발급됐던 토큰 제거).
+  - 두 경로를 공존시키지 않는다.
+- 이유: 2026-10-17 운영 확인 결과 MCP OAuth 토큰은 만료 24시간이고 갱신 토큰이 없다. 서버에서는 재승인(브라우저)이 불가능해 매일 사람이 다시 연결해야 했고, 끊긴 상태의 실행은 수치 없이 비용만 썼다. REST 프로젝트 키는 만료가 없고, 형제 레포가 같은 프로젝트에서 운영 중이라 플랜 권한도 확인된 셈이다(PRD 2·6.4).
+- 버린 대안: MCP 유지 + 매일 재승인(없애려는 작업), MCP "서비스 계정"(존재 미확인, 문의 필요. 열린 질문으로 남김), MCP·REST 공존(유지 비용 두 배), 브라우저 자동화로 OAuth 대행(PRD 비목표).
+- 바꾸면 영향: `amplitude.py` 전체, 두 런타임의 Amplitude 부분, 설정 응답, 계약 v1.5, 배포 env.
+- 상태: 확정 (헌법 v1.3.0 기술 제약의 "Amplitude: 공식 원격 MCP" 문구 개정 필요. "조회 전용"은 유지, team-lead에 개정안 전달)
+
+### ADR-35: Amplitude 도구는 두 개, 구조화 인자와 압축표 결과 (006)
+- 결정: 형식 기준은 `specs/006-amplitude-rest/contracts/amplitude-tools.md`다.
+  - **`amplitude_query`**:
+    - 인자: `kind`(segmentation|funnel|retention), `events[{event_type, filters[]}]`, `start`·`end`(YYYY-MM-DD, 1~90일).
+    - 세그멘테이션 전용: `metric`(uniques|totals|avg|pct_dau|formula)·`formula`.
+    - 종류별 공용: `interval`(1|7|30), `group_by`, `n`(세그멘테이션 any|active, 퍼널 new|active), 퍼널 `conversion_window_seconds`.
+    - 이벤트 개수: 종류별 규칙이 있다. `ce:` 접두어는 그대로 통과시킨다.
+    - 검증: 종류에 맞지 않는 인자는 오류이고, Pydantic으로 검증해 `인자 오류: …`를 반환한다.
+  - **`amplitude_context`**: `event_type` 없으면 이벤트 목록, 있으면 속성 목록이다. 업로드 택사노미 설명이 우선이고, 출처(양쪽/Amplitude에만/택사노미에만)를 표시한다.
+  - **결과**: 형제 레포 `kbap-amplitude/amp.py`의 압축표(시계열 31행 + 요약, 퍼널 단계표·표본 30 미만 경고, 리텐션 D0~D14 코호트표 + combined)를 옮겨 다듬고, 끝에 기존 `clip()`을 적용한다.
+  - **캐시**: `(path, params)` 15분, 프로세스 메모리.
+  - **실패**: 400·401/403·429·연결로 구분한 도구 실패를 반환하고 실행은 계속한다.
+  - **배치**: 두 도구는 코드 도구와 같은 공통 래퍼(`agent.wrap`, `source: "amplitude"`)로 두 런타임에 들어간다.
+- 이유:
+  - 운영 3일 호출 102건이 "차트 조회 86 + 맥락 16"이었고, 실패 17건은 모두 정의 오류였다. 구조화 인자는 이런 오류를 조회 전에 잡는다.
+  - 압축표는 같은 프로젝트에서 검증된 모양이다. 복사가 아니라 옮겨 다듬는 이유는 날짜 형식, 인자 구조, 오류 분류가 다르고 차트 dict가 필요 없기 때문이다.
+- 버린 대안: 엔드포인트별 도구 다섯 개(모델 선택 부담), 차트 정의 JSON 자유 입력(운영 실패 원인), 맞지 않는 인자 무시(조용한 오조회).
+- 바꾸면 영향: `amplitude.py` 도구 함수와 형식 파일, 프롬프트 규칙 8.
+- 상태: 확정 (2026-10-17 QA cc9221e, 실제 프로젝트 키로 도구를 직접 호출해 Amplitude 8회 모두 200을 받았다).
+  - 표현력: 세그멘테이션·퍼널(전환 창)·리텐션·이벤트 맥락이 새 인자로 표현되고 REST가 받는다.
+  - Taxonomy 필드: `event_type`·`category.name`·`description`, 이벤트 속성 `event_property`·`type`, 사용자 속성 `user_property`가 구현과 같다.
+  - 틀린 키: 401로 거절된다.
+  - 형식 수정 두 가지: 리텐션 배열의 첫 칸은 코호트 크기라 D0은 둘째 칸부터다(QA-15). 단일 이벤트 세그멘테이션의 시리즈 이름이 `0`이면 이벤트 이름으로 바꾼다(QA-16). `contracts/amplitude-tools.md`에 반영했다.
+  - 재확인(43cdf08): 리텐션은 모든 코호트 D0 100%이고, 합산 줄도 같은 규칙이다. 시리즈 이름은 단일 이벤트면 이벤트 이름, group_by면 그룹 값으로 나온다.
+  - 에이전트 경로: 실제 질문 1회($0.11)에서 모델이 `amplitude_context` 3회·`amplitude_query` 4회를 인자 오류 없이 불렀다. 답에 실제 수치가 들어갔고 `amplitude_status`는 `used`로 기록됐다.
+
+### ADR-36: 메시지 사전 점검·건너뛰기·실행별 Amplitude 상태 기록 (006)
+- 결정:
+  - **사전 점검**: 메시지 전송(`conversations.py`)에서 `budget.check()` 다음, 실제 모드이고 `skipAmplitude`가 아닐 때 `amplitude.preflight()`를 부른다. 키 확인 후 `GET /api/2/taxonomy/event`를 1회 조회한다(캐시 적중이면 0회).
+  - **거절**: 실패하면 모델 호출과 메시지 저장 없이 503 `AMPLITUDE_UNAVAILABLE`로 거절한다(계약 v1.5). 메시지는 키 없음·인증 실패·한도 초과·연결 실패 넷으로 구분한다.
+  - **건너뛰기**: 요청 `skipAmplitude: true`면 점검과 Amplitude 도구를 빼고, 시스템 프롬프트 상태를 `Amplitude 없음(사용자가 건너뜀)`으로 둔다(기존 규칙 5가 빠진 근거 명시를 맡는다). 시연 모드는 점검 없이 통과한다.
+  - **상태 기록**: `messages.amplitude_status ENUM('used','unavailable','skipped') NULL`이다.
+    - `used`: 점검 통과.
+    - `skipped`: 건너뜀.
+    - `unavailable`: 실행 중 Amplitude 401·403.
+    - NULL: 시연·user·이전 행.
+  - **마이그레이션**: 기동 시 컬럼이 없을 때만 `ADD COLUMN`(ADR-29 패턴, 멱등)이다.
+  - **프롬프트**: 규칙 8을 새 도구 인자 문장으로 바꾼다(research R6). 이전 `timeSeriesLimit`·`groupByLimit`·`includeAdditionalInfo` 문구는 삭제한다.
+- 이유: PRD 목표 "조회가 안 되면 모델을 돌리기 전에 멈춘다"와 핵심 결과 2(끊김 상태 완료 실행 0의 측정)다. 사전 점검을 예산 검사와 같은 자리에 두면 거절이 모두 같은 경로(스트림 전 JSON 에러)로 간다. 건너뛰기를 두는 것은 PRD 6.4의 첫 버전 기본값이다.
+- 버린 대안: 점검 없이 실행 중 실패(지금의 문제 그대로), 상태를 `tool_calls`에서 추론(건너뜀을 알 수 없음), 새 테이블(실행과 1:1이라 과함), `UPSTREAM_ERROR` 재사용(프론트가 "없이 진행"을 띄울 근거가 없음).
+- 바꾸면 영향: 메시지 라우트, `db.init()` 한 블록, 프롬프트 규칙 8, 프론트 거절 안내.
+- 상태: 확정
+
 ## 위임 (구현자가 정하되 "설정으로 바꿀 수 있게"만 지킨다)
 
 - UI 라이브러리·스타일링 (PRD: 세련된 UI 비목표)
@@ -353,7 +407,9 @@
 | `AGENT_MAX_TURNS` | `10` | ADR-2 (2026-10-15 사용자 결정: 도구 20→도구 5→모델 턴 10. 비용은 모델 턴에서만 생긴다) |
 | `AGENT_TIMEOUT_SECONDS` | `170` | ADR-16 |
 | `LLM_BUDGET_USD` | `200` | ADR-9 |
-| `AMPLITUDE_MCP_URL` | `https://mcp.amplitude.com/mcp` | EU면 `https://mcp.eu.amplitude.com/mcp` |
+| ~~`AMPLITUDE_MCP_URL`~~ | 삭제 | ADR-34 (MCP 제거) |
+| `AMPLITUDE_API_KEY`, `AMPLITUDE_SECRET_KEY` | (GitHub Secrets) | ADR-34. 둘 다 있어야 "키 있음" |
+| `AMPLITUDE_REST_BASE` | `https://amplitude.com` (EU: `https://analytics.eu.amplitude.com`) | ADR-34, Variables(선택) |
 | `GITHUB_TOKEN` | | ADR-13 |
 | `REPOS_DIR` | `/data/repos` | |
 | `TRACK_CALL_PATTERN`, `SCREEN_GLOB` | `track\(EVENTS\.(\w+)`, `src/app/**/*.tsx` | ADR-9 |

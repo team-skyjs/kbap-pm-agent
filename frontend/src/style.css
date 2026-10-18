@@ -242,6 +242,7 @@ button:disabled { cursor: default; opacity: 0.5; }
 .chat-input textarea:focus-visible { outline: none; }
 .chat-input .btn { border-radius: var(--radius-lg); }
 .hint { margin: var(--space-1) var(--space-3) 0; min-height: calc(var(--text-sm) * var(--leading-body)); font-size: var(--text-sm); letter-spacing: 0; }
+.hint-action { margin: var(--space-1) var(--space-3) 0; font-size: var(--text-sm); box-shadow: inset 0 0 0 1px var(--color-border); }
 
 /* 제안 카드: 답변과 같은 폭, 네 구역은 접기 */
 .card { margin: var(--space-4) 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); }

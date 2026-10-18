@@ -106,6 +106,8 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [notice, setNotice] = useState('')
+  // Amplitude 사전 점검으로 거절된 질문("Amplitude 없이 진행"으로 같은 내용을 다시 보냄)
+  const [amplitudeBlocked, setAmplitudeBlocked] = useState<string | null>(null)
   const [streamErrors, setStreamErrors] = useState<Record<number, string>>({})
   const [sessionExpired, setSessionExpired] = useState(false)
   const [tokenError, setTokenError] = useState(false)
@@ -184,9 +186,10 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     onChanged()
   }
 
-  async function submit(text?: string) {
+  async function submit(text?: string, skipAmplitude = false) {
     const content = (text ?? input).trim()
     if (!content || streaming) { refine.sendFailed(); return }
+    setAmplitudeBlocked(null)
     // 이전 다듬기 오류 문구는 새 전송에서 지움
     refine.dismissError()
     setNotice('')
@@ -194,7 +197,7 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     setBusyFrom(null)
     setStreaming(true)
     try {
-      const end = await sendMessage(id, content, onEvent)
+      const end = await sendMessage(id, content, onEvent, { skipAmplitude })
       setInput('')
       if (end === 'disconnected') setNotice('스트림이 끊겨 저장된 상태를 다시 불러왔습니다.')
       // 종료 후 항상 상세 재조회: 서버가 채운 제목과 저장 상태 반영, 끝날 때까지 실행 중으로 둠(내보내기 비활성 유지)
@@ -202,7 +205,11 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
     } catch (e) {
       // 스트림 시작 전 에러(실행 중, 예산 초과, 입력 오류 등)는 입력창 아래에 안내
       refine.sendFailed()
-      setNotice(describe(e))
+      // Amplitude 거절은 서버 문구가 이유(키 없음·인증·한도·연결)를 구분하므로 그대로 보이고 우회 버튼 제공
+      if (e instanceof ApiError && e.code === 'AMPLITUDE_UNAVAILABLE') {
+        setNotice(e.message)
+        setAmplitudeBlocked(content)
+      } else setNotice(describe(e))
       setTokenError(e instanceof ApiError && e.code === 'UNAUTHORIZED')
       // 토큰 문제(UNAUTHORIZED)는 설정 안내로 충분, 배너는 세션 만료 코드에만. 이 코드는 접근 제한 머지 후 생김
       if (e instanceof ApiError) {
@@ -315,6 +322,11 @@ export default function Chat({ id, onChanged }: { id: number; onChanged: () => v
             : notice || (refineError && `다듬지 못했습니다: ${refineError.message} 원문은 그대로 있습니다.`)
               || (refining ? '질문을 다듬는 중입니다' : disabled ? '에이전트 실행 중에는 보낼 수 없습니다' : 'Enter로 전송, Shift+Enter로 줄바꿈')}
         </p>
+        {amplitudeBlocked !== null && (
+          <button type="button" className="btn hint-action" disabled={disabled} onClick={() => void submit(amplitudeBlocked, true)}>
+            Amplitude 없이 진행
+          </button>
+        )}
       </div>
     </>
   )

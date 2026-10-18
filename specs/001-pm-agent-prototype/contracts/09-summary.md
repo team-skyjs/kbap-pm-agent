@@ -15,7 +15,5 @@
 | PUT | `/api/settings/repository` | 필요 | JSON |
 | POST | `/api/settings/repository/sync` | 필요 | JSON |
 | PUT | `/api/settings/taxonomy` | 필요 | JSON |
-| POST | `/api/integrations/amplitude/connect` | 필요 | JSON |
-| GET | `/api/integrations/amplitude/callback` | 불필요 | HTML |
 
 CORS: 백엔드는 `CORS_ORIGINS`의 출처에 대해 위 메서드 전부와 `Authorization`, `Content-Type` 헤더의 preflight를 허용한다.

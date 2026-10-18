@@ -216,6 +216,37 @@ cd frontend && npm run check && npx playwright test checks/ui/us13.spec.ts
 ```
 형식별 건수는 `specs/005-conversation-export/data-model.md`의 SQL 한 줄로 본다.
 
+## 006 Amplitude 서버 고정 인증 — 2026-10-17 (feat/amplitude-rest, 백엔드 5aefd4d·프론트 bb6a94c)
+
+### 요약: 통과 3 / 실패 0 / 미검증 0
+
+A1 경계면(T014), 실제 키·실제 질문(T015), A2·회귀(T016)가 모두 통과했다. 실제 키에서 찾은 리텐션 하루 밀림(QA-15 높음)과 시리즈 이름(QA-16 낮음)은 43cdf08에서 확인됨이다. 도구 요약에 수치가 없던 QA-17(낮음)도 6c4910f·5aefd4d에서 확인됨이다(첫 줄 문구가 형식 파일과 같음). 열린 결함은 0이다. 승인된 실제 질문 1회는 도구 7회 성공·인자 오류 0, 답에 실제 수치, `amplitude_status='used'`, 비용 $0.1096이었다.
+
+| 기준 | 결과 | 값 |
+|---|---|---|
+| 설정 상태 (US3) | 통과 | 키 둘 다 있으면 configured, 아니면 missing, 응답에 키 없음. 화면 라벨 '서버 키로 연결됨'·'키 없음'+변수 안내, 연결 버튼 없음 |
+| 사전 점검·거절 (US2) | 통과 | 503 AMPLITUDE_UNAVAILABLE 네 이유 문구가 계약과 같음, 거절 시 메시지·llm_usage 0, 화면은 서버 문구·입력 유지, 'Amplitude 없이 진행' 재전송 본문 skipAmplitude:true |
+| 상태 기록 (US4) | 통과 | skipped 기록 확인, fake는 NULL, API에 노출 없음. 열 추가·OAuth 행 삭제가 두 번 기동에도 멱등 |
+| MCP 제거 | 통과 | 코드·설정·계약 분할본에 흔적 0(문서 이력만), 삭제 경로 404, check_b7 삭제 |
+| 실제 Amplitude (T015) | 통과 | 직접 호출 11회 모두 200(틀린 키 1회는 의도한 401). 목록·속성 필드 이름, 세그멘테이션·퍼널·리텐션 표 정상(리텐션은 43cdf08 이후). 실제 질문 1회: 도구 7회 성공, 인자 오류 0, 수치 근거, used 기록 |
+| 비밀·운영 정보 | 통과 | 로그·응답·커밋 44개 diff·메시지에 키 값·운영 호스트 0 |
+| 기능 회귀 (SC-005) | 통과 | check 9, check:ui 568 통과·71 건너뜀·실패 0, check_b1~b6·b9~b12, 계약 diff 0, 질문→제안→채택 흐름 유지 |
+
+### 미검증 항목과 이유
+- 없음. 실제 질문은 team-lead 승인으로 1회만 돌렸다(세그멘테이션 질문). 퍼널·리텐션·이벤트 맥락 질문은 도구 직접 호출로만 확인했다.
+
+### 남은 위험
+- **실제 데이터 표본이 작다.** 확인한 기간의 scan 이벤트가 하루 0~11건이라 모델이 표본 경고를 붙였다. 운영 수치가 늘면 도구 결과 크기(행 상한·clip)를 다시 본다.
+- **mcp 패키지가 openai-agents의 간접 의존으로 설치된다.** 코드에서는 쓰지 않는다.
+- **GitHub 변수에 AMPLITUDE_MCP_URL이 남아 있다.** 배포 워크플로는 더 이상 읽지 않는다. 정리는 team-lead 몫이다.
+
+### 실행 방법
+```bash
+cd backend && uv run python checks/check_b12.py
+cd frontend && npm run check && npx playwright test checks/ui/us14.spec.ts
+```
+상태별 건수는 `specs/006-amplitude-rest/data-model.md`의 SQL 한 줄로 본다.
+
 ## 실행 방법 (사용자가 직접 재현)
 
 아래의 `pm-agent.example.com`은 예시 도메인이다. 실제 운영 주소는 GitHub Variables `PUBLIC_BASE_URL`에만 둔다.

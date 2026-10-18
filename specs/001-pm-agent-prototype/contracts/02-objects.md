@@ -63,7 +63,7 @@
 - user 메시지는 `toolCalls: []`, `proposals: []`, `usage: null`.
 - `status`가 `"running"`인 assistant 메시지(실행 중 상세 조회)는 `content: ""`, `proposals: []`, `usage: null`이고 `toolCalls`에는 그때까지 저장된 호출이 들어간다.
 - `content`: 마크다운 문자열. **제안 내용을 여기에 섞지 않는다.** 제안은 `proposals`에만 있다.
-- `toolCalls`는 `seq` 오름차순. `source`: `"amplitude"` | `"code"` | `"taxonomy"`. `status`: `"running"` | `"succeeded"` | `"failed"`. `name`은 도구 이름 그대로(Amplitude MCP 도구명은 MCP 서버가 정한 이름). `resultSummary`는 최대 500자, `running`이면 `null`. `durationMs`는 `running`이면 `null`.
+- `toolCalls`는 `seq` 오름차순. `source`: `"amplitude"` | `"code"` | `"taxonomy"`. `status`: `"running"` | `"succeeded"` | `"failed"`. `name`은 도구 이름 그대로다(Amplitude 도구는 `amplitude_query`·`amplitude_context`). `resultSummary`는 최대 500자, `running`이면 `null`. `durationMs`는 `running`이면 `null`.
 - 위 예시의 `proposals`는 지면상 비웠다. 실제 완료 메시지에는 아래 Proposal이 0개 이상 들어간다.
 
 ### Proposal
@@ -158,9 +158,7 @@
     "uploadedAt": "2026-10-14T12:01:44.500Z"
   },
   "amplitude": {
-    "status": "connected",
-    "serverUrl": "https://mcp.amplitude.com/mcp",
-    "connectedAt": "2026-10-14T12:10:09.031Z"
+    "status": "configured"
   },
   "models": {
     "agent": "anthropic:claude-sonnet-5-5",
@@ -175,7 +173,7 @@
 ```
 - `repository`: 미등록이면 `null`. `headCommit`, `codeMapCommit`은 7자리 짧은 SHA. `codeMapStatus`: `"none"` | `"building"` | `"ready"` | `"failed"`. 요약 생성 전 `codeMapCommit`은 `null`. `lastError`: 마지막 동기화·요약이 실패했으면 사유 문장(예: `"GitHub 인증 실패: GITHUB_TOKEN이 없거나 만료되었습니다."`), 성공하면 `null`. 토큰 값은 넣지 않는다.
 - `taxonomy`: 미업로드면 `null`.
-- `amplitude.status`: `"connected"` | `"disconnected"`. 끊겼으면 `connectedAt: null`.
+- `amplitude.status`: `"configured"`(서버 환경 변수에 API 키와 시크릿 키가 둘 다 있음) | `"missing"`(하나라도 없음). 키 값은 절대 내려주지 않는다. 키가 실제로 유효한지는 이 응답이 확인하지 않으며, 메시지 전송의 사전 점검이 확인한다. 시연 모드에서도 같은 규칙이다.
 - `agentMode`: `"real"` | `"fake"`.
 - 저장소·택사노미·Amplitude가 비어 있어도 대화는 가능하다. 에이전트는 쓸 수 있는 도구만으로 답한다.
 
